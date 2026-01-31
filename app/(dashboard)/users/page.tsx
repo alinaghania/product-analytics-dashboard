@@ -1,0 +1,281 @@
+"use client"
+
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import type { ColumnDef } from "@tanstack/react-table"
+import { Header } from "@/components/dashboard/header"
+import { DataTable } from "@/components/tables/data-table"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { formatDateTime } from "@/lib/date-utils"
+import {
+  fetchUsers,
+  fetchLastLoginsForUsers,
+  fetchLastActivitiesForUsers,
+  fetchUserDailySessionTimes,
+} from "@/lib/firestore-queries"
+import type { User } from "@/lib/types"
+import { Search } from "lucide-react"
+
+export default function UsersPage() {
+  const [search, setSearch] = useState("")
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
+  const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["users", pagination.pageIndex, search],
+    queryFn: () => fetchUsers({ limitCount: pagination.pageSize, search }),
+    enabled: true,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+  })
+
+  const users: User[] = data?.data || []
+  const userIds = users.map((u) => u.id)
+
+  const { data: lastLoginsMap } = useQuery({
+    queryKey: ["lastLogins", userIds],
+    queryFn: () => fetchLastLoginsForUsers(userIds),
+    enabled: userIds.length > 0,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: lastActivitiesMap } = useQuery({
+    queryKey: ["lastActivities", userIds],
+    queryFn: () => fetchLastActivitiesForUsers(userIds),
+    enabled: userIds.length > 0,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: userSessionTimes } = useQuery({
+    queryKey: ["userSessionTimes", userIds],
+    queryFn: () => fetchUserDailySessionTimes(userIds),
+    enabled: userIds.length > 0,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const handleReload = async () => {
+    await refetch()
+    setLastUpdated(new Date())
+  }
+
+  const handleExport = () => {
+    if (!data?.data) return
+    const csv = [
+      [
+        "Email",
+        "Name",
+        "Created At",
+        "Last Login",
+        "Last Activity",
+        "Platform",
+        "Age",
+        "Avg Daily Time",
+        "Payment",
+      ].join(","),
+      ...data.data.map((user: User) => {
+        const name = user.username || user.displayName || user.registrationData?.name || "-"
+        const createdAt = user.createdAt?.toISOString() || ""
+        const lastLogin = lastLoginsMap?.[user.id]
+        const lastLoginStr = lastLogin ? formatDateTime(lastLogin) : "—"
+
+        const lastActivity = lastActivitiesMap?.[user.id]
+        const lastActivityStr = lastActivity
+          ? `${formatDateTime(lastActivity.timestamp)} - "${lastActivity.description}"`
+          : "—"
+
+        const platform = user.metadata?.platform || "Unknown"
+
+        let age = "-"
+        if (user.registrationData?.age) {
+          age = user.registrationData.age
+        } else if (user.registrationData?.birthDate || user.birthDate) {
+          const birthDateStr = user.registrationData?.birthDate || user.birthDate
+          if (birthDateStr) {
+            const birthDate = new Date(birthDateStr)
+            const today = new Date()
+            const calculatedAge = today.getFullYear() - birthDate.getFullYear()
+            age = calculatedAge.toString()
+          }
+        }
+
+        const payment = user.subscriptionStatus?.isPremium ? "Premium" : "Free"
+
+        const sessionTime = userSessionTimes?.[user.id]
+        const avgDailyTimeStr = sessionTime?.avgDailyTimeMinutes
+          ? `${sessionTime.avgDailyTimeMinutes} min (${sessionTime.totalSessions} sessions)`
+          : "—"
+
+        return [
+          user.email,
+          name,
+          createdAt,
+          lastLoginStr,
+          lastActivityStr,
+          platform,
+          age,
+          avgDailyTimeStr,
+          payment,
+        ].join(",")
+      }),
+    ].join("\n")
+
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `users-export-${new Date().toISOString().split("T")[0]}.csv`
+    a.click()
+  }
+
+  const calculateAge = (user: User): string => {
+    if (user.registrationData?.age) {
+      return user.registrationData.age
+    }
+
+    const birthDateStr = user.registrationData?.birthDate || user.birthDate
+    if (birthDateStr) {
+      try {
+        const birthDate = new Date(birthDateStr)
+        const today = new Date()
+        const age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          return (age - 1).toString()
+        }
+        return age.toString()
+      } catch {
+        return "-"
+      }
+    }
+
+    return "-"
+  }
+
+  const columns: ColumnDef<User>[] = [
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => <span className="font-medium text-foreground">{row.original.email}</span>,
+    },
+    {
+      accessorKey: "username",
+      header: "Name",
+      cell: ({ row }) => {
+        const name = row.original.username || row.original.displayName || row.original.registrationData?.name || "-"
+        return <span className="text-sm text-muted-foreground">{name}</span>
+      },
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created At",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">{formatDateTime(row.original.createdAt)}</span>
+      ),
+    },
+    {
+      accessorKey: "lastLogin",
+      header: "Last Login",
+      cell: ({ row }) => {
+        const lastLogin = lastLoginsMap?.[row.original.id]
+        return <span className="text-sm text-muted-foreground">{lastLogin ? formatDateTime(lastLogin) : "—"}</span>
+      },
+    },
+    {
+      accessorKey: "lastActivity",
+      header: "Last Activity",
+      cell: ({ row }) => {
+        const activity = lastActivitiesMap?.[row.original.id]
+        if (!activity) {
+          return <span className="text-sm text-muted-foreground">—</span>
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-foreground">{formatDateTime(activity.timestamp)}</span>
+            <span className="text-xs text-muted-foreground italic">"{activity.description}"</span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "metadata.platform",
+      header: "Platform",
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="font-normal">
+          {row.original.metadata?.platform || "Unknown"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "age",
+      header: "Age",
+      cell: ({ row }) => <span className="text-sm text-muted-foreground">{calculateAge(row.original)}</span>,
+    },
+    {
+      accessorKey: "avgDailyTime",
+      header: "Avg Daily Time",
+      cell: ({ row }) => {
+        const sessionTime = userSessionTimes?.[row.original.id]
+        if (!sessionTime || sessionTime.avgDailyTimeMinutes === 0) {
+          return <span className="text-sm text-muted-foreground">—</span>
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-foreground">{sessionTime.avgDailyTimeMinutes} min</span>
+            <span className="text-xs text-muted-foreground">{sessionTime.totalSessions} sessions</span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "subscriptionStatus.isPremium",
+      header: "Payment",
+      cell: ({ row }) => {
+        const isPremium = row.original.subscriptionStatus?.isPremium
+        return (
+          <Badge
+            variant={isPremium ? "default" : "secondary"}
+            className={isPremium ? "bg-success text-success-foreground" : ""}
+          >
+            {isPremium ? "Premium" : "Free"}
+          </Badge>
+        )
+      },
+    },
+  ]
+
+  return (
+    <div className="flex flex-col">
+      <Header title="Users" description="Manage and analyze user data" lastUpdated={lastUpdated} />
+
+      <div className="flex-1 space-y-6 p-6">
+        {/* Search */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by email or username..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-card pl-9"
+          />
+        </div>
+
+        {/* Table */}
+        <DataTable
+          columns={columns}
+          data={users}
+          pageCount={data?.hasMore ? pagination.pageIndex + 2 : pagination.pageIndex + 1}
+          pagination={pagination}
+          onPaginationChange={setPagination}
+          isLoading={isLoading}
+          onReload={handleReload}
+          onExport={handleExport}
+          emptyMessage="No users found. Click Reload to fetch data."
+        />
+      </div>
+    </div>
+  )
+}
