@@ -113,12 +113,14 @@ export interface ChatConversation {
   startedAt?: Date
   createdAt: Date
   updatedAt: Date
+  lastMessageAt?: Date
+  lastMessageSnippet?: string
 }
 
 export interface ChatMessage {
   id: string
   conversationId: string
-  role: "user" | "assistant" | "system"
+  role: "user" | "assistant" | "system" | "endora"
   agent?: string
   content: string
   status?: "success" | "error" | "pending"
@@ -126,6 +128,7 @@ export interface ChatMessage {
   latencyMs?: number
   retryCount?: number
   createdAt: Date
+  createdAtMissing?: boolean
 }
 
 export interface AppEvent {

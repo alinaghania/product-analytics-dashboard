@@ -34,6 +34,11 @@ function dateRangeConstraints(field: string, from: string, to: string) {
   return [where(field, ">=", fromDate), where(field, "<=", toTimestamp)]
 }
 
+function toTimestampValue(value: Date | string) {
+  if (value instanceof Date) return Timestamp.fromDate(value)
+  return Timestamp.fromDate(new Date(value))
+}
+
 // Helper to extract date key from Date object
 function toDayKey(date: Date): string {
   return date.toISOString().split("T")[0]
@@ -157,6 +162,59 @@ export async function fetchUserById(userId: string): Promise<User | null> {
 
 // ============= CONVERSATIONS =============
 
+export async function fetchUserConversations(
+  userId: string,
+  options?: { limitCount?: number; cursor?: DocumentData | null },
+): Promise<{ data: ChatConversation[]; lastDoc: DocumentData | null; hasMore: boolean }> {
+  const db = getFirebaseDb()
+  const chatsRef = collection(db, "chat_conversations")
+
+  if (!userId) {
+    return { data: [], lastDoc: null, hasMore: false }
+  }
+
+  const baseConstraints = [where("userId", "==", userId)]
+  const sampleQuery = query(chatsRef, ...baseConstraints, limit(1))
+  const sampleSnapshot = await getDocs(sampleQuery)
+  const orderField = sampleSnapshot.docs[0]?.data().updatedAt ? "updatedAt" : "createdAt"
+
+  const constraints: ReturnType<typeof where | typeof orderBy | typeof limit | typeof startAfter>[] = [
+    ...baseConstraints,
+    orderBy(orderField, "desc"),
+    limit(options?.limitCount || 50),
+  ]
+
+  if (options?.cursor) {
+    constraints.push(startAfter(options.cursor))
+  }
+
+  const q = query(chatsRef, ...constraints)
+  const snapshot = await getDocs(q)
+
+  const conversations: ChatConversation[] = snapshot.docs.map((doc) => {
+    const data = doc.data()
+    const createdAt = toDate(data.createdAt) || toDate(data.startedAt) || new Date()
+    const updatedAt = toDate(data.updatedAt) || createdAt
+
+    return {
+      id: doc.id,
+      userId: data.userId || "",
+      messageCount: data.messageCount || 0,
+      topics: data.topics || (data.topic ? [data.topic] : []),
+      topic: data.topic,
+      entryPoint: data.entryPoint,
+      startedAt: toDate(data.startedAt),
+      createdAt,
+      updatedAt,
+    }
+  })
+
+  const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null
+  const hasMore = snapshot.docs.length === (options?.limitCount || 50)
+
+  return { data: conversations, lastDoc, hasMore }
+}
+
 export async function fetchConversations(options: {
   from?: string
   to?: string
@@ -203,14 +261,33 @@ export async function fetchConversations(options: {
 
 export async function fetchConversationMessages(
   conversationId: string,
-  options: { limitCount?: number; cursor?: DocumentData | null },
+  options?: {
+    startDate?: Date | string
+    endDate?: Date | string
+    limitCount?: number
+    cursor?: DocumentData | null
+    order?: "asc" | "desc"
+  },
 ): Promise<{ data: ChatMessage[]; lastDoc: DocumentData | null; hasMore: boolean }> {
+  // Filtering uses createdAt range; pagination uses startAfter(cursor) with limitCount.
   const db = getFirebaseDb()
   const messagesRef = collection(db, "chat_conversations", conversationId, "messages")
 
-  const constraints = [orderBy("createdAt", "asc"), limit(options.limitCount || 100)]
+  const constraints: ReturnType<typeof where | typeof orderBy | typeof limit | typeof startAfter>[] = []
 
-  if (options.cursor) {
+  if (options?.startDate) {
+    constraints.push(where("createdAt", ">=", toTimestampValue(options.startDate)))
+  }
+
+  if (options?.endDate) {
+    constraints.push(where("createdAt", "<=", toTimestampValue(options.endDate)))
+  }
+
+  const orderDirection = options?.order || "asc"
+  constraints.push(orderBy("createdAt", orderDirection))
+  constraints.push(limit(options?.limitCount || 100))
+
+  if (options?.cursor) {
     constraints.push(startAfter(options.cursor))
   }
 
@@ -219,11 +296,26 @@ export async function fetchConversationMessages(
 
   const messages: ChatMessage[] = snapshot.docs.map((doc) => {
     const data = doc.data()
+    const createdAt =
+      toDate(data.createdAt) ||
+      toDate(data.timestamp) ||
+      toDate(data.sentAt)
+
+    const rawRole = typeof data.role === "string" ? data.role.toLowerCase() : ""
+    const role: ChatMessage["role"] =
+      rawRole === "user" || rawRole === "assistant" || rawRole === "system" || rawRole === "endora"
+        ? (rawRole as ChatMessage["role"])
+        : "user"
+
+    const content = typeof data.content === "string" ? data.content : data.content ? String(data.content) : ""
+
     return {
       id: doc.id,
-      role: data.role || "user",
-      content: data.content || "",
-      createdAt: toDate(data.createdAt) || new Date(),
+      conversationId,
+      role,
+      content,
+      createdAt: createdAt || new Date(),
+      createdAtMissing: !createdAt,
       agent: data.agent,
       status: data.status,
       latencyMs: data.latencyMs,
@@ -233,9 +325,165 @@ export async function fetchConversationMessages(
   })
 
   const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null
-  const hasMore = snapshot.docs.length === (options.limitCount || 100)
+  const hasMore = snapshot.docs.length === (options?.limitCount || 100)
 
   return { data: messages, lastDoc, hasMore }
+}
+
+export async function checkUserHasChats(userId: string): Promise<boolean> {
+  if (!userId) return false
+  const db = getFirebaseDb()
+  const chatsRef = collection(db, "chat_conversations")
+  const q = query(chatsRef, where("userId", "==", userId), limit(1))
+  const snapshot = await getDocs(q)
+  return !snapshot.empty
+}
+
+export async function fetchUserChatSessions(userId: string): Promise<ChatConversation[]> {
+  if (!userId) return []
+  const db = getFirebaseDb()
+  const chatsRef = collection(db, "chat_conversations")
+  const q = query(chatsRef, where("userId", "==", userId))
+  const snapshot = await getDocs(q)
+
+  const sessionsWithSort = snapshot.docs.map((doc) => {
+    const data = doc.data()
+    const createdAtValue = toDate(data.createdAt) || toDate(data.startedAt) || toDate(data.lastMessageAt)
+    const updatedAtValue = toDate(data.updatedAt)
+    const lastMessageAt = toDate(data.lastMessageAt)
+    const createdAt = createdAtValue || new Date(0)
+    const updatedAt = updatedAtValue || createdAt
+    const lastMessageSnippet =
+      typeof data.lastMessageSnippet === "string"
+        ? data.lastMessageSnippet
+        : typeof data.lastMessagePreview === "string"
+          ? data.lastMessagePreview
+          : typeof data.lastMessage?.text === "string"
+            ? data.lastMessage.text
+            : typeof data.lastMessage?.content === "string"
+              ? data.lastMessage.content
+              : typeof data.lastMessage?.message === "string"
+                ? data.lastMessage.message
+                : undefined
+
+    const session: ChatConversation = {
+      id: doc.id,
+      userId: data.userId || "",
+      messageCount: data.messageCount || 0,
+      topics: data.topics || (data.topic ? [data.topic] : []),
+      topic: data.topic,
+      entryPoint: data.entryPoint,
+      startedAt: toDate(data.startedAt),
+      createdAt,
+      updatedAt,
+      lastMessageAt,
+      lastMessageSnippet,
+    }
+    const sortDate = updatedAtValue || createdAtValue || lastMessageAt
+    return { session, sortDate }
+  })
+
+  return sessionsWithSort
+    .sort((a, b) => {
+      if (a.sortDate && b.sortDate) return b.sortDate.getTime() - a.sortDate.getTime()
+      if (a.sortDate) return -1
+      if (b.sortDate) return 1
+      return b.session.id.localeCompare(a.session.id)
+    })
+    .map((item) => item.session)
+}
+
+export async function fetchChatSessionMessages(conversationId: string): Promise<ChatMessage[]> {
+  if (!conversationId) return []
+  const db = getFirebaseDb()
+  const messagesRef = collection(db, "chat_conversations", conversationId, "messages")
+  const orderedQuery = query(messagesRef, orderBy("createdAt", "asc"))
+  let snapshot = await getDocs(orderedQuery)
+  if (snapshot.empty) {
+    snapshot = await getDocs(messagesRef)
+  }
+
+  const mapped = snapshot.docs.map((doc, index) => {
+    const data = doc.data()
+    const toDateLoose = (value: unknown) => {
+      const converted = toDate(value as Timestamp | Date | string | undefined | null)
+      if (converted) return converted
+      return typeof value === "number" ? new Date(value) : undefined
+    }
+    const timestamp =
+      toDateLoose(data.createdAt) ||
+      toDateLoose(data.timestamp) ||
+      toDateLoose(data.sentAt) ||
+      toDateLoose(data.time)
+
+    const rawRole = String(data.role ?? data.sender ?? data.type ?? data.author ?? data.from ?? "").toLowerCase()
+    let role: ChatMessage["role"] = "assistant"
+    if (["user", "client", "human"].includes(rawRole)) role = "user"
+    else if (["assistant", "bot", "ai", "endora"].includes(rawRole)) role = rawRole === "endora" ? "endora" : "assistant"
+    else if (rawRole === "system") role = "system"
+
+    const extractText = (value: unknown): string => {
+      if (typeof value === "string") return value
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => {
+            if (typeof item === "string") return item
+            if (item && typeof item === "object") {
+              const candidate =
+                (item as { text?: unknown }).text ??
+                (item as { content?: unknown }).content ??
+                (item as { message?: unknown }).message
+              return typeof candidate === "string" ? candidate : ""
+            }
+            return ""
+          })
+          .filter(Boolean)
+          .join("\\n")
+      }
+      if (value && typeof value === "object") {
+        const candidate =
+          (value as { text?: unknown }).text ??
+          (value as { content?: unknown }).content ??
+          (value as { message?: unknown }).message
+        return typeof candidate === "string" ? candidate : ""
+      }
+      return value ? String(value) : ""
+    }
+
+    const content =
+      extractText(data.text) ||
+      extractText(data.content) ||
+      extractText(data.message) ||
+      extractText(data.body) ||
+      ""
+
+    return {
+      message: {
+        id: doc.id,
+        conversationId,
+        role,
+        content,
+        createdAt: timestamp || new Date(0),
+        createdAtMissing: !timestamp,
+        agent: data.agent,
+        status: data.status,
+        latencyMs: data.latencyMs,
+        errorMessage: data.errorMessage,
+        retryCount: data.retryCount,
+      },
+      timestamp,
+      index,
+    }
+  })
+
+  return mapped
+    .sort((a, b) => {
+      if (a.timestamp && b.timestamp) return a.timestamp.getTime() - b.timestamp.getTime()
+      if (a.timestamp && !b.timestamp) return -1
+      if (!a.timestamp && b.timestamp) return 1
+      return a.index - b.index
+    })
+    .map((item) => item.message)
 }
 
 // ============= APP EVENTS =============

@@ -6,21 +6,45 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Header } from "@/components/dashboard/header"
 import { DataTable } from "@/components/tables/data-table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { UserChatsDrawer } from "@/components/users/UserChatsDrawer"
 import { formatDateTime } from "@/lib/date-utils"
 import {
+  checkUserHasChats,
   fetchUsers,
   fetchLastLoginsForUsers,
   fetchLastActivitiesForUsers,
   fetchUserDailySessionTimes,
 } from "@/lib/firestore-queries"
 import type { User } from "@/lib/types"
-import { Search } from "lucide-react"
+import { MessageSquare, Search } from "lucide-react"
+
+function UserChatAction({ user, onOpen }: { user: User; onOpen: (user: User) => void }) {
+  const { data: hasChats } = useQuery({
+    queryKey: ["userHasChats", user.id],
+    queryFn: () => checkUserHasChats(user.id),
+    enabled: Boolean(user.id),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  if (!hasChats) return null
+
+  return (
+    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpen(user)}>
+      <MessageSquare className="h-4 w-4" />
+      <span className="sr-only">Open chats</span>
+    </Button>
+  )
+}
 
 export default function UsersPage() {
   const [search, setSearch] = useState("")
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
+  const [chatDrawerUser, setChatDrawerUser] = useState<{ id: string; email: string } | null>(null)
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["users", pagination.pageIndex, search],
@@ -60,6 +84,16 @@ export default function UsersPage() {
   const handleReload = async () => {
     await refetch()
     setLastUpdated(new Date())
+  }
+
+  const handleOpenChats = (user: User) => {
+    setChatDrawerUser({ id: user.id, email: user.email })
+    setChatDrawerOpen(true)
+  }
+
+  const handleCloseChats = () => {
+    setChatDrawerOpen(false)
+    setChatDrawerUser(null)
   }
 
   const handleExport = () => {
@@ -245,6 +279,13 @@ export default function UsersPage() {
         )
       },
     },
+    {
+      id: "chats",
+      header: "Chats",
+      cell: ({ row }) => (
+        <UserChatAction user={row.original} onOpen={handleOpenChats} />
+      ),
+    },
   ]
 
   return (
@@ -276,6 +317,13 @@ export default function UsersPage() {
           emptyMessage="No users found. Click Reload to fetch data."
         />
       </div>
+
+      <UserChatsDrawer
+        open={chatDrawerOpen}
+        onClose={handleCloseChats}
+        userId={chatDrawerUser?.id || ""}
+        userEmail={chatDrawerUser?.email || ""}
+      />
     </div>
   )
 }
