@@ -24,6 +24,8 @@ interface LineChartProps {
 
 export function LineChart({ data, xKey, lines, showLegend = false }: LineChartProps) {
   const chartData = data || []
+  // Auto-enable legend for multi-line charts
+  const shouldShowLegend = showLegend || lines.length > 1
 
   return (
     <ResponsiveContainer width="100%" height={200}>
@@ -38,7 +40,12 @@ export function LineChart({ data, xKey, lines, showLegend = false }: LineChartPr
           textAnchor="end"
           height={60}
         />
-        <YAxis tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis
+          tick={{ fill: "#6B7694", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          label={lines.length > 1 ? { value: "Retention %", angle: -90, position: "insideLeft", style: { fill: "#6B7694", fontSize: 11 } } : undefined}
+        />
         <Tooltip
           contentStyle={{
             backgroundColor: "#141E33",
@@ -47,10 +54,14 @@ export function LineChart({ data, xKey, lines, showLegend = false }: LineChartPr
             color: "#FFFFFF",
           }}
         />
-        {showLegend && (
+        {shouldShowLegend && (
           <Legend
-            wrapperStyle={{ color: "#9AA4BF" }}
-            formatter={(value) => <span style={{ color: "#9AA4BF" }}>{value}</span>}
+            wrapperStyle={{ paddingTop: "10px" }}
+            iconType="line"
+            iconSize={20}
+            formatter={(value) => (
+              <span style={{ color: "#9AA4BF", fontSize: "12px", marginLeft: "4px" }}>{value}</span>
+            )}
           />
         )}
         {lines.map((line) => (

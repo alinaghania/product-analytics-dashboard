@@ -1,0 +1,1927 @@
+# Endora Analytics Dashboard - Claude Instructions
+
+## 🎯 Project Overview
+
+**Endora Analytics** is a sophisticated product analytics dashboard for a women's health mobile application focused on endometriosis and digestive health tracking. This Next.js 16 web application provides healthcare providers and app administrators with comprehensive insights into user engagement, retention, health tracking patterns, and conversational AI interactions.
+
+### Application Purpose
+
+This dashboard serves as the central analytics and user management platform for the Endora mobile app (available on iOS and Android). It enables:
+
+- **User Engagement Analysis**: Track DAU, WAU, MAU, stickiness, and retention metrics
+- **Health Pattern Monitoring**: Analyze symptom tracking, photo uploads, and health data trends
+- **Chat Analytics**: Monitor AI assistant conversations and user questions
+- **Behavioral Insights**: Understand user behavior through event tracking
+- **Administrative Functions**: Manage users, export data, and view detailed user profiles
+
+### Target Audience
+
+- Healthcare providers monitoring patient engagement
+- Product managers analyzing feature adoption
+- Customer success teams identifying at-risk users
+- Data analysts extracting health pattern insights
+
+---
+
+## 🏗️ Technical Architecture
+
+### Technology Stack
+
+#### Core Framework
+- **Next.js 16.0.10** - App Router architecture with React Server Components
+- **React 19** - Latest React with improved server components
+- **TypeScript 5** - Strict type checking enabled
+
+#### UI & Styling
+- **TailwindCSS 4.1.9** - Utility-first CSS with custom design system
+- **Shadcn/ui** - Accessible component library built on Radix UI
+- **Radix UI Primitives** - 40+ accessible, unstyled components
+  - Accordion, Alert Dialog, Avatar, Checkbox, Dialog, Dropdown Menu
+  - Hover Card, Label, Menubar, Navigation Menu, Popover, Progress
+  - Radio Group, Scroll Area, Select, Separator, Slider, Switch
+  - Tabs, Toast, Toggle, Tooltip, and more
+- **Lucide React** - Icon library (454+ icons)
+- **next-themes 0.4.6** - Dark mode support (theme provider)
+
+#### Data Management
+- **Firebase 12.7.0** - Firestore client SDK
+- **Firebase Admin 13.6.0** - Server-side Firestore operations
+- **TanStack React Query 5.90.16** - Data fetching, caching, synchronization
+- **TanStack React Table 8.21.3** - Headless table library for complex data tables
+
+#### Data Visualization
+- **Recharts 2.15.4** - React charting library
+  - LineChart, BarChart, PieChart, AreaChart, FunnelChart
+
+#### Forms & Validation
+- **React Hook Form 7.60.0** - Performant form management
+- **Zod 3.25.76** - TypeScript-first schema validation
+- **@hookform/resolvers 3.10.0** - Zod integration with React Hook Form
+
+#### Date Handling
+- **date-fns 4.1.0** - Modern date utility library
+- **date-fns-tz 3.2.0** - Timezone support (Europe/Paris)
+- **react-day-picker 9.8.0** - Date picker component
+
+#### Utilities
+- **clsx** - Conditional className construction
+- **tailwind-merge** - Merge Tailwind classes intelligently
+- **class-variance-authority** - Type-safe variant styling
+- **sonner** - Toast notification library
+- **embla-carousel-react 8.5.1** - Carousel component
+- **cmdk 1.0.4** - Command menu component
+- **vaul** - Drawer component
+
+### Project Structure
+
+```
+product-analytics-dashboard/
+├── app/                              # Next.js App Router
+│   ├── (dashboard)/                  # Route group with shared layout
+│   │   ├── layout.tsx                # Sidebar wrapper layout
+│   │   ├── page.tsx                  # Overview dashboard (/)
+│   │   ├── users/                    # User management & analytics
+│   │   │   ├── page.tsx              # Users list with data table
+│   │   │   ├── [userId]/page.tsx    # Individual user detail page
+│   │   │   └── loading.tsx           # Loading UI
+│   │   ├── users-analytics/          # User analytics deep dive
+│   │   │   └── page.tsx
+│   │   ├── events/                   # Event tracking analytics
+│   │   │   ├── page.tsx
+│   │   │   └── loading.tsx
+│   │   ├── tracking/                 # Health tracking analytics
+│   │   │   ├── page.tsx
+│   │   │   └── loading.tsx
+│   │   ├── chats/                    # Chat conversation viewer
+│   │   │   ├── page.tsx              # Conversations list
+│   │   │   └── [conversationId]/page.tsx  # Message viewer
+│   │   ├── photos/page.tsx           # Photo tracking analytics
+│   │   ├── gamification/page.tsx     # Gamification metrics
+│   │   └── routines/page.tsx         # User routines analytics
+│   ├── api/                          # API routes
+│   │   ├── users/
+│   │   │   ├── route.ts              # GET /api/users
+│   │   │   └── [userId]/route.ts     # GET /api/users/:userId
+│   │   ├── chats/
+│   │   │   ├── route.ts              # GET /api/chats
+│   │   │   └── [conversationId]/messages/route.ts
+│   │   ├── events/
+│   │   │   ├── app/route.ts          # GET /api/events/app
+│   │   │   └── bubbles/route.ts      # GET /api/events/bubbles
+│   │   └── metrics/
+│   │       └── overview/route.ts     # GET /api/metrics/overview
+│   ├── globals.css                   # Global styles, CSS variables, Tailwind directives
+│   └── layout.tsx                    # Root layout with providers
+│
+├── components/
+│   ├── ui/                           # Shadcn UI primitives (45+ components)
+│   │   ├── accordion.tsx
+│   │   ├── alert-dialog.tsx
+│   │   ├── avatar.tsx
+│   │   ├── badge.tsx
+│   │   ├── button.tsx
+│   │   ├── calendar.tsx
+│   │   ├── card.tsx
+│   │   ├── chart.tsx                # Recharts wrapper
+│   │   ├── dialog.tsx
+│   │   ├── dropdown-menu.tsx
+│   │   ├── input.tsx
+│   │   ├── label.tsx
+│   │   ├── popover.tsx
+│   │   ├── select.tsx
+│   │   ├── table.tsx
+│   │   ├── toast.tsx
+│   │   └── ...                       # 30+ more components
+│   ├── dashboard/                    # Dashboard-specific components
+│   │   ├── header.tsx                # Page header with title, description, reload
+│   │   ├── sidebar.tsx               # Navigation sidebar
+│   │   ├── kpi-card.tsx              # KPI metric card with tooltip
+│   │   ├── chart-card.tsx            # Chart wrapper card
+│   │   ├── chart-info-tooltip.tsx    # Detailed metric explanations
+│   │   ├── info-tooltip.tsx          # General info tooltip
+│   │   ├── date-range-picker.tsx     # Date range selector
+│   │   └── reload-button.tsx         # Manual data refresh button
+│   ├── charts/                       # Recharts chart components
+│   │   ├── line-chart.tsx            # Time series line chart
+│   │   ├── bar-chart.tsx             # Vertical bar chart
+│   │   ├── pie-chart.tsx             # Pie/donut chart
+│   │   ├── area-chart.tsx            # Area chart
+│   │   └── funnel-chart.tsx          # Conversion funnel chart
+│   ├── tables/
+│   │   └── data-table.tsx            # Reusable data table with TanStack Table
+│   ├── chat/
+│   │   ├── chat-message.tsx          # Individual message component
+│   │   └── conversation-viewer.tsx   # Conversation thread viewer
+│   ├── providers/                    # React context providers
+│   │   ├── query-provider.tsx        # React Query provider
+│   │   └── auth-provider.tsx         # Firebase auth context
+│   └── theme-provider.tsx            # Dark mode theme provider
+│
+├── lib/                              # Utility functions and configurations
+│   ├── firebase.ts                   # Firebase initialization and exports
+│   ├── firestore-queries.ts          # ALL Firestore query functions (1500+ lines)
+│   ├── analytics.ts                  # Analytics calculation helpers
+│   ├── types.ts                      # TypeScript type definitions (220+ lines)
+│   ├── utils.ts                      # Utility functions (cn helper)
+│   ├── date-utils.ts                 # Date formatting utilities
+│   └── auth-context.tsx              # Auth context (legacy)
+│
+├── hooks/                            # Custom React hooks
+│   └── use-toast.ts                  # Toast notification hook
+│
+├── scripts/                          # Build and utility scripts
+│   └── fix-firebase-exports.mjs      # Firebase module resolution fix
+│
+├── public/                           # Static assets
+├── .env                              # Environment variables (Firebase config)
+├── .gitignore
+├── components.json                   # Shadcn UI configuration
+├── next.config.mjs                   # Next.js configuration
+├── tailwind.config.ts                # Tailwind + design tokens
+├── tsconfig.json                     # TypeScript configuration
+├── package.json
+└── README.md
+```
+
+---
+
+## 📊 Firestore Database Schema
+
+The dashboard reads from the following Firestore collections in the Endora mobile app database:
+
+### 1. `users` Collection
+
+User accounts and profiles.
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Document ID
+  email: string                       // User email address
+  username?: string                   // Display username
+  displayName?: string                // Alternative display name
+  createdAt: Timestamp                // Account creation time
+  updatedAt: Timestamp                // Last profile update
+  birthDate?: string                  // ISO date string (YYYY-MM-DD)
+
+  metadata: {
+    lastLoginAt?: Timestamp           // Last login timestamp
+    lastLoginDate?: Timestamp         // Alternative last login field
+    platform?: "ios" | "android"      // User's device platform
+    appVersion?: string               // App version (e.g., "2.1.0")
+    accountCreatedDate?: Timestamp    // Alternative creation date
+  }
+
+  flags: {
+    onboardingCompleted?: boolean     // Onboarding completion status
+    registrationCompleted?: boolean   // Registration completion status
+    registrationStep?: number         // Current registration step
+    profileCompletion?: number        // Profile completion percentage (0-100)
+  }
+
+  subscriptionStatus?: {
+    isPremium?: boolean               // Premium subscription status
+    source?: string                   // Subscription source (e.g., "stripe", "apple")
+  }
+
+  registrationData?: {
+    age?: string                      // Age as string (e.g., "28")
+    birthDate?: string                // Birth date from registration
+    email?: string                    // Email from registration
+    name?: string                     // Full name
+    firstName?: string
+    lastName?: string
+    username?: string
+    deviceInfo?: {
+      platform?: string
+    }
+    [key: string]: unknown            // Additional registration fields
+  }
+}
+```
+
+**Indexes:**
+- `createdAt` (DESC) - For fetching users by signup date
+- `metadata.platform` - For platform-specific queries
+
+**Query Patterns:**
+- Fetch all users ordered by signup date
+- Filter users by platform
+- Search by email/username (client-side filtering)
+
+---
+
+### 2. `tracking_sessions` Collection
+
+User health tracking sessions (when users log symptoms).
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Auto-generated session ID
+  userId: string                      // Reference to user.id
+  startedAt: Timestamp                // Session start time
+  completedAt?: Timestamp             // Session completion time (if completed)
+  durationMs: number                  // Session duration in milliseconds
+  sections: string[]                  // Sections completed (e.g., ["sleep", "digestive", "mood"])
+  entryPoint?: string                 // Where session was initiated (e.g., "home", "notification")
+  hasExistingRecord: boolean          // Whether user had existing tracking data for this day
+  entryMethod?: "manual" | "routine" | "auto"  // How session was started
+  createdAt?: Timestamp               // Session creation time
+}
+```
+
+**Indexes:**
+- `startedAt` (ASC/DESC) - Primary query field
+- `userId` + `startedAt` - User-specific session queries
+
+**Query Patterns:**
+- Fetch sessions in date range for DAU/WAU/MAU calculations
+- Get user-specific sessions for profile page
+- Calculate average session duration
+
+**Important:** This collection is THE source of truth for activity metrics (DAU, WAU, MAU).
+
+---
+
+### 3. `tracking` Collection
+
+Daily health tracking entries (symptoms, measurements, etc.).
+
+**Document ID Format:** `{userId}_{date}` (e.g., `user123_2026-02-09`)
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Document ID: userId_date
+  userId: string                      // Reference to user.id
+  date: string                        // Date key (YYYY-MM-DD)
+  completeness: number                // Completion percentage (0-100)
+  entryMethod?: "manual" | "routine" | "auto"
+
+  sections?: string[]                 // Tracked sections
+  symptoms?: string[]                 // Symptom tags (e.g., ["headache", "fatigue"])
+
+  sleep?: {
+    duration: number                  // Hours slept
+    quality: number                   // Quality rating (1-10)
+  }
+
+  meals?: {
+    calories: number                  // Total calories
+    water: number                     // Water intake (ml)
+  }
+
+  sport?: {
+    totalDuration: number             // Exercise duration (minutes)
+    totalCalories: number             // Calories burned
+  }
+
+  digestive?: {
+    morningBloated?: number           // Morning bloating (0-10)
+    eveningBloated?: number           // Evening bloating (0-10)
+    morningPain?: number              // Morning pain (0-10)
+    eveningPain?: number              // Evening pain (0-10)
+    bloated?: number                  // General bloating
+    pain?: number                     // General pain
+    time?: "morning" | "evening"      // Time of measurement
+  }
+
+  period?: {
+    active: boolean                   // Is period active
+    pain: number                      // Period pain (0-10)
+    flow: number                      // Flow intensity (0-10)
+  }
+
+  stress?: number                     // Stress level (0-10)
+
+  createdAt: Timestamp                // Entry creation time
+  updatedAt: Timestamp                // Last update time
+}
+```
+
+**Query Patterns:**
+- Fetch entries in date range for analytics
+- Get user-specific entries for profile
+- Analyze symptom frequency and patterns
+
+---
+
+### 4. `chat_conversations` Collection
+
+AI chat conversation sessions.
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Auto-generated conversation ID
+  userId: string                      // Reference to user.id
+  messageCount: number                // Total messages in conversation
+  topics?: string[]                   // Conversation topics (e.g., ["pain", "diet"])
+  topic?: string                      // Primary topic
+  entryPoint?: string                 // Where chat was initiated (e.g., "home", "symptom_tracker")
+  startedAt?: Timestamp               // Conversation start time
+  createdAt: Timestamp                // Document creation time
+  updatedAt: Timestamp                // Last message time
+  lastMessageAt?: Timestamp           // Alternative last message field
+  lastMessageSnippet?: string         // Preview of last message
+}
+```
+
+**Indexes:**
+- `createdAt` (DESC)
+- `updatedAt` (DESC)
+- `userId` + `createdAt` - User-specific conversations
+
+---
+
+### 5. `chat_conversations/{conversationId}/messages` Subcollection
+
+Individual messages within a conversation.
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Auto-generated message ID
+  conversationId: string              // Parent conversation ID
+  role: "user" | "assistant" | "system" | "endora"  // Message sender
+  agent?: string                      // AI agent identifier
+  content: string                     // Message text
+  status?: "success" | "error" | "pending"  // Message status
+  errorMessage?: string               // Error details if status is "error"
+  latencyMs?: number                  // Response time in milliseconds
+  retryCount?: number                 // Number of retry attempts
+  createdAt: Timestamp                // Message timestamp
+}
+```
+
+**Query Patterns:**
+- Fetch messages for conversation viewer (ordered by createdAt ASC)
+- Calculate average response latency
+- Analyze conversation length patterns
+
+---
+
+### 6. `app_events` Collection
+
+Custom app events tracked throughout the mobile app.
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Auto-generated event ID
+  userId: string                      // Reference to user.id
+  name: string                        // Event name (e.g., "symptom_logged", "onboarding_step_completed")
+  screen?: string                     // Screen where event occurred
+  platform?: "ios" | "android"        // Device platform
+  appVersion?: string                 // App version
+  params?: Record<string, unknown>    // Event parameters (flexible JSON)
+  createdAt: Timestamp                // Event timestamp
+}
+```
+
+**Indexes:**
+- `createdAt` (DESC)
+- `name` + `createdAt` - Event-specific queries
+- `platform` + `createdAt` - Platform-specific queries
+
+**Common Events:**
+- User actions (button clicks, form submissions)
+- Feature usage (screen views, feature interactions)
+- Onboarding steps
+- Error events
+
+---
+
+### 7. `bubble_events` Collection
+
+Screen view and navigation events ("bubbles" are screens in the app).
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Auto-generated event ID
+  userId: string                      // Reference to user.id
+  event: string                       // Event type (e.g., "screen_view", "bubble_opened")
+  screen?: string                     // Screen/bubble name
+  viewDurationMs?: number             // Time spent on screen (milliseconds)
+  platform?: "ios" | "android"
+  appVersion?: string
+  createdAt: Timestamp                // Event timestamp
+}
+```
+
+**Indexes:**
+- `createdAt` (DESC)
+- `event` + `createdAt`
+- `screen` + `createdAt`
+
+**Use Cases:**
+- Screen view analytics
+- User navigation patterns
+- Time spent per screen
+
+---
+
+### 8. `photos` Collection
+
+Photo uploads for visual symptom tracking (e.g., bloating photos).
+
+**Document Structure:**
+```typescript
+{
+  id: string                          // Auto-generated photo ID
+  userId: string                      // Reference to user.id
+  pain: number                        // Pain level when photo taken (0-10)
+  bloated: number                     // Bloating level when photo taken (0-10)
+  time: "morning" | "evening"         // Time of day
+  viewCount: number                   // Number of times photo viewed
+  timestamp: Timestamp                // Photo upload time
+  createdAt: Timestamp                // Document creation time
+}
+```
+
+**Note:** Actual photo URLs/storage references are not included in this schema for privacy.
+
+**Indexes:**
+- `timestamp` (ASC/DESC)
+- `userId` + `timestamp`
+
+---
+
+## 📈 Analytics Metrics & Calculations
+
+### User Engagement Metrics
+
+#### DAU (Daily Active Users)
+**Definition:** Unique users who had at least one `tracking_session` TODAY (current calendar day in Europe/Paris timezone).
+
+**Calculation:**
+```typescript
+const today = new Date()
+const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+
+const dauSet = new Set(
+  sessionData
+    .filter(session => {
+      const sessionDate = new Date(session.startedAt)
+      const sessionDay = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate())
+      return sessionDay.getTime() === todayStart.getTime()
+    })
+    .map(session => session.userId)
+)
+
+const dau = dauSet.size
+```
+
+**Data Source:** `tracking_sessions` collection
+**Who is counted:** ✅ All active users ✅ New + returning ❌ No seniority distinction
+
+---
+
+#### WAU (Weekly Active Users)
+**Definition:** Unique users with ≥1 tracking session in the last 7 days.
+
+**Calculation:**
+```typescript
+const sevenDaysAgo = subDays(new Date(), 7)
+
+const wauSet = new Set(
+  sessionData
+    .filter(session => session.startedAt >= sevenDaysAgo)
+    .map(session => session.userId)
+)
+
+const wau = wauSet.size
+```
+
+**Data Source:** `tracking_sessions` collection
+
+---
+
+#### MAU (Monthly Active Users)
+**Definition:** Unique users with ≥1 tracking session in the last 30 days.
+
+**Calculation:**
+```typescript
+const thirtyDaysAgo = subDays(new Date(), 30)
+
+const mauSet = new Set(
+  sessionData
+    .filter(session => session.startedAt >= thirtyDaysAgo)
+    .map(session => session.userId)
+)
+
+const mau = mauSet.size
+```
+
+**Data Source:** `tracking_sessions` collection
+
+---
+
+#### Stickiness (DAU/MAU Ratio)
+**Definition:** Percentage of monthly active users who use the app daily. Indicates how "sticky" or habit-forming the product is.
+
+**Calculation:**
+```typescript
+const stickiness = mau === 0 ? 0 : Math.min(Math.round((dau / mau) * 100), 100)
+```
+
+**Interpretation:**
+- **>20%** = Very good engagement
+- **>30%** = Highly sticky product
+- **>50%** = Exceptional (rare for non-social apps)
+
+**Important:** Capped at 100% to prevent unrealistic values.
+
+---
+
+#### Returning Users
+**Definition:** Active users during the selected period whose account was created BEFORE the period start.
+
+**Calculation:**
+```typescript
+const returningUsers = allUsers.filter(user => {
+  const accountCreated = new Date(user.createdAt)
+  const periodStart = new Date(dateRange.from)
+  const hasSessionInPeriod = sessionData.some(s => s.userId === user.id)
+
+  return accountCreated < periodStart && hasSessionInPeriod
+}).length
+```
+
+**Data Source:** `users` + `tracking_sessions`
+**Who is counted:** ✅ Only existing users ❌ Not new signups during period
+
+**Note:** This is different from cohort-based retention metrics.
+
+---
+
+### Retention Metrics
+
+#### Retention Curve (D0-D30)
+**Definition:** Cohort-based retention showing what percentage of users who signed up in a specific period return on each subsequent day (D+0, D+1, D+2, ..., D+30).
+
+**Algorithm:**
+```typescript
+async function calculateRetentionCurve(cohortStart: string, cohortEnd: string) {
+  // 1. Fetch all users who signed up in the cohort period
+  const cohortUsers = await fetchUsersCreatedBetween(cohortStart, cohortEnd)
+
+  // 2. Fetch all tracking sessions from cohort start to cohort end + 30 days
+  const sessions = await fetchSessionsFromTo(cohortStart, addDays(cohortEnd, 30))
+
+  // 3. Build a map of userId -> Set<dayKey> for fast lookups
+  const activeDaysByUser = new Map()
+  sessions.forEach(session => {
+    const dayKey = format(session.startedAt, "yyyy-MM-dd")
+    if (!activeDaysByUser.has(session.userId)) {
+      activeDaysByUser.set(session.userId, new Set())
+    }
+    activeDaysByUser.get(session.userId).add(dayKey)
+  })
+
+  // 4. Calculate retention for each day (D+0 to D+30)
+  const curve = []
+  for (let d = 0; d <= 30; d++) {
+    let retainedCount = 0
+    let usersWithDataAvailable = 0
+
+    for (const user of cohortUsers) {
+      const targetDay = addDays(user.signupDay, d)
+
+      // Skip if target day is in the future
+      if (targetDay > today) continue
+
+      usersWithDataAvailable++
+
+      // Check if user was active on target day
+      const activeDays = activeDaysByUser.get(user.id)
+      if (activeDays && activeDays.has(targetDay)) {
+        retainedCount++
+      }
+    }
+
+    // Only add data point if we have data available
+    if (usersWithDataAvailable > 0) {
+      const retentionPct = (retainedCount / cohortUsers.length) * 100
+      curve.push({ day: d, retentionPct: Math.round(retentionPct * 10) / 10 })
+    }
+  }
+
+  return { curve, cohortSize: cohortUsers.length }
+}
+```
+
+**Key Metrics:**
+- **D1 Retention:** % of cohort active 1 day after signup
+- **D7 Retention:** % of cohort active 7 days after signup
+- **D30 Retention:** % of cohort active 30 days after signup
+
+**Limitations:**
+- Max cohort period: 30 days
+- Max cohort size: 2000 users (performance constraint)
+- Points only shown when data is available (never shows 0% for missing data)
+
+**Data Source:** `users` + `tracking_sessions`
+**Calculation basis:** Total cohort size (not remaining users)
+
+---
+
+### Session Metrics
+
+#### Average Session Duration
+**Definition:** Mean duration of all tracking sessions in the selected period.
+
+**Calculation:**
+```typescript
+const totalDurationMs = sessionData.reduce((sum, s) => sum + (s.durationMs || 0), 0)
+const avgSessionMs = totalDurationMs / sessionData.length
+const avgSessionMinutes = Math.round(avgSessionMs / (1000 * 60))
+```
+
+**Data Source:** `tracking_sessions.durationMs`
+**Unit:** Minutes
+
+---
+
+#### Average Daily Time per Active User
+**Definition:** On average, how much time does an active user spend in the app per day?
+
+**Algorithm:**
+```typescript
+// 1. Group sessions by user and day
+const userDayTimes: Record<userId, Record<day, totalMs>> = {}
+
+sessionData.forEach(session => {
+  const userId = session.userId
+  const day = format(session.startedAt, "yyyy-MM-dd")
+  const durationMs = session.durationMs || 0
+
+  if (!userDayTimes[userId]) userDayTimes[userId] = {}
+  userDayTimes[userId][day] = (userDayTimes[userId][day] || 0) + durationMs
+})
+
+// 2. Count total user-day pairs with activity
+let totalUserDayPairs = 0
+let totalDailyTimeMs = 0
+
+Object.values(userDayTimes).forEach(dayTimes => {
+  Object.values(dayTimes).forEach(timeMs => {
+    if (timeMs > 0) {
+      totalUserDayPairs++
+      totalDailyTimeMs += timeMs
+    }
+  })
+})
+
+// 3. Calculate average
+const avgDailyMs = totalUserDayPairs > 0 ? totalDailyTimeMs / totalUserDayPairs : 0
+const avgDailyMinutes = Math.round(avgDailyMs / (1000 * 60))
+```
+
+**Formula:** `SUM(dailyTimeMs over all users and days) / COUNT(user-day pairs where dailyTimeMs > 0)`
+
+**Interpretation:** On average, an active user spends X minutes per day in the app.
+
+---
+
+#### Peak Usage Hour
+**Definition:** Distribution of session start times by hour (0-23) in Europe/Paris timezone.
+
+**Calculation:**
+```typescript
+function bucketByHour(dates: Date[]): number[] {
+  const hourCounts = new Array(24).fill(0)
+
+  dates.forEach(date => {
+    const hour = date.getHours() // Already in Europe/Paris timezone
+    hourCounts[hour]++
+  })
+
+  return hourCounts
+}
+
+const hourData = bucketByHour(sessionData.map(s => s.startedAt))
+const chartData = Array.from({ length: 24 }, (_, hour) => ({
+  name: `${hour}h`,
+  value: hourData[hour] || 0
+}))
+```
+
+**Data Source:** `tracking_sessions.startedAt`
+**Timezone:** Europe/Paris (UTC+1/UTC+2 depending on DST)
+
+---
+
+### Chat Metrics
+
+#### Total Conversations
+**Definition:** Total number of chat conversation documents.
+
+**Calculation:**
+```typescript
+const totalConversations = chatConversations.length
+```
+
+**Data Source:** `chat_conversations` collection
+
+---
+
+#### Total Messages
+**Definition:** Sum of all messages across all conversations.
+
+**Calculation:**
+```typescript
+const totalMessages = chatConversations.reduce((sum, conv) => sum + conv.messageCount, 0)
+```
+
+**Data Source:** `chat_conversations.messageCount`
+
+---
+
+#### Average Messages per Conversation
+**Calculation:**
+```typescript
+const avgMessagesPerConv = totalConversations > 0
+  ? (totalMessages / totalConversations).toFixed(1)
+  : "0"
+```
+
+**Interpretation:** Higher = longer, more engaging conversations
+
+---
+
+### Demographic Metrics
+
+#### Average Age
+**Calculation:**
+```typescript
+const usersWithAge = allUsers.filter(u =>
+  u.registrationData?.age || u.birthDate
+)
+
+const avgAge = usersWithAge.length > 0
+  ? Math.round(
+      usersWithAge.reduce((sum, u) => {
+        if (u.registrationData?.age) {
+          return sum + parseInt(u.registrationData.age)
+        }
+        if (u.birthDate) {
+          const age = new Date().getFullYear() - new Date(u.birthDate).getFullYear()
+          return sum + age
+        }
+        return sum
+      }, 0) / usersWithAge.length
+    )
+  : 0
+```
+
+**Data Source:** `users.registrationData.age` or `users.birthDate`
+**Limitation:** Only users with age/birthDate data
+
+---
+
+#### Age Distribution
+**Calculation:**
+```typescript
+const ageBuckets = ["<18", "18-24", "25-34", "35-44", "45+", "Unknown"]
+
+const ageDistribution = usersWithAge.reduce((acc, u) => {
+  let age = calculateAge(u)
+
+  const bucket = age < 18 ? "<18"
+    : age < 25 ? "18-24"
+    : age < 35 ? "25-34"
+    : age < 45 ? "35-44"
+    : "45+"
+
+  acc[bucket] = (acc[bucket] || 0) + 1
+  return acc
+}, {} as Record<string, number>)
+```
+
+**Displayed as:** Pie chart
+
+---
+
+#### Platform Distribution
+**Calculation:**
+```typescript
+const platformCounts = allUsers.reduce((acc, u) => {
+  const platform = u.metadata?.platform || "unknown"
+  acc[platform] = (acc[platform] || 0) + 1
+  return acc
+}, {} as Record<string, number>)
+
+const platformData = Object.entries(platformCounts).map(([name, value]) => ({ name, value }))
+```
+
+**Data Source:** `users.metadata.platform`
+**Displayed as:** Pie chart
+
+---
+
+## 🎨 Code Patterns & Best Practices
+
+### 1. Component Structure Pattern
+
+All React components should follow this organization:
+
+```typescript
+"use client" // If client component (uses hooks, event handlers, browser APIs)
+
+// 1. Imports
+import { useState, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Header } from "@/components/dashboard/header"
+import { fetchUsers } from "@/lib/firestore-queries"
+import type { User } from "@/lib/types"
+
+// 2. Type definitions (if needed)
+interface PageProps {
+  searchParams: { query?: string }
+}
+
+// 3. Small helper components (if any)
+function UserBadge({ user }: { user: User }) {
+  return <span>{user.email}</span>
+}
+
+// 4. Main component export
+export default function UsersPage({ searchParams }: PageProps) {
+  // 4a. State hooks (useState, useReducer)
+  const [search, setSearch] = useState(searchParams.query || "")
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
+
+  // 4b. Data fetching hooks (useQuery, useMutation)
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["users", search],
+    queryFn: () => fetchUsers({ search }),
+    enabled: true,
+    refetchOnWindowFocus: false,
+  })
+
+  // 4c. Derived state (useMemo, useCallback)
+  const filteredUsers = useMemo(() => {
+    return data?.data.filter(u => u.email.includes(search)) || []
+  }, [data, search])
+
+  // 4d. Event handlers
+  const handleSearch = (query: string) => {
+    setSearch(query)
+  }
+
+  const handleReload = async () => {
+    await refetch()
+  }
+
+  // 4e. Render
+  return (
+    <div className="flex flex-col">
+      <Header title="Users" onReload={handleReload} />
+      {/* ... rest of UI ... */}
+    </div>
+  )
+}
+```
+
+**Rules:**
+- Use `"use client"` directive for ANY component that uses React hooks, event handlers, or browser APIs
+- Server components (no directive) are the default - use for static content
+- Keep helper components small and colocated
+- Order hooks consistently: state → data → derived → effects → handlers
+
+---
+
+### 2. Data Fetching Pattern (React Query)
+
+**Standard Pattern:**
+```typescript
+const { data, isLoading, error, refetch, isRefetching } = useQuery({
+  queryKey: ["resourceName", ...dependencies], // Unique cache key
+  queryFn: () => fetchFunction(params),        // Async function that returns data
+  enabled: true,                               // Only run if true
+  refetchOnWindowFocus: false,                 // Disable auto-refetch on focus
+  staleTime: 5 * 60 * 1000,                    // Consider data fresh for 5 minutes
+  gcTime: 10 * 60 * 1000,                      // Keep in cache for 10 minutes (formerly cacheTime)
+})
+```
+
+**With Manual Initial Fetch:**
+```typescript
+const {
+  data,
+  isLoading,
+  refetch,
+} = useQuery({
+  queryKey: ["sessions", dateRange.from, dateRange.to],
+  queryFn: () => fetchSessionsForActivity(dateRange.from, dateRange.to),
+  enabled: false, // Don't run automatically
+})
+
+// Trigger manually
+useEffect(() => {
+  refetch()
+}, [dateRange])
+```
+
+**With Pagination:**
+```typescript
+const {
+  data,
+  isLoading,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+} = useInfiniteQuery({
+  queryKey: ["users", search],
+  queryFn: ({ pageParam }) => fetchUsers({
+    cursor: pageParam,
+    limitCount: 50,
+    search
+  }),
+  getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.lastDoc : undefined,
+  initialPageParam: null,
+})
+```
+
+**Cache Invalidation:**
+```typescript
+import { useQueryClient } from "@tanstack/react-query"
+
+const queryClient = useQueryClient()
+
+// Invalidate specific query
+queryClient.invalidateQueries({ queryKey: ["users"] })
+
+// Invalidate all queries
+queryClient.invalidateQueries()
+
+// Set query data manually
+queryClient.setQueryData(["user", userId], newUserData)
+```
+
+---
+
+### 3. Firestore Query Pattern
+
+**All queries go in `lib/firestore-queries.ts`**. Never write raw Firestore queries in components.
+
+**Standard Query Function:**
+```typescript
+export async function fetchUsers(options: {
+  limitCount?: number
+  cursor?: DocumentData | null
+  search?: string
+}): Promise<{ data: User[]; lastDoc: DocumentData | null; hasMore: boolean }> {
+  const db = getFirebaseDb() // Get Firestore instance
+  const usersRef = collection(db, "users")
+
+  // Build query constraints
+  const constraints = [
+    orderBy("createdAt", "desc"),
+    limit(options.limitCount || 50)
+  ]
+
+  // Add cursor for pagination
+  if (options.cursor) {
+    constraints.push(startAfter(options.cursor))
+  }
+
+  // Execute query
+  const q = query(usersRef, ...constraints)
+  const snapshot = await getDocs(q)
+
+  // Map Firestore documents to typed objects
+  const users: User[] = snapshot.docs.map(doc => {
+    const data = doc.data()
+    return {
+      id: doc.id,
+      email: data.email || "",
+      username: data.username || "",
+      createdAt: toDate(data.createdAt) || new Date(),
+      updatedAt: toDate(data.updatedAt) || new Date(),
+      // ... map all fields ...
+    }
+  })
+
+  // Client-side filtering (if needed)
+  let filteredUsers = users
+  if (options.search) {
+    const searchLower = options.search.toLowerCase()
+    filteredUsers = users.filter(u =>
+      u.email?.toLowerCase().includes(searchLower) ||
+      u.username?.toLowerCase().includes(searchLower)
+    )
+  }
+
+  // Return with pagination info
+  const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null
+  const hasMore = snapshot.docs.length === (options.limitCount || 50)
+
+  return { data: filteredUsers, lastDoc, hasMore }
+}
+```
+
+**Date Range Query Pattern:**
+```typescript
+// Helper function (already in lib/firestore-queries.ts)
+function dateRangeConstraints(field: string, from: string, to: string) {
+  const fromDate = Timestamp.fromDate(new Date(from + "T00:00:00"))
+  const toDate = Timestamp.fromDate(new Date(to + "T23:59:59"))
+  return [
+    where(field, ">=", fromDate),
+    where(field, "<=", toDate)
+  ]
+}
+
+// Usage
+const q = query(
+  collection(db, "tracking_sessions"),
+  ...dateRangeConstraints("startedAt", "2026-01-01", "2026-01-31"),
+  orderBy("startedAt", "desc"),
+  limit(1000)
+)
+```
+
+**Always Convert Timestamps to Dates:**
+```typescript
+import { toDate } from "./firebase"
+
+const data = doc.data()
+const createdAt = toDate(data.createdAt) // Returns Date or undefined
+```
+
+**Standard Return Format:**
+```typescript
+Promise<{
+  data: T[]                    // The actual data
+  lastDoc: DocumentData | null // For pagination cursor
+  hasMore: boolean             // Whether there's another page
+}>
+```
+
+---
+
+### 4. Type Definitions Pattern
+
+**All types in `lib/types.ts`**
+
+```typescript
+// Firestore document types
+export interface User {
+  id: string
+  email: string
+  username?: string
+  createdAt: Date              // Always Date, never Timestamp
+  updatedAt: Date
+  metadata: {
+    lastLoginAt?: Date
+    platform?: string
+  }
+  // ... all fields ...
+}
+
+// API response types
+export interface ApiResponse<T> {
+  data: T
+  generatedAt: string
+  sourceReadsEstimate?: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  cursor?: string
+  hasMore: boolean
+  generatedAt: string
+}
+
+// Component prop types (can be inline or here)
+export interface DateRange {
+  from: string  // YYYY-MM-DD
+  to: string    // YYYY-MM-DD
+}
+```
+
+**Type Guards:**
+```typescript
+export function isUser(obj: unknown): obj is User {
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    "id" in obj &&
+    "email" in obj
+  )
+}
+```
+
+---
+
+### 5. Styling Pattern (Tailwind + cn utility)
+
+**Use `cn()` for conditional classes:**
+
+```typescript
+import { cn } from "@/lib/utils"
+
+<div
+  className={cn(
+    // Base classes (always applied)
+    "flex items-center gap-2 rounded-lg px-3 py-2",
+
+    // Conditional classes
+    isActive && "bg-primary text-primary-foreground",
+    isDisabled && "opacity-50 cursor-not-allowed",
+
+    // Variant classes
+    variant === "success" && "bg-green-500",
+    variant === "error" && "bg-red-500",
+
+    // Size classes
+    size === "sm" && "text-sm px-2 py-1",
+    size === "lg" && "text-lg px-4 py-3",
+  )}
+/>
+```
+
+**Component Variants (using CVA):**
+
+```typescript
+import { cva, type VariantProps } from "class-variance-authority"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md font-medium transition-colors",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline: "border border-input bg-background hover:bg-accent",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 px-3",
+        lg: "h-11 px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  VariantProps<typeof buttonVariants> {}
+
+export function Button({ className, variant, size, ...props }: ButtonProps) {
+  return (
+    <button
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  )
+}
+```
+
+---
+
+### 6. Date Handling Pattern
+
+**Always use Europe/Paris timezone**
+
+```typescript
+import { format as formatDate, subDays, addDays } from "date-fns"
+import { formatDateTime } from "@/lib/date-utils"
+
+// Format for queries (YYYY-MM-DD)
+const dateKey = formatDate(new Date(), "yyyy-MM-dd")
+
+// Format for display
+const displayDate = formatDateTime(new Date()) // "Feb 9, 2026 14:30"
+
+// Date arithmetic
+const yesterday = subDays(new Date(), 1)
+const nextWeek = addDays(new Date(), 7)
+
+// Date range for queries
+const dateRange = {
+  from: formatDate(subDays(new Date(), 30), "yyyy-MM-dd"),
+  to: formatDate(new Date(), "yyyy-MM-dd")
+}
+```
+
+**Date Picker Component:**
+```typescript
+import { DateRangePicker } from "@/components/dashboard/date-range-picker"
+
+<DateRangePicker
+  from={dateRange.from}
+  to={dateRange.to}
+  onChange={(from, to) => setDateRange({ from, to })}
+/>
+```
+
+---
+
+### 7. Chart Component Pattern
+
+**Use chart wrappers from `components/charts/`**
+
+```typescript
+import { LineChart } from "@/components/charts/line-chart"
+import { ChartCard } from "@/components/dashboard/chart-card"
+import { InfoTooltip } from "@/components/dashboard/info-tooltip"
+
+<ChartCard
+  title={
+    <div className="flex items-center gap-2">
+      <span>Daily Active Users</span>
+      <InfoTooltip
+        title="DAU (Daily Active Users)"
+        description="Unique users who started at least one tracking session each day"
+        howToRead="Higher values indicate more daily engagement"
+        dataCoverage={`From ${sessionData?.length || 0} sessions`}
+      />
+    </div>
+  }
+  isLoading={isLoading}
+>
+  <LineChart
+    data={dailyData}
+    xKey="day"
+    lines={[
+      { key: "dau", color: "#7C3AED" },
+      { key: "sessions", color: "#F59E0B" },
+    ]}
+  />
+</ChartCard>
+```
+
+**Chart Color Palette:**
+```typescript
+const CHART_COLORS = {
+  primary: "#7C3AED",    // Purple (engagement metrics)
+  secondary: "#F59E0B",  // Amber (session metrics)
+  success: "#2ED47A",    // Green (retention, positive trends)
+  error: "#EF4444",      // Red (errors, negative trends)
+  info: "#3B82F6",       // Blue (informational)
+}
+```
+
+---
+
+### 8. KPI Card Pattern
+
+```typescript
+import { KpiCard } from "@/components/dashboard/kpi-card"
+
+<KpiCard
+  label="Current DAU"
+  value={dau.toLocaleString()}
+  isLoading={isLoading}
+  tooltipTitle="DAU (Daily Active Users)"
+  tooltipDescription="Question: 'How many users are active today?' | Definition: Users with ≥1 tracking_session today"
+  tooltipHowToRead="Higher = more daily active users"
+  tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
+  tooltipLimitations="Based on tracking sessions only (does not count passive app opens)"
+/>
+```
+
+**Always include:**
+- Clear metric definition
+- How to interpret the number
+- Data source
+- Limitations (if any)
+
+---
+
+### 9. Data Table Pattern
+
+```typescript
+import { DataTable } from "@/components/tables/data-table"
+import type { ColumnDef } from "@tanstack/react-table"
+
+// Define columns
+const columns: ColumnDef<User>[] = [
+  {
+    accessorKey: "email",
+    header: "Email",
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.email}</span>
+    ),
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Created At",
+    cell: ({ row }) => formatDateTime(row.original.createdAt),
+  },
+  // ... more columns
+]
+
+// Use in component
+<DataTable
+  columns={columns}
+  data={users}
+  pageCount={totalPages}
+  pagination={pagination}
+  onPaginationChange={setPagination}
+  isLoading={isLoading}
+  onReload={handleReload}
+  onExport={handleExport}
+  emptyMessage="No users found."
+/>
+```
+
+---
+
+### 10. Error Handling Pattern
+
+```typescript
+const { data, error, isLoading } = useQuery({
+  queryKey: ["users"],
+  queryFn: fetchUsers,
+  retry: 3,
+  retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+})
+
+// In component
+if (error) {
+  return (
+    <div className="flex items-center justify-center p-8">
+      <div className="text-center">
+        <p className="text-destructive">Error loading data</p>
+        <p className="text-sm text-muted-foreground">{error.message}</p>
+      </div>
+    </div>
+  )
+}
+```
+
+**Toast Notifications:**
+```typescript
+import { toast } from "sonner"
+
+// Success
+toast.success("Users exported successfully")
+
+// Error
+toast.error("Failed to load data", {
+  description: error.message,
+  action: {
+    label: "Retry",
+    onClick: () => refetch(),
+  },
+})
+
+// Loading
+toast.loading("Fetching data...")
+```
+
+---
+
+## 🛠️ Development Workflow
+
+### Common Tasks
+
+#### Task 1: Adding a New Dashboard Page
+
+**Steps:**
+
+1. **Create page file** in `app/(dashboard)/[name]/page.tsx`:
+```typescript
+"use client"
+
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Header } from "@/components/dashboard/header"
+import { fetchYourData } from "@/lib/firestore-queries"
+
+export default function YourPage() {
+  const [dateRange, setDateRange] = useState({ from: "...", to: "..." })
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["yourData", dateRange],
+    queryFn: () => fetchYourData(dateRange),
+  })
+
+  return (
+    <div className="flex flex-col">
+      <Header title="Your Page" description="Description" />
+      <div className="flex-1 p-6">
+        {/* Content */}
+      </div>
+    </div>
+  )
+}
+```
+
+2. **Add navigation item** in `components/dashboard/sidebar.tsx`:
+```typescript
+const navItems = [
+  { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/users", label: "Users", icon: Users },
+  { href: "/your-page", label: "Your Page", icon: YourIcon }, // Add this
+]
+```
+
+3. **Create Firestore query** in `lib/firestore-queries.ts`:
+```typescript
+export async function fetchYourData(dateRange: { from: string; to: string }) {
+  const db = getFirebaseDb()
+  const ref = collection(db, "your_collection")
+  const q = query(ref, ...dateRangeConstraints("createdAt", dateRange.from, dateRange.to))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+}
+```
+
+4. **Define types** in `lib/types.ts`:
+```typescript
+export interface YourDataType {
+  id: string
+  field1: string
+  field2: number
+  createdAt: Date
+}
+```
+
+---
+
+#### Task 2: Adding a New Metric to Overview
+
+1. **Calculate metric** using `useMemo`:
+```typescript
+const yourMetric = useMemo(() => {
+  if (!data) return 0
+  // Calculation logic
+  return result
+}, [data])
+```
+
+2. **Add KPI card**:
+```typescript
+<KpiCard
+  label="Your Metric"
+  value={yourMetric.toLocaleString()}
+  isLoading={isLoading}
+  tooltipTitle="Your Metric"
+  tooltipDescription="Clear definition of what this metric measures"
+  tooltipHowToRead="How to interpret this number"
+  tooltipDataCoverage="Source of data"
+/>
+```
+
+3. **Document calculation** in this file (Analytics Metrics section)
+
+---
+
+#### Task 3: Creating a New Chart
+
+1. **Prepare data** with useMemo:
+```typescript
+const chartData = useMemo(() => {
+  if (!rawData) return []
+
+  return rawData.map(item => ({
+    name: item.label,
+    value: item.count,
+  }))
+}, [rawData])
+```
+
+2. **Add chart component**:
+```typescript
+<ChartCard title="Your Chart" isLoading={isLoading}>
+  <LineChart
+    data={chartData}
+    xKey="name"
+    lines={[{ key: "value", color: "#7C3AED" }]}
+  />
+</ChartCard>
+```
+
+---
+
+#### Task 4: Exporting Data
+
+```typescript
+const handleExport = () => {
+  if (!data) return
+
+  // Create CSV
+  const csv = [
+    // Header row
+    ["Column 1", "Column 2", "Column 3"].join(","),
+    // Data rows
+    ...data.map(item => [
+      item.field1,
+      item.field2,
+      item.field3,
+    ].join(","))
+  ].join("\n")
+
+  // Download
+  const blob = new Blob([csv], { type: "text/csv" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `export-${new Date().toISOString().split("T")[0]}.csv`
+  a.click()
+}
+```
+
+---
+
+### Environment Setup
+
+1. **Clone repository**
+2. **Install dependencies:**
+```bash
+npm install
+```
+
+3. **Set up environment variables** in `.env`:
+```env
+# Firebase Client Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+# Firebase Admin SDK (for server-side)
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+```
+
+4. **Run development server:**
+```bash
+npm run dev
+```
+
+5. **Open browser:** http://localhost:3000
+
+---
+
+### Build & Deploy
+
+```bash
+# Production build
+npm run build
+
+# Start production server
+npm run start
+
+# Linting
+npm run lint
+```
+
+**Deployment platforms:**
+- Vercel (recommended for Next.js)
+- Netlify
+- Any Node.js hosting
+
+---
+
+## 🏥 Domain-Specific Context
+
+### Health Tracking Application
+
+This dashboard analyzes data from a **women's health tracking app** focused on **endometriosis and digestive health**. Understanding the domain is critical for accurate analytics and meaningful insights.
+
+### Key Health Concepts
+
+#### Endometriosis
+A chronic condition where tissue similar to the uterine lining grows outside the uterus, causing:
+- Severe pain (especially during menstruation)
+- Bloating (often called "endo belly" or "endobelly")
+- Digestive issues
+- Fatigue
+
+**Why tracking matters:** Identifying patterns between symptoms, diet, stress, and menstrual cycle helps patients manage the condition.
+
+---
+
+#### Symptom Tracking
+Users log daily symptoms including:
+- **Pain levels** (0-10 scale)
+- **Bloating levels** (0-10 scale)
+- **Digestive symptoms** (constipation, diarrhea, gas)
+- **Menstrual cycle** (period, flow, pain)
+- **Lifestyle factors** (sleep quality, stress, exercise, meals)
+
+**Data quality:** Higher "completeness" scores indicate more thorough tracking.
+
+---
+
+#### Photo Tracking ("Endobelly" Documentation)
+Users take photos of their abdomen to visually document bloating progression:
+- Morning vs. evening photos
+- Associated pain/bloating levels
+- Time-based comparisons
+
+**Privacy:** Photo URLs/storage are not exposed in this dashboard.
+
+---
+
+#### AI Chat Assistant ("Endora")
+An AI-powered health assistant that:
+- Answers health questions
+- Provides symptom management tips
+- Offers emotional support
+- Suggests when to see a doctor
+
+**Analytics focus:** Conversation topics, engagement patterns, response quality.
+
+---
+
+### Terminology
+
+| Term | Definition |
+|------|------------|
+| **Tracking session** | A single instance of a user logging their symptoms/health data |
+| **Completeness** | Percentage of tracking fields filled out (0-100%) |
+| **Endobelly** | Bloating associated with endometriosis |
+| **Entry method** | How tracking was initiated: `manual` (user-started), `routine` (scheduled reminder), `auto` (system-triggered) |
+| **Bubble** | A screen/feature in the mobile app |
+| **Active user** | User with ≥1 tracking_session in the measured period |
+| **Cohort** | Group of users who signed up in the same period |
+| **Retention** | Percentage of users who return after signup |
+| **Stickiness** | How often users return (DAU/MAU ratio) |
+
+---
+
+### User Journey
+
+1. **Onboarding** → User downloads app, creates account
+2. **Registration** → Completes health profile
+3. **First tracking** → Logs first symptom entry
+4. **Routine building** → Sets up daily tracking reminders
+5. **Pattern discovery** → Reviews trends and insights
+6. **AI assistance** → Chats with Endora for support
+7. **Long-term engagement** → Continues tracking to manage health
+
+**Dashboard goal:** Identify drop-off points and optimize each stage.
+
+---
+
+## ⚠️ Important Gotchas & Limitations
+
+### Firestore Constraints
+
+1. **Query limits** - All queries limited to prevent excessive read costs:
+   - Sessions: max 5000 docs
+   - Users: max 5000 docs
+   - Events: max 1000 docs
+
+2. **Composite indexes required** for certain queries:
+   - Multi-field `where()` clauses
+   - `where()` + `orderBy()` on different fields
+
+3. **Timestamp conversion** - Always convert Firestore Timestamps to Date:
+```typescript
+const createdAt = toDate(data.createdAt) // ✅ Correct
+const createdAt = data.createdAt         // ❌ Wrong (Timestamp object)
+```
+
+---
+
+### React Query Caching
+
+1. **Stale data** - Queries cache data for `staleTime` duration:
+   - Pros: Faster, fewer Firestore reads, reduced costs
+   - Cons: May show outdated data
+
+2. **Manual refresh** - Always provide reload buttons for critical data
+
+3. **Cache invalidation** - Invalidate queries after mutations:
+```typescript
+queryClient.invalidateQueries({ queryKey: ["users"] })
+```
+
+---
+
+### Date/Timezone Issues
+
+1. **Timezone consistency** - All dates in Europe/Paris timezone
+2. **Date formatting** - Use `formatDate()` from date-fns, not built-in methods
+3. **Date ranges** - Always inclusive (from T00:00:00 to T23:59:59)
+
+---
+
+### Analytics Edge Cases
+
+1. **Zero users** - All metrics default to 0 or "N/A"
+2. **Missing data** - Tooltips explain data coverage
+3. **Retention limits** - Cohort size max 2000 users, period max 30 days
+4. **Stickiness cap** - Capped at 100% to prevent unrealistic values
+5. **Session duration** - May be 0 if user didn't complete session
+
+---
+
+### Performance Considerations
+
+1. **Large datasets** - Use pagination for 50+ items
+2. **Expensive calculations** - Always wrap in `useMemo`
+3. **Re-renders** - Use `React.memo` for heavy chart components
+4. **Initial load** - Disable auto-fetch, trigger manually to control loading
+
+---
+
+## 🔍 Troubleshooting
+
+### "Firebase not initialized" Error
+**Cause:** Missing or incorrect environment variables
+**Fix:**
+1. Check `.env` file exists
+2. Verify all `NEXT_PUBLIC_FIREBASE_*` variables
+3. Restart dev server after .env changes
+
+---
+
+### "Index required" Error
+**Cause:** Firestore composite index not created
+**Fix:**
+1. Check error message for index URL
+2. Click URL to create index in Firebase console
+3. Wait 1-2 minutes for index build
+4. Retry query
+
+---
+
+### Charts Not Rendering
+**Cause:** Data format mismatch
+**Fix:**
+1. Check data shape matches chart props
+2. Ensure `data` is an array
+3. Verify `xKey` and line keys exist in data
+4. Log data to console: `console.log("Chart data:", data)`
+
+---
+
+### Data Not Updating
+**Cause:** React Query cache
+**Fix:**
+1. Click manual "Reload" button
+2. Or invalidate query: `queryClient.invalidateQueries({ queryKey: ["..."] })`
+3. Or reduce `staleTime` in useQuery config
+
+---
+
+### Slow Page Load
+**Cause:** Too many parallel queries or large datasets
+**Fix:**
+1. Use `enabled: false` and trigger manually
+2. Increase query limits to reduce number of fetches
+3. Implement pagination
+4. Add loading states
+
+---
+
+## 🎯 Best Practices Summary
+
+### Performance
+- ✅ Use React Query caching aggressively (`staleTime: 5 * 60 * 1000`)
+- ✅ Limit Firestore queries (max 5000 docs)
+- ✅ Implement pagination for large datasets
+- ✅ Use `useMemo` for expensive calculations
+- ✅ Lazy-load charts and heavy components
+
+### Type Safety
+- ✅ Define all Firestore document types in `lib/types.ts`
+- ✅ Use strict TypeScript (`strict: true`)
+- ✅ Avoid `any` types
+- ✅ Use type guards for runtime validation
+
+### User Experience
+- ✅ Show loading states (`isLoading`, skeletons)
+- ✅ Display "last updated" timestamps
+- ✅ Provide manual reload buttons
+- ✅ Export functionality for all data tables
+- ✅ Empty states with helpful messages
+- ✅ Error boundaries for graceful failures
+
+### Analytics Accuracy
+- ✅ Document ALL metric calculations (formulas, data sources)
+- ✅ Include data coverage in tooltips ("From X sessions")
+- ✅ Show sample sizes
+- ✅ Handle edge cases (0 users, missing data, null values)
+- ✅ Explain limitations (e.g., "Based on tracking sessions only")
+
+### Code Quality
+- ✅ Consistent file naming (kebab-case)
+- ✅ Component composition over duplication
+- ✅ Extract reusable utilities to `lib/`
+- ✅ Use ESLint + Prettier for formatting
+- ✅ Write clear, self-documenting code
+- ✅ Add comments for complex logic only
+
+### Firebase Optimization
+- ✅ Use `getFirebaseDb()` to get Firestore instance
+- ✅ Always convert Timestamp to Date
+- ✅ Limit all queries to prevent runaway costs
+- ✅ Use pagination with cursors (not offsets)
+- ✅ Cache aggressively with React Query
+- ✅ Monitor Firestore usage in Firebase console
+
+---
+
+## 📚 Additional Resources
+
+### Documentation
+- [Next.js 15+ Docs](https://nextjs.org/docs)
+- [React 19 Docs](https://react.dev)
+- [TanStack Query Docs](https://tanstack.com/query/latest)
+- [TanStack Table Docs](https://tanstack.com/table/latest)
+- [Firebase Firestore Docs](https://firebase.google.com/docs/firestore)
+- [Shadcn/ui Components](https://ui.shadcn.com)
+- [TailwindCSS Docs](https://tailwindcss.com/docs)
+- [Recharts Examples](https://recharts.org/en-US/examples)
+
+### Key Libraries
+- [date-fns](https://date-fns.org/docs)
+- [React Hook Form](https://react-hook-form.com)
+- [Zod](https://zod.dev)
+
+---
+
+## 🎓 Quick Reference
+
+### Essential Commands
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+```
+
+### File Paths
+- **Component:** `components/[category]/[name].tsx`
+- **Page:** `app/(dashboard)/[route]/page.tsx`
+- **API Route:** `app/api/[route]/route.ts`
+- **Type:** `lib/types.ts`
+- **Query:** `lib/firestore-queries.ts`
+- **Util:** `lib/[name].ts`
+
+### Import Aliases
+```typescript
+import { Component } from "@/components/..."  // components/
+import { fetchData } from "@/lib/..."         // lib/
+import { type User } from "@/lib/types"       // lib/types.ts
+```
+
+---
+
+**Last Updated:** February 2026
+**Version:** 1.0
+**Maintainer:** Claude Code Assistant
+
+This document should be updated whenever:
+- New features are added
+- Database schema changes
+- Analytics calculations change
+- Best practices evolve
