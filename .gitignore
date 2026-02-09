@@ -27,3 +27,7 @@ yarn-error.log*
 next-env.d.ts
 secrets/
 secrets/lotus-9663d-firebase-adminsdk-fbsvc-da2a1cd525.json
+
+.DS_Store
+.idea/
+.vscode/
