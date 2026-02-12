@@ -1,8 +1,21 @@
 /**
  * Set Firebase custom claim { admin: true } for the UID in .env
+ *
+ * This script grants admin access to the Firestore database for the analytics dashboard.
+ * After running this script, the user must sign out and sign back in for the claim to take effect.
+ *
+ * Prerequisites:
+ *   1. Add ADMIN_UID or NEXT_PUBLIC_ADMIN_UIDS to your .env.local file
+ *   2. Add SERVICE_ACCOUNT_PATH to your .env.local pointing to your Firebase service account JSON
+ *
  * Usage:
  *   npm i firebase-admin dotenv
- *   node scripts/setAdmin.js
+ *   node firebase/setAdmin.js
+ *
+ * After running:
+ *   1. Deploy rules: firebase deploy --only firestore:rules
+ *   2. User must sign out of the dashboard
+ *   3. User must sign back in to get the new claim
  */
 
 const fs = require("fs");
