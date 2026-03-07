@@ -86,7 +86,7 @@ function LoginScreen({ onSignIn, error }: { onSignIn: () => void; error: string 
   )
 }
 
-function AccessDeniedScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
+function AccessDeniedScreen({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-border">
@@ -95,17 +95,9 @@ function AccessDeniedScreen({ user, onLogout }: { user: User; onLogout: () => vo
             <AlertTriangle className="h-5 w-5 text-yellow-500" />
             <CardTitle className="text-lg">Access Denied</CardTitle>
           </div>
-          <CardDescription>Your account does not have admin access to this dashboard.</CardDescription>
+          <CardDescription>Your account does not have access to this dashboard.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-md bg-muted p-4">
-            <p className="mb-2 text-sm font-medium">Your account:</p>
-            <p className="text-xs font-mono text-muted-foreground">{user.email}</p>
-            <p className="mt-2 text-xs font-mono text-muted-foreground">UID: {user.uid}</p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Add your email to the <code className="text-xs">NEXT_PUBLIC_ADMIN_EMAILS</code> env var.
-          </p>
+        <CardContent>
           <Button onClick={onLogout} variant="outline" className="w-full bg-transparent">
             Sign out
           </Button>
@@ -187,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   if (!isAdminUser) {
-    return <AccessDeniedScreen user={user} onLogout={handleLogout} />
+    return <AccessDeniedScreen onLogout={handleLogout} />
   }
 
   return (
