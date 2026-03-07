@@ -9,7 +9,7 @@ import { KpiCard } from "@/components/dashboard/kpi-card"
 import { ChartCard } from "@/components/dashboard/chart-card"
 import { BarChart } from "@/components/charts/bar-chart"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
-import { fetchUsers } from "@/lib/firestore-queries"
+import { fetchUsers } from "@/lib/api-client"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Info } from "lucide-react"
 

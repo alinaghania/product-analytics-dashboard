@@ -10,7 +10,7 @@ import { ChartCard } from "@/components/dashboard/chart-card"
 import { LineChart } from "@/components/charts/line-chart"
 import { BarChart } from "@/components/charts/bar-chart"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
-import { fetchPhotos } from "@/lib/firestore-queries"
+import { fetchPhotos } from "@/lib/api-client"
 import { bucketByDay } from "@/lib/analytics"
 
 export default function PhotosPage() {

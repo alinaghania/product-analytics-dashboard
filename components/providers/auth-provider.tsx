@@ -7,8 +7,7 @@ import {
   signInWithGoogle,
   signOut,
   onAuthChange,
-  isAdmin,
-  getFirebaseApp,
+  isAdminEmail,
   type User,
 } from "@/lib/firebase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -105,8 +104,7 @@ function AccessDeniedScreen({ user, onLogout }: { user: User; onLogout: () => vo
             <p className="mt-2 text-xs font-mono text-muted-foreground">UID: {user.uid}</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            Add your UID to the <code className="text-xs">ADMIN_UIDS</code> array in{" "}
-            <code className="text-xs">lib/firebase.ts</code> and to your Firestore Rules admin function.
+            Add your email to the <code className="text-xs">NEXT_PUBLIC_ADMIN_EMAILS</code> env var.
           </p>
           <Button onClick={onLogout} variant="outline" className="w-full bg-transparent">
             Sign out
@@ -131,31 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    console.log("[v0] Setting up auth state listener")
     const unsubscribe = onAuthChange(async (user) => {
-      console.log("[v0] Auth state changed:", user?.email || "No user")
       if (user) {
-        console.log("[v0] User UID:", user.uid)
-        console.log("[v0] User email:", user.email)
-        console.log("[v0] Firebase project:", getFirebaseApp().options.projectId || "unknown")
-
-        // Check both custom claims and UID list for admin status
-        let hasAdminClaim = false
-        try {
-          const tokenResult = await user.getIdTokenResult(true)
-          console.log("[v0] ID token claims:", tokenResult.claims)
-          hasAdminClaim = tokenResult.claims?.admin === true
-          console.log("[v0] admin claim:", hasAdminClaim)
-        } catch (err: any) {
-          console.warn("[v0] Failed to read token claims:", err?.message || err)
-        }
-
-        const isInAdminList = isAdmin(user)
-        console.log("[v0] Is in admin UID list:", isInAdminList)
-
-        // Use both checks for redundancy - either custom claim OR UID list
-        const adminStatus = hasAdminClaim || isInAdminList
-        console.log("[v0] Final admin status:", adminStatus)
+        const adminStatus = isAdminEmail(user.email)
         setIsAdminUser(adminStatus)
       } else {
         setIsAdminUser(false)

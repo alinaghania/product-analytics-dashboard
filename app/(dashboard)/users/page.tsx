@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
-import type { DocumentData } from "firebase/firestore"
 import { Header } from "@/components/dashboard/header"
 import { DataTable } from "@/components/tables/data-table"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +16,7 @@ import {
   fetchLastLoginsForUsers,
   fetchLastActivitiesForUsers,
   fetchUserDailySessionTimes,
-} from "@/lib/firestore-queries"
+} from "@/lib/api-client"
 import type { User } from "@/lib/types"
 import { MessageSquare, Search } from "lucide-react"
 
@@ -47,42 +46,21 @@ export default function UsersPage() {
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
   const [chatDrawerUser, setChatDrawerUser] = useState<{ id: string; email: string } | null>(null)
 
-  // Store Firestore cursors for each page
-  const [cursors, setCursors] = useState<Map<number, DocumentData | null>>(
-    new Map([[0, null]]) // Page 0 starts with no cursor (fetch from beginning)
-  )
-
-  // Get cursor for current page
-  const currentCursor = cursors.get(pagination.pageIndex) ?? null
-
   // Reset pagination when search changes
   useEffect(() => {
     setPagination({ pageIndex: 0, pageSize: 50 })
-    setCursors(new Map([[0, null]]))
   }, [search])
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["users", search, currentCursor], // Removed pageIndex, added currentCursor
+    queryKey: ["users", search, pagination.pageSize],
     queryFn: () => fetchUsers({
       limitCount: pagination.pageSize,
-      cursor: currentCursor, // Pass cursor for pagination!
       search
     }),
     enabled: true,
     refetchOnWindowFocus: false,
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    staleTime: 2 * 60 * 1000,
   })
-
-  // Store cursor for next page when data arrives
-  useEffect(() => {
-    if (data?.lastDoc && data?.hasMore && !cursors.has(pagination.pageIndex + 1)) {
-      setCursors(prev => {
-        const newCursors = new Map(prev)
-        newCursors.set(pagination.pageIndex + 1, data.lastDoc)
-        return newCursors
-      })
-    }
-  }, [data, pagination.pageIndex, cursors])
 
   const users: User[] = data?.data || []
   const userIds = users.map((u) => u.id)
@@ -112,8 +90,6 @@ export default function UsersPage() {
   })
 
   const handleReload = async () => {
-    // Reset cursors when manually reloading
-    setCursors(new Map([[0, null]]))
     setPagination({ pageIndex: 0, pageSize: 50 })
     await refetch()
     setLastUpdated(new Date())

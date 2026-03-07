@@ -10,25 +10,14 @@ import {
 } from "firebase/auth"
 import {
   getFirestore,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  getDoc,
-  doc,
   Timestamp,
   type Firestore,
-  type QueryConstraint,
-  type DocumentData,
 } from "firebase/firestore"
 
-// Admin UID allowlist - users who can access the dashboard
-export const ADMIN_UIDS = (process.env.NEXT_PUBLIC_ADMIN_UIDS ?? "")
+// Admin email allowlist - users who can access the dashboard
+export const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
   .split(",")
-  .map((s) => s.trim())
+  .map((s) => s.trim().toLowerCase())
   .filter(Boolean)
 
 // Map from EXPO_PUBLIC_* to NEXT_PUBLIC_* for compatibility
@@ -98,21 +87,10 @@ export function getFirebaseDb(): Firestore {
   return db
 }
 
-// Check if user is admin
-export function isAdmin(user: User | null): boolean {
-  if (!user) {
-    console.log("[v0] isAdmin check: No user")
-    return false
-  }
-
-  console.log("[v0] isAdmin check:")
-  console.log("[v0] - User UID:", user.uid)
-  console.log("[v0] - User email:", user.email)
-  console.log("[v0] - ADMIN_UIDS list:", ADMIN_UIDS)
-  console.log("[v0] - ADMIN_UIDS length:", ADMIN_UIDS.length)
-  console.log("[v0] - Is admin?:", ADMIN_UIDS.includes(user.uid))
-
-  return ADMIN_UIDS.includes(user.uid)
+// Check if user email is in admin list
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  return ADMIN_EMAILS.includes(email.toLowerCase())
 }
 
 // Google Sign-In with popup and retry logic
@@ -182,19 +160,7 @@ export function toDate(timestamp: Timestamp | Date | string | undefined | null):
   return undefined
 }
 
-// Re-export for convenience
 export {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  getDoc,
-  doc,
   Timestamp,
-  type QueryConstraint,
-  type DocumentData,
   type User,
 }

@@ -11,72 +11,36 @@ import { ChartCard } from "@/components/dashboard/chart-card"
 import { AreaChart } from "@/components/charts/area-chart"
 import { BarChart } from "@/components/charts/bar-chart"
 import { formatDateTime, getDefaultDateRange } from "@/lib/date-utils"
-import { fetchUserById, fetchTrackingEntries } from "@/lib/firestore-queries"
-import { getFirebaseDb, collection, query, where, orderBy, limit, getDocs, toDate } from "@/lib/firebase"
+import { fetchUserById, fetchTrackingEntries } from "@/lib/api-client"
 import type { User, TrackingEntry, ChatConversation } from "@/lib/types"
 import { UserIcon, Activity, BarChart3, Camera, MessageSquare, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 async function fetchUserData(userId: string) {
-  const db = getFirebaseDb()
   const dateRange = getDefaultDateRange()
+  const { fetchUserChatSessions, fetchAppEvents } = await import("@/lib/api-client")
 
-  // Fetch user
-  const user = await fetchUserById(userId)
+  const [userData, trackingResult, conversations, events] = await Promise.all([
+    fetchUserById(userId),
+    fetchTrackingEntries({
+      from: dateRange.from,
+      to: dateRange.to,
+      userId,
+      limitCount: 100,
+    }),
+    fetchUserChatSessions(userId).then((sessions) => sessions.slice(0, 10)),
+    fetchAppEvents({
+      from: dateRange.from,
+      to: dateRange.to,
+      limitCount: 200,
+    }).then((result) => result.data.filter((e: any) => e.userId === userId)),
+  ])
 
-  // Fetch user's tracking entries
-  const { data: trackingEntries } = await fetchTrackingEntries({
-    from: dateRange.from,
-    to: dateRange.to,
-    userId,
-    limitCount: 100,
-  })
+  const user = userData?.user || null
+  const trackingEntries = trackingResult.data
 
-  // Fetch user's conversations
-  const conversationsRef = collection(db, "chat_conversations")
-  const convQuery = query(conversationsRef, where("userId", "==", userId), orderBy("createdAt", "desc"), limit(10))
-  const convSnapshot = await getDocs(convQuery)
-  const conversations: ChatConversation[] = convSnapshot.docs.map((doc) => {
-    const data = doc.data()
-    return {
-      id: doc.id,
-      userId: data.userId || "",
-      messageCount: data.messageCount || 0,
-      topics: data.topics || [],
-      entryPoint: data.entryPoint,
-      createdAt: toDate(data.createdAt) || new Date(),
-      updatedAt: toDate(data.updatedAt) || new Date(),
-    }
-  })
-
-  // Fetch user's photos
-  const photosRef = collection(db, "photos")
-  const photosQuery = query(photosRef, where("userId", "==", userId), orderBy("createdAt", "desc"), limit(100))
-  const photosSnapshot = await getDocs(photosQuery)
-  const photos = photosSnapshot.docs.map((doc) => {
-    const data = doc.data()
-    return {
-      id: doc.id,
-      pain: data.pain || 0,
-      bloated: data.bloated || 0,
-      time: data.time || "",
-      viewCount: data.viewCount || 0,
-      createdAt: toDate(data.createdAt) || new Date(),
-    }
-  })
-
-  // Fetch user's app events for activity
-  const eventsRef = collection(db, "app_events")
-  const eventsQuery = query(eventsRef, where("userId", "==", userId), orderBy("createdAt", "desc"), limit(200))
-  const eventsSnapshot = await getDocs(eventsQuery)
-  const events = eventsSnapshot.docs.map((doc) => {
-    const data = doc.data()
-    return {
-      id: doc.id,
-      name: data.name,
-      createdAt: toDate(data.createdAt) || new Date(),
-    }
-  })
+  // Photos not available as filtered API yet, use empty for now
+  const photos: any[] = []
 
   return { user, trackingEntries, conversations, photos, events }
 }

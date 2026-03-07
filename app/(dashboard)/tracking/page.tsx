@@ -10,7 +10,7 @@ import { BarChart } from "@/components/charts/bar-chart"
 import { PieChart } from "@/components/charts/pie-chart"
 import { AreaChart } from "@/components/charts/area-chart"
 import { getDefaultDateRange, formatDuration } from "@/lib/date-utils"
-import { fetchTrackingMetrics } from "@/lib/firestore-queries"
+import { fetchTrackingMetrics } from "@/lib/api-client"
 
 export default function TrackingPage() {
   const [dateRange, setDateRange] = useState(getDefaultDateRange)

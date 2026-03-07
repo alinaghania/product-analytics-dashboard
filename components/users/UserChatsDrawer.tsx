@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { RefreshCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatDateTime } from "@/lib/date-utils"
-import { fetchChatSessionMessages, fetchUserChatSessions } from "@/lib/firestore-queries"
+import { fetchChatSessionMessages, fetchUserChatSessions } from "@/lib/api-client"
 import type { ChatConversation, ChatMessage } from "@/lib/types"
 
 interface UserChatsDrawerProps {

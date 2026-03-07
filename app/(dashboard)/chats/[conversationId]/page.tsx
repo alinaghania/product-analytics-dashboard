@@ -8,34 +8,13 @@ import { ConversationViewer } from "@/components/chat/conversation-viewer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/lib/date-utils"
-import { fetchConversationMessages } from "@/lib/firestore-queries"
-import { getFirebaseDb, doc, getDoc, toDate } from "@/lib/firebase"
+import { fetchConversationData } from "@/lib/api-client"
 import type { ChatMessage, ChatConversation } from "@/lib/types"
 import { ArrowLeft, User } from "lucide-react"
 import Link from "next/link"
 
-async function fetchConversationData(conversationId: string) {
-  const db = getFirebaseDb()
-
-  const convDoc = await getDoc(doc(db, "chat_conversations", conversationId))
-  let conversation: ChatConversation | null = null
-
-  if (convDoc.exists()) {
-    const data = convDoc.data()
-    conversation = {
-      id: convDoc.id,
-      userId: data.userId || "",
-      messageCount: data.messageCount || 0,
-      topics: data.topics || [],
-      entryPoint: data.entryPoint,
-      createdAt: toDate(data.createdAt) || new Date(),
-      updatedAt: toDate(data.updatedAt) || new Date(),
-    }
-  }
-
-  const { data: messages } = await fetchConversationMessages(conversationId, { limitCount: 100 })
-
-  return { conversation, messages }
+async function fetchConversation(conversationId: string) {
+  return fetchConversationData(conversationId)
 }
 
 export default function ConversationDetailPage() {
@@ -45,7 +24,7 @@ export default function ConversationDetailPage() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["conversation", conversationId],
-    queryFn: () => fetchConversationData(conversationId),
+    queryFn: () => fetchConversation(conversationId),
     enabled: false, // Manual reload only
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,

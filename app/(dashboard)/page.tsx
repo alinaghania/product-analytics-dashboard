@@ -20,7 +20,7 @@ import {
   fetchChatConversations,
   fetchPhotos,
   calculateRetentionCurve,
-} from "@/lib/firestore-queries"
+} from "@/lib/api-client"
 import { uniqueUsersByDay, bucketByHour } from "@/lib/analytics"
 import { generateSmartCohorts, mergeRetentionCurves, createNewCohort } from "@/lib/cohort-utils"
 import type { CohortDefinition, CohortRetentionData } from "@/lib/types"
@@ -109,7 +109,7 @@ export default function OverviewPage() {
     refetch: refetchPhotos,
   } = useQuery({
     queryKey: ["photos", dateRange.from, dateRange.to],
-    queryFn: () => fetchPhotos({ from: dateRange.from, to: dateRange.to }),
+    queryFn: () => fetchPhotos(dateRange.from, dateRange.to),
     enabled: false,
   })
 

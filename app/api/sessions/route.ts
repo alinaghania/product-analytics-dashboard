@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
-import { fetchOverviewMetrics } from "@/lib/firestore-admin-queries"
+import { fetchSessionsForActivity } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -16,11 +16,8 @@ export async function GET(request: NextRequest) {
       to: searchParams.get("to"),
     })
 
-    const data = await fetchOverviewMetrics({ from: params.from, to: params.to })
+    const data = await fetchSessionsForActivity(params.from, params.to)
 
-    return NextResponse.json({
-      data,
-      generatedAt: new Date().toISOString(),
-    })
+    return NextResponse.json({ data, generatedAt: new Date().toISOString() })
   })
 }

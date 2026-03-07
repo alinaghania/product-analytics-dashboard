@@ -1,70 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { withAuth } from "@/lib/api-utils"
+import { fetchConversationMessages } from "@/lib/firestore-admin-queries"
+import { getAdminDb } from "@/lib/firebase-admin"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ conversationId: string }> }) {
-  try {
+  return withAuth(request, async () => {
     const { conversationId } = await params
 
-    // TODO: Replace with actual Firebase Admin SDK query
-    // const { db } = getFirebaseAdmin()
-    // const messagesRef = db.collection('chat_conversations').doc(conversationId).collection('messages')
+    const db = getAdminDb()
+    const convDoc = await db.collection("chat_conversations").doc(conversationId).get()
 
-    // Mock response
-    const mockConversation = {
-      id: conversationId,
-      userId: "user_1",
-      messageCount: 8,
-      topics: ["nutrition", "digestion"],
-      entryPoint: "bubble_tap",
-      createdAt: new Date("2024-12-20T14:30:00").toISOString(),
-      updatedAt: new Date("2024-12-20T14:45:00").toISOString(),
+    let conversation = null
+    if (convDoc.exists) {
+      const data = convDoc.data()!
+      const toDate = (ts: any) => ts?.toDate?.() || (ts ? new Date(ts) : undefined)
+      conversation = {
+        id: convDoc.id,
+        userId: data.userId || "",
+        messageCount: data.messageCount || 0,
+        topics: data.topics || [],
+        entryPoint: data.entryPoint,
+        createdAt: toDate(data.createdAt) || new Date(),
+        updatedAt: toDate(data.updatedAt) || new Date(),
+      }
     }
 
-    const mockMessages = [
-      {
-        id: "msg_1",
-        conversationId,
-        role: "user",
-        content: "I've been feeling bloated after meals lately. What could be causing this?",
-        createdAt: new Date("2024-12-20T14:30:00").toISOString(),
-      },
-      {
-        id: "msg_2",
-        conversationId,
-        role: "assistant",
-        agent: "endora-main",
-        content:
-          "Based on your tracking data, I notice you've been experiencing bloating mainly after dinner. This could be related to eating too quickly, certain food combinations, or specific trigger foods.",
-        latencyMs: 1250,
-        status: "success",
-        createdAt: new Date("2024-12-20T14:30:05").toISOString(),
-      },
-      {
-        id: "msg_3",
-        conversationId,
-        role: "user",
-        content: "Yes, it's mostly after dinner. I usually eat quickly because I'm tired.",
-        createdAt: new Date("2024-12-20T14:31:00").toISOString(),
-      },
-      {
-        id: "msg_4",
-        conversationId,
-        role: "assistant",
-        agent: "endora-main",
-        content:
-          "Eating quickly can definitely contribute to bloating. I'd recommend taking 20+ minutes for dinner and putting your fork down between bites.",
-        latencyMs: 980,
-        status: "success",
-        createdAt: new Date("2024-12-20T14:31:08").toISOString(),
-      },
-    ]
+    const { data: messages } = await fetchConversationMessages(conversationId, { limitCount: 100 })
 
     return NextResponse.json({
-      conversation: mockConversation,
-      messages: mockMessages,
+      conversation,
+      messages,
       generatedAt: new Date().toISOString(),
-      sourceReadsEstimate: mockMessages.length + 1,
     })
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
+  })
 }

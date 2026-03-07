@@ -11,34 +11,13 @@ import { LineChart } from "@/components/charts/line-chart"
 import { BarChart } from "@/components/charts/bar-chart"
 import { PieChart } from "@/components/charts/pie-chart"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
-import { getFirebaseDb, collection, query, orderBy, limit, getDocs } from "@/lib/firebase"
+import { fetchRoutines as apiFetchRoutines } from "@/lib/api-client"
 import { bucketByDay } from "@/lib/analytics"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Info } from "lucide-react"
 
 async function fetchRoutines(from: string, to: string) {
-  const db = getFirebaseDb()
-  const routinesRef = collection(db, "routines")
-
-  const fromDate = new Date(from + "T00:00:00")
-  const toDate = new Date(to + "T23:59:59")
-
-  const q = query(routinesRef, orderBy("createdAt", "desc"), limit(1000))
-
-  const snapshot = await getDocs(q)
-  return snapshot.docs
-    .map((doc) => {
-      const data = doc.data()
-      return {
-        id: doc.id,
-        userId: data.userId || "",
-        createdAt: toDate(data.createdAt) || new Date(),
-        type: data.type || "unknown",
-        usageCount: data.usageCount || 0,
-        lastUsed: data.lastUsed ? toDate(data.lastUsed) : undefined,
-      }
-    })
-    .filter((r) => r.createdAt >= fromDate && r.createdAt <= toDate)
+  return apiFetchRoutines(from, to)
 }
 
 export default function RoutinesPage() {

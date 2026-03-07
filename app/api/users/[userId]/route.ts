@@ -1,42 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { withAuth } from "@/lib/api-utils"
+import { fetchUserById, fetchTrackingEntries, fetchLastActivitiesForUsers } from "@/lib/firestore-admin-queries"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
-  try {
+  return withAuth(request, async () => {
     const { userId } = await params
 
-    // TODO: Replace with actual Firebase Admin SDK query
-    // const { db } = getFirebaseAdmin()
-    // const userDoc = await db.collection('users').doc(userId).get()
+    const [user, lastActivities] = await Promise.all([
+      fetchUserById(userId),
+      fetchLastActivitiesForUsers([userId]),
+    ])
 
-    // Mock response
-    const mockUser = {
-      id: userId,
-      email: "alice@example.com",
-      username: "alice_wonder",
-      createdAt: new Date("2024-01-15").toISOString(),
-      updatedAt: new Date("2024-12-20").toISOString(),
-      metadata: {
-        lastLoginAt: new Date("2024-12-20").toISOString(),
-        platform: "iOS",
-        appVersion: "2.4.0",
-      },
-      flags: {
-        onboardingCompleted: true,
-        registrationCompleted: true,
-        profileCompletion: 85,
-      },
-      registrationData: {
-        dietaryPreferences: ["vegetarian", "gluten-free"],
-        healthGoals: ["improve_digestion", "reduce_bloating"],
-      },
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     return NextResponse.json({
-      data: mockUser,
+      data: {
+        user,
+        lastActivity: lastActivities[userId] || null,
+      },
       generatedAt: new Date().toISOString(),
-      sourceReadsEstimate: 1,
     })
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
+  })
 }
