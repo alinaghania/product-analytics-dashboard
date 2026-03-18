@@ -90,9 +90,62 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 - `app/(dashboard)/page.tsx` - Overview dashboard
 - `next.config.mjs` - `ignoreBuildErrors: true`, unoptimized images
 
+## Dashboard Pages
+
+```
+app/(dashboard)/
+├── page.tsx                        # Overview dashboard (/)
+├── users/page.tsx                  # Users list with data table
+├── users/[userId]/page.tsx         # Individual user detail
+├── users-analytics/page.tsx        # User analytics deep dive
+├── events/page.tsx                 # Event tracking analytics
+├── tracking/page.tsx               # Health tracking analytics
+├── chats/page.tsx                  # Chat conversations list
+├── chats/[conversationId]/page.tsx # Message viewer
+├── photos/page.tsx                 # Photo tracking analytics
+├── gamification/page.tsx           # Gamification metrics
+└── routines/page.tsx               # User routines analytics
+```
+
 ## Firestore Collections
 
 `users`, `tracking_sessions`, `tracking`, `chat_conversations` (subcollection: `messages`), `app_events`, `bubble_events`, `photos`, `routines`
+
+### Collection Schemas
+
+**`users`** — User accounts and profiles
+- `id`, `email`, `username?`, `displayName?`, `createdAt`, `updatedAt`, `birthDate?`
+- `metadata`: `{ lastLoginAt?, lastLoginDate?, platform?: "ios"|"android", appVersion?, accountCreatedDate? }`
+- `flags`: `{ onboardingCompleted?, registrationCompleted?, registrationStep?, profileCompletion? }`
+- `subscriptionStatus?`: `{ isPremium?, source? }`
+- `registrationData?`: `{ age?, birthDate?, email?, name?, firstName?, lastName?, username?, deviceInfo? }`
+
+**`tracking_sessions`** — Health tracking sessions (source of truth for DAU/WAU/MAU)
+- `id`, `userId`, `startedAt`, `completedAt?`, `durationMs`, `sections: string[]`
+- `entryPoint?`, `hasExistingRecord`, `entryMethod?: "manual"|"routine"|"auto"`, `createdAt?`
+
+**`tracking`** — Daily health entries (doc ID: `{userId}_{date}`)
+- `id`, `userId`, `date` (YYYY-MM-DD), `completeness` (0-100), `entryMethod?`, `sections?`, `symptoms?`
+- `sleep?`: `{ duration, quality }`, `meals?`: `{ calories, water }`, `sport?`: `{ totalDuration, totalCalories }`
+- `digestive?`: `{ morningBloated?, eveningBloated?, morningPain?, eveningPain?, bloated?, pain?, time? }`
+- `period?`: `{ active, pain, flow }`, `stress?`, `createdAt`, `updatedAt`
+
+**`chat_conversations`** — AI chat sessions
+- `id`, `userId`, `messageCount`, `topics?`, `topic?`, `entryPoint?`
+- `startedAt?`, `createdAt`, `updatedAt`, `lastMessageAt?`, `lastMessageSnippet?`
+
+**`chat_conversations/{id}/messages`** — Individual messages
+- `id`, `conversationId`, `role: "user"|"assistant"|"system"|"endora"`, `agent?`
+- `content`, `status?: "success"|"error"|"pending"`, `errorMessage?`, `latencyMs?`, `retryCount?`, `createdAt`
+
+**`app_events`** — Custom app events
+- `id`, `userId`, `name`, `screen?`, `platform?`, `appVersion?`, `params?`, `createdAt`
+
+**`bubble_events`** — Screen view/navigation events
+- `id`, `userId`, `event`, `screen?`, `viewDurationMs?`, `platform?`, `appVersion?`, `createdAt`
+
+**`photos`** — Photo uploads for visual symptom tracking
+- `id`, `userId`, `pain` (0-10), `bloated` (0-10), `time: "morning"|"evening"`, `viewCount`, `timestamp`, `createdAt`
 
 ## Important Patterns
 
@@ -103,10 +156,14 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 - Pages are organized under `app/(dashboard)/` route group
 - JSON serialization: Date objects are serialized as ISO strings by API routes; `api-client.ts` converts them back to Date objects
 
+## Post-Task Workflow
+
+After completing any task:
+1. Create an agent which is a senior full-stack developer (readability, reuse, best practices) and fix any issues found and make sure the code is clean and maintainable. Refactor if necessary.
+
 ## Gotchas
 
 - TypeScript build errors are **ignored** (`ignoreBuildErrors: true` in `next.config.mjs`)
-- No test suite exists
 - The `postinstall` script patches Firebase SDK exports - run `npm install` if Firebase imports break
 - `lotus-mobile/lotus-firebase` is NOT a dependency - the dashboard bypasses Firestore rules entirely via Admin SDK
 - The `secrets/` directory is in `.gitignore` - service account keys are never committed

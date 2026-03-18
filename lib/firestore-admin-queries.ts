@@ -41,8 +41,8 @@ function getDaysDiff(from: string, to: string): number {
 }
 
 function addDaysToDateString(dateStr: string, days: number): string {
-  const date = new Date(dateStr + "T00:00:00")
-  date.setDate(date.getDate() + days)
+  const date = new Date(dateStr + "T00:00:00Z")
+  date.setUTCDate(date.getUTCDate() + days)
   return toDayKey(date)
 }
 
@@ -670,8 +670,9 @@ export async function fetchChatConversations(dateRange?: { from?: string; to?: s
 export async function calculateRetentionCurve(
   cohortStart: string,
   cohortEnd: string,
+  maxDays: number = 30,
 ): Promise<{
-  curve: { day: number; retentionPct: number }[]
+  curve: Array<{ day: number; retentionPct: number; retainedCount: number }>
   cohortSize: number
   periodStart: string
   periodEnd: string
@@ -718,8 +719,8 @@ export async function calculateRetentionCurve(
   }
 
   const today = new Date()
-  const maxSessionDate = new Date(cohortEnd)
-  maxSessionDate.setDate(maxSessionDate.getDate() + 30)
+  const maxSessionDate = new Date(cohortEnd + "T23:59:59Z")
+  maxSessionDate.setUTCDate(maxSessionDate.getUTCDate() + maxDays)
   const sessionEndDate = maxSessionDate < today ? maxSessionDate : today
 
   const sessionsSnapshot = await db
@@ -741,10 +742,10 @@ export async function calculateRetentionCurve(
     }
   })
 
-  const curve: { day: number; retentionPct: number }[] = []
+  const curve: { day: number; retentionPct: number; retainedCount: number }[] = []
   const todayKey = toDayKey(today)
 
-  for (let d = 0; d <= 30; d++) {
+  for (let d = 0; d <= maxDays; d++) {
     let retainedCount = 0
     let usersWithDataAvailable = 0
 
@@ -758,7 +759,7 @@ export async function calculateRetentionCurve(
 
     if (usersWithDataAvailable > 0) {
       const retentionPct = (retainedCount / cohortSize) * 100
-      curve.push({ day: d, retentionPct: Math.round(retentionPct * 10) / 10 })
+      curve.push({ day: d, retentionPct: Math.round(retentionPct * 10) / 10, retainedCount })
     }
   }
 

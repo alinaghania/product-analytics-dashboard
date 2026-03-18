@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useQuery, useQueryClient, useQueries } from "@tanstack/react-query"
-import { format as formatDate, subDays } from "date-fns"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { format as formatDate, subDays, addDays } from "date-fns"
 import { Header } from "@/components/dashboard/header"
 import { DateRangePicker } from "@/components/dashboard/date-range-picker"
 import { KpiCard } from "@/components/dashboard/kpi-card"
@@ -11,9 +11,10 @@ import { LineChart } from "@/components/charts/line-chart"
 import { BarChart } from "@/components/charts/bar-chart"
 import { PieChart } from "@/components/charts/pie-chart"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
-import { CohortSelector } from "@/components/dashboard/cohort-selector"
-import { CohortEditDialog } from "@/components/dashboard/cohort-edit-dialog"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Settings2 } from "lucide-react"
 import {
   fetchSessionsForActivity,
   fetchUsers,
@@ -21,10 +22,7 @@ import {
   fetchPhotos,
   calculateRetentionCurve,
 } from "@/lib/api-client"
-import { uniqueUsersByDay, bucketByHour } from "@/lib/analytics"
-import { generateSmartCohorts, mergeRetentionCurves, createNewCohort } from "@/lib/cohort-utils"
-import type { CohortDefinition, CohortRetentionData } from "@/lib/types"
-import { GitCompare, X } from "lucide-react"
+import { bucketByDay, bucketByHour, toDayKey, uniqueUsersByDay } from "@/lib/analytics"
 
 let globalInitialLoadDone = false
 
@@ -38,13 +36,13 @@ export default function OverviewPage() {
     }
   })
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
-  const [showSessionsChart, setShowSessionsChart] = useState(false)
 
-  // Multi-cohort comparison state
-  const [compareModeEnabled, setCompareModeEnabled] = useState(false)
-  const [cohorts, setCohorts] = useState<CohortDefinition[]>([])
-  const [editingCohort, setEditingCohort] = useState<CohortDefinition | null>(null)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  // Retention curve own controls
+  const [retentionCohortStart, setRetentionCohortStart] = useState(dateRange.from)
+  const [retentionCohortEnd, setRetentionCohortEnd] = useState(dateRange.to)
+  const [retentionDays, setRetentionDays] = useState<7 | 30 | 90>(30)
+
+  const [showSessionsChart, setShowSessionsChart] = useState(false)
 
   const queryClient = useQueryClient()
 
@@ -68,29 +66,13 @@ export default function OverviewPage() {
     enabled: false,
   })
 
-  const cohortStart = dateRange.from
-  const cohortEnd = dateRange.to
-
-  // Single cohort query (when compare mode is OFF)
   const {
     data: retentionData,
     isLoading: retentionLoading,
     refetch: refetchRetention,
   } = useQuery({
-    queryKey: ["retention-curve", cohortStart, cohortEnd],
-    queryFn: () => calculateRetentionCurve(cohortStart, cohortEnd),
-    enabled: !compareModeEnabled, // Disable when in compare mode
-  })
-
-  // Multi-cohort queries (when compare mode is ON)
-  const cohortQueries = useQueries({
-    queries: compareModeEnabled
-      ? cohorts.map((cohort) => ({
-          queryKey: ["retention-curve", cohort.startDate, cohort.endDate],
-          queryFn: () => calculateRetentionCurve(cohort.startDate, cohort.endDate),
-          enabled: true,
-        }))
-      : [],
+    queryKey: ["retention-curve", retentionCohortStart, retentionCohortEnd, retentionDays],
+    queryFn: () => calculateRetentionCurve(retentionCohortStart, retentionCohortEnd, retentionDays),
   })
 
   const {
@@ -112,6 +94,13 @@ export default function OverviewPage() {
     queryFn: () => fetchPhotos(dateRange.from, dateRange.to),
     enabled: false,
   })
+
+  // Refetch date-dependent data when date range changes (after initial load)
+  useEffect(() => {
+    if (!globalInitialLoadDone) return
+    refetchSessions()
+    refetchPhotos()
+  }, [dateRange.from, dateRange.to])
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -141,46 +130,10 @@ export default function OverviewPage() {
     loadInitialData()
   }, []) // Empty deps is correct - we only want this on first mount
 
-  // Auto-generate cohorts when compare mode is enabled
-  useEffect(() => {
-    if (compareModeEnabled && cohorts.length === 0) {
-      const smartCohorts = generateSmartCohorts(dateRange.from, dateRange.to, 3)
-      setCohorts(smartCohorts)
-      console.log("[v0] 🎯 Generated smart cohorts:", smartCohorts)
-    }
-  }, [compareModeEnabled, dateRange.from, dateRange.to])
-
   const handleReloadAll = async () => {
     console.log("[v0] 🔄 Reload All clicked - forcing fresh data fetch...")
     await Promise.all([refetchSessions(), refetchUsers(), refetchRetention(), refetchChats(), refetchPhotos()])
     setLastUpdated(new Date())
-  }
-
-  // Cohort comparison handlers
-  const handleToggleCompareMode = () => {
-    setCompareModeEnabled(!compareModeEnabled)
-    if (compareModeEnabled) {
-      // Exiting compare mode - clear cohorts
-      setCohorts([])
-    }
-  }
-
-  const handleEditCohort = (cohort: CohortDefinition) => {
-    setEditingCohort(cohort)
-    setEditDialogOpen(true)
-  }
-
-  const handleSaveCohort = (updatedCohort: CohortDefinition) => {
-    setCohorts((prev) => prev.map((c) => (c.id === updatedCohort.id ? updatedCohort : c)))
-  }
-
-  const handleRemoveCohort = (cohortId: string) => {
-    setCohorts((prev) => prev.filter((c) => c.id !== cohortId))
-  }
-
-  const handleAddCohort = () => {
-    const newCohort = createNewCohort(dateRange.from, dateRange.to, cohorts)
-    setCohorts((prev) => [...prev, newCohort])
   }
 
   const hourChartData = useMemo(() => {
@@ -204,59 +157,55 @@ export default function OverviewPage() {
     return Object.entries(userPlatformCounts).map(([name, value]) => ({ name, value }))
   }, [allUsers])
 
+  const dailySignupsData = useMemo(() => {
+    if (!allUsers?.data) return []
+    const from = new Date(dateRange.from)
+    const to = new Date(dateRange.to)
+    to.setHours(23, 59, 59, 999)
+
+    const filteredDates = allUsers.data
+      .map((u) => new Date(u.createdAt))
+      .filter((d) => d >= from && d <= to)
+
+    const signupsByDay = bucketByDay(filteredDates)
+
+    return Array.from(signupsByDay.entries())
+      .map(([day, count]) => ({ day, count }))
+      .sort((a, b) => a.day.localeCompare(b.day))
+  }, [allUsers, dateRange.from, dateRange.to])
+
   const dailyData = useMemo(() => {
     const dauByDay = sessionData
       ? uniqueUsersByDay(sessionData.map((s) => ({ userId: s.userId, date: s.startedAt })))
       : new Map()
-
+    const sessionsByDay = sessionData ? bucketByDay(sessionData.map((s) => s.startedAt)) : new Map()
     return Array.from(dauByDay.entries())
-      .map(([day, dau]) => {
-        const sessionsOnDay = sessionData?.filter((s) => formatDate(s.startedAt, "yyyy-MM-dd") === day).length || 0
-        return { day, dau, sessions: sessionsOnDay }
-      })
+      .map(([day, dau]) => ({ day, dau, sessions: sessionsByDay.get(day) || 0 }))
       .sort((a, b) => a.day.localeCompare(b.day))
   }, [sessionData])
 
   const retentionChartData = useMemo(() => {
     if (!retentionData?.curve || retentionData.curve.length === 0) return []
-    return retentionData.curve
-  }, [retentionData])
-
-  // Multi-cohort retention data merging
-  const multiCohortRetentionData = useMemo(() => {
-    if (!compareModeEnabled || cohortQueries.length === 0) return []
-
-    const cohortsWithData: CohortRetentionData[] = cohortQueries
-      .map((query, index) => ({
-        cohort: cohorts[index],
-        data: query.data || { curve: [], cohortSize: 0, periodStart: "", periodEnd: "", error: "Loading..." },
-      }))
-      .filter((item) => item.cohort) // Ensure cohort exists
-
-    return mergeRetentionCurves(cohortsWithData)
-  }, [compareModeEnabled, cohortQueries, cohorts])
-
-  // Cohort metadata for display in selector
-  const cohortMetadata = useMemo(() => {
-    if (!compareModeEnabled) return {}
-
-    const metadata: Record<string, { cohortSize: number; error?: string }> = {}
-
-    cohortQueries.forEach((query, index) => {
-      const cohort = cohorts[index]
-      if (cohort && query.data) {
-        metadata[cohort.id] = {
-          cohortSize: query.data.cohortSize,
-          error: query.data.error,
-        }
+    const cohortStartDate = new Date(retentionCohortStart + "T00:00:00")
+    const cohortEndDate = new Date(retentionCohortEnd + "T00:00:00")
+    return retentionData.curve.map((point) => {
+      const rangeStart = addDays(cohortStartDate, point.day)
+      const rangeEnd = addDays(cohortEndDate, point.day)
+      const startMonth = formatDate(rangeStart, "MMM")
+      const endMonth = formatDate(rangeEnd, "MMM")
+      const startDay = formatDate(rangeStart, "d")
+      const endDay = formatDate(rangeEnd, "d")
+      const dateLabel = startMonth === endMonth
+        ? `${startMonth} ${startDay}-${endDay}`
+        : `${startMonth} ${startDay} - ${endMonth} ${endDay}`
+      return {
+        day: point.day,
+        retentionPct: point.retentionPct,
+        retainedCount: point.retainedCount,
+        label: `D${point.day} (${dateLabel})`,
       }
     })
-
-    return metadata
-  }, [compareModeEnabled, cohortQueries, cohorts])
-
-  // Loading state for multi-cohort mode
-  const multiCohortLoading = compareModeEnabled && cohortQueries.some((q) => q.isLoading)
+  }, [retentionData, retentionCohortStart, retentionCohortEnd])
 
   const retentionMetadata = useMemo(() => {
     if (!retentionData) return null
@@ -274,15 +223,6 @@ export default function OverviewPage() {
       d30: retentionData.curve.find((r) => r.day === 30)?.retentionPct,
     }
   }, [retentionData])
-
-  const returningUsers = useMemo(() => {
-    if (!sessionData || !allUsers) return 0
-    const activeUserIds = new Set(sessionData.map((s) => s.userId))
-    return allUsers.data.filter((u) => {
-      if (!activeUserIds.has(u.id)) return false
-      return u.createdAt < new Date(dateRange.from)
-    }).length
-  }, [sessionData, allUsers, dateRange.from])
 
   const {
     wau,
@@ -517,17 +457,7 @@ export default function OverviewPage() {
           />
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
-          <KpiCard
-            label="Returning Users"
-            value={returningUsers.toLocaleString()}
-            isLoading={usersLoading}
-            tooltipTitle="Returning Users"
-            tooltipDescription="Question: 'Combien d'anciennes utilisatrices reviennent sur cette période?' | Who is counted: ✅ Only existing users ❌ Not new signups during period | Definition: Active users during period whose account was created BEFORE period start | Calculation: users.createdAt < periodStart AND ≥1 tracking_session in period"
-            tooltipHowToRead="Higher means more existing users are coming back. Shows retention of user base."
-            tooltipLimitations="Period-based metric, different from cohort-based retention"
-            tooltipDataCoverage={`${returningUsers} out of ${allUsers?.data.length || 0} total users`}
-          />
+        <div className="grid grid-cols-3 gap-4">
           <KpiCard
             label="Total Users"
             value={(allUsers?.data.length || 0).toLocaleString()}
@@ -560,14 +490,29 @@ export default function OverviewPage() {
           <ChartCard
             title={
               <div className="flex items-center gap-2">
+                <span>Daily New Signups</span>
+                <InfoTooltip
+                  title="Daily New Signups"
+                  description="Number of new users who signed up each day, based on users.createdAt within the selected date range"
+                  howToRead="Higher bars indicate more signups that day"
+                  dataCoverage={`From ${allUsers?.data.length || 0} total users`}
+                />
+              </div>
+            }
+            isLoading={usersLoading}
+          >
+            <BarChart data={dailySignupsData} xKey="day" yKey="count" color="#7C3AED" maxBars={30} />
+          </ChartCard>
+
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
                 <span>{showSessionsChart ? "Sessions per day" : "Daily Active Users (DAU)"}</span>
                 <InfoTooltip
                   title={showSessionsChart ? "Sessions per day" : "Daily Active Users"}
-                  description={
-                    showSessionsChart
-                      ? "Total tracking_sessions started each day"
-                      : "Number of unique users who started at least one tracking session that day"
-                  }
+                  description={showSessionsChart
+                    ? "Total tracking_sessions started each day"
+                    : "Number of unique users who started at least one tracking session that day"}
                   howToRead="Higher values indicate more active usage"
                   dataCoverage={`From ${sessionData?.length || 0} sessions`}
                 />
@@ -581,11 +526,97 @@ export default function OverviewPage() {
             }
             isLoading={sessionsLoading}
           >
-            <LineChart
-              data={dailyData}
-              xKey="day"
-              lines={[{ key: showSessionsChart ? "sessions" : "dau", color: "#7C3AED" }]}
-            />
+            <LineChart data={dailyData} xKey="day" lines={[{ key: showSessionsChart ? "sessions" : "dau", color: "#7C3AED" }]} />
+          </ChartCard>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>{`Retention Curve (D0-D${retentionDays})`}</span>
+                {retentionMetadata?.cohortSize != null && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    · {retentionMetadata.cohortSize} users
+                  </span>
+                )}
+                <InfoTooltip
+                  title="Retention Curve (D1/D7/D30)"
+                  description="Question: 'Parmi celles inscrites à T0, combien reviennent à T+X?' | Who is counted: ✅ Only new signups from specific cohort ❌ Never existing users ❌ Never signups after T0 | Definition: Cohort = users signed up at given date/period. Retention D+X = % of cohort active exactly X days after signup | Calculation: users.createdAt ∈ cohort AND tracking_sessions.startedAt = createdAt + X days"
+                  howToRead="Higher line = better retention. D0=signup day. Each point = % of original cohort still active. Look for D1, D7, D30 milestones."
+                  dataCoverage={
+                    retentionMetadata?.error
+                      ? retentionMetadata.error
+                      : retentionMetadata
+                        ? `Cohort: ${retentionMetadata.cohortSize} users (${retentionMetadata.periodStart} to ${retentionMetadata.periodEnd}). Retention calculated on total cohort size.`
+                        : "Loading..."
+                  }
+                  limitations="Max 30 days period, max 2000 users. Points only shown when data available (never 0% for missing data). Cohort-based metric, different from Returning Users."
+                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" aria-label="Retention settings">
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto" align="end">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">Cohort date range</label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="date"
+                            value={retentionCohortStart}
+                            onChange={(e) => setRetentionCohortStart(e.target.value)}
+                            className="h-7 w-[130px] text-xs"
+                          />
+                          <span className="text-xs text-muted-foreground">to</span>
+                          <Input
+                            type="date"
+                            value={retentionCohortEnd}
+                            onChange={(e) => setRetentionCohortEnd(e.target.value)}
+                            className="h-7 w-[130px] text-xs"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">Retention window</label>
+                        <div className="flex items-center gap-1">
+                          {([7, 30, 90] as const).map((d) => (
+                            <Button
+                              key={d}
+                              variant={retentionDays === d ? "default" : "outline"}
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => setRetentionDays(d)}
+                            >
+                              {d}d
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            }
+            isLoading={retentionLoading}
+          >
+            {retentionMetadata?.error ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                {retentionMetadata.error}
+              </div>
+            ) : (
+              <LineChart
+                data={retentionChartData}
+                xKey="label"
+                lines={[{ key: "retentionPct", color: "#2ED47A" }]}
+                tooltipFormatter={(value, point) => {
+                  const retainedCount = typeof point.retainedCount === 'number' ? point.retainedCount : null
+                  return `${value}%${retainedCount != null ? ` (${retainedCount} users)` : ""}`
+                }}
+              />
+            )}
           </ChartCard>
 
           <ChartCard
@@ -610,93 +641,20 @@ export default function OverviewPage() {
           <ChartCard
             title={
               <div className="flex items-center gap-2">
-                <span>{compareModeEnabled ? "Cohort Comparison" : "Retention Curve (D0-D30)"}</span>
+                <span>Age Distribution</span>
                 <InfoTooltip
-                  title={compareModeEnabled ? "Multi-Cohort Comparison" : "Retention Curve (D1/D7/D30)"}
-                  description={
-                    compareModeEnabled
-                      ? "Compare retention curves for multiple cohorts side-by-side to spot trends over time. Each line represents a different signup cohort."
-                      : "Question: 'Parmi celles inscrites à T0, combien reviennent à T+X?' | Who is counted: ✅ Only new signups from specific cohort ❌ Never existing users ❌ Never signups after T0 | Definition: Cohort = users signed up at given date/period. Retention D+X = % of cohort active exactly X days after signup | Calculation: users.createdAt ∈ cohort AND tracking_sessions.startedAt = createdAt + X days"
-                  }
-                  howToRead={
-                    compareModeEnabled
-                      ? "Compare the curves to see which cohorts retain better. Higher lines = better retention. Look for improving trends across cohorts."
-                      : "Higher line = better retention. D0=signup day (100%). Each point = % of original cohort still active. Look for D1, D7, D30 milestones."
-                  }
-                  dataCoverage={
-                    compareModeEnabled
-                      ? `Comparing ${cohorts.length} cohort${cohorts.length !== 1 ? "s" : ""}`
-                      : retentionMetadata?.error
-                        ? retentionMetadata.error
-                        : retentionMetadata
-                          ? `Cohort: ${retentionMetadata.cohortSize} users (${retentionMetadata.periodStart} to ${retentionMetadata.periodEnd}). Retention calculated on total cohort size.`
-                          : "Loading..."
-                  }
-                  limitations="Max 30 days period, max 2000 users. Points only shown when data available (never 0% for missing data). Cohort-based metric, different from Returning Users."
+                  title="Age Distribution"
+                  description="Distribution of users by age brackets from registrationData.age or birthDate"
+                  howToRead="Pie slices show age group proportions. Larger slice = more users in that age range."
+                  limitations="Only users with age/birthDate data"
+                  dataCoverage={`${usersWithAge.length} of ${allUsers?.data.length || 0} users have age data`}
                 />
-                <Button
-                  variant={compareModeEnabled ? "default" : "outline"}
-                  size="sm"
-                  onClick={handleToggleCompareMode}
-                  className="ml-auto"
-                >
-                  {compareModeEnabled ? (
-                    <>
-                      <X className="h-3.5 w-3.5 mr-1.5" />
-                      Exit Comparison
-                    </>
-                  ) : (
-                    <>
-                      <GitCompare className="h-3.5 w-3.5 mr-1.5" />
-                      Compare Cohorts
-                    </>
-                  )}
-                </Button>
               </div>
             }
-            isLoading={compareModeEnabled ? multiCohortLoading : retentionLoading}
+            isLoading={usersLoading}
           >
-            {compareModeEnabled ? (
-              <div className="space-y-4">
-                <CohortSelector
-                  cohorts={cohorts}
-                  onEditCohort={handleEditCohort}
-                  onRemoveCohort={handleRemoveCohort}
-                  onAddCohort={handleAddCohort}
-                  cohortMetadata={cohortMetadata}
-                />
-                {multiCohortRetentionData.length > 0 ? (
-                  <LineChart
-                    data={multiCohortRetentionData}
-                    xKey="day"
-                    lines={cohorts.map((cohort) => ({
-                      key: cohort.label,
-                      color: cohort.color,
-                      label: cohort.label,
-                    }))}
-                  />
-                ) : (
-                  <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-                    {cohortQueries.some((q) => q.isLoading) ? "Loading cohorts..." : "No data available"}
-                  </div>
-                )}
-              </div>
-            ) : retentionMetadata?.error ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                {retentionMetadata.error}
-              </div>
-            ) : (
-              <LineChart data={retentionChartData} xKey="day" lines={[{ key: "retentionPct", color: "#2ED47A" }]} />
-            )}
+            <PieChart data={ageChartData} nameKey="name" valueKey="value" />
           </ChartCard>
-
-          <CohortEditDialog
-            cohort={editingCohort}
-            open={editDialogOpen}
-            onClose={() => setEditDialogOpen(false)}
-            onSave={handleSaveCohort}
-            cohortIndex={cohorts.findIndex((c) => c.id === editingCohort?.id)}
-          />
 
           <ChartCard
             title={
@@ -713,26 +671,6 @@ export default function OverviewPage() {
             isLoading={usersLoading}
           >
             <PieChart data={platformData} nameKey="name" valueKey="value" />
-          </ChartCard>
-        </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Age Distribution</span>
-                <InfoTooltip
-                  title="Age Distribution"
-                  description="Distribution of users by age brackets from registrationData.age or birthDate"
-                  howToRead="Pie slices show age group proportions. Larger slice = more users in that age range."
-                  limitations="Only users with age/birthDate data"
-                  dataCoverage={`${usersWithAge.length} of ${allUsers?.data.length || 0} users have age data`}
-                />
-              </div>
-            }
-            isLoading={usersLoading}
-          >
-            <PieChart data={ageChartData} nameKey="name" valueKey="value" />
           </ChartCard>
         </div>
 

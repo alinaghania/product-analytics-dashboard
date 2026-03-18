@@ -217,22 +217,3 @@ export interface TrackingMetrics {
   dailyEntries: Array<{ date: string; count: number }>
 }
 
-// Cohort Comparison Types
-export interface CohortDefinition {
-  id: string
-  label: string
-  startDate: string
-  endDate: string
-  color: string
-}
-
-export interface CohortRetentionData {
-  cohort: CohortDefinition
-  data: {
-    curve: { day: number; retentionPct: number }[]
-    cohortSize: number
-    periodStart: string
-    periodEnd: string
-    error?: string
-  }
-}

@@ -1,5 +1,7 @@
 "use client"
 
+import { useCallback } from "react"
+import { resolveTooltipLabel, tooltipContainerStyle, tooltipLabelStyle, tooltipValueStyle } from "./chart-utils"
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -20,12 +22,38 @@ interface LineChartProps {
     label?: string
   }>
   showLegend?: boolean
+  tooltipFormatter?: (value: number, dataPoint: Record<string, unknown>) => string
 }
 
-export function LineChart({ data, xKey, lines, showLegend = false }: LineChartProps) {
+export function LineChart({ data, xKey, lines, showLegend = false, tooltipFormatter }: LineChartProps) {
   const chartData = data || []
   // Auto-enable legend for multi-line charts
   const shouldShowLegend = showLegend || lines.length > 1
+
+  const renderTooltip = useCallback(
+    ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string; payload?: Record<string, unknown> }>; label?: string }) => {
+      if (!active || !payload?.length) return null
+      const displayLabel = resolveTooltipLabel(payload, xKey, label)
+      return (
+        <div style={tooltipContainerStyle}>
+          <p style={tooltipLabelStyle}>{displayLabel}</p>
+          {payload.map((entry, i) => {
+            const dataPoint = entry.payload ?? {}
+            const formattedValue = tooltipFormatter ? tooltipFormatter(entry.value, dataPoint) : entry.value
+            return (
+              <p key={i} style={tooltipValueStyle}>
+                {payload.length > 1 && (
+                  <span style={{ color: entry.color, marginRight: 6 }}>●</span>
+                )}
+                {payload.length > 1 ? `${entry.name}: ${formattedValue}` : formattedValue}
+              </p>
+            )
+          })}
+        </div>
+      )
+    },
+    [xKey, tooltipFormatter]
+  )
 
   return (
     <ResponsiveContainer width="100%" height={200}>
@@ -46,14 +74,7 @@ export function LineChart({ data, xKey, lines, showLegend = false }: LineChartPr
           tickLine={false}
           label={lines.length > 1 ? { value: "Retention %", angle: -90, position: "insideLeft", style: { fill: "#6B7694", fontSize: 11 } } : undefined}
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "#141E33",
-            border: "1px solid #1F2A44",
-            borderRadius: "8px",
-            color: "#FFFFFF",
-          }}
-        />
+        <Tooltip content={renderTooltip} />
         {shouldShowLegend && (
           <Legend
             wrapperStyle={{ paddingTop: "10px" }}

@@ -26,8 +26,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 secrets/
-secrets/lotus-9663d-firebase-adminsdk-fbsvc-da2a1cd525.json
 
 .DS_Store
 .idea/
 .vscode/
+
+# claude code
+/plans/
+.claude
+
+# playwright
+/test-results/
+/playwright-report/
+playwright/.cache/

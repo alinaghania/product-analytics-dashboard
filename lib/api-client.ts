@@ -41,7 +41,13 @@ export async function fetchUsers(options: {
     limit: options.limitCount?.toString(),
     search: options.search,
   })
-  return { data: result.data, hasMore: result.hasMore }
+  return {
+    data: (result.data || []).map((u: any) => ({
+      ...u,
+      createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
+    })),
+    hasMore: result.hasMore,
+  }
 }
 
 export async function fetchUserById(userId: string) {
@@ -292,8 +298,12 @@ export async function fetchPhotos(from?: string, to?: string) {
 
 // ============= Retention =============
 
-export async function calculateRetentionCurve(cohortStart: string, cohortEnd: string) {
-  const result = await apiFetch<any>("/api/retention", { cohortStart, cohortEnd })
+export async function calculateRetentionCurve(cohortStart: string, cohortEnd: string, maxDays?: number) {
+  const result = await apiFetch<any>("/api/retention", {
+    cohortStart,
+    cohortEnd,
+    maxDays: maxDays?.toString(),
+  })
   return result.data
 }
 
