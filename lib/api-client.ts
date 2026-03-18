@@ -36,10 +36,12 @@ async function apiFetch<T>(path: string, params?: Record<string, string | undefi
 export async function fetchUsers(options: {
   limitCount?: number
   search?: string
-}): Promise<{ data: any[]; hasMore: boolean }> {
+  startAfter?: string
+}): Promise<{ data: any[]; hasMore: boolean; lastCreatedAt?: string }> {
   const result = await apiFetch<any>("/api/users", {
     limit: options.limitCount?.toString(),
     search: options.search,
+    startAfter: options.startAfter,
   })
   return {
     data: (result.data || []).map((u: any) => ({
@@ -47,6 +49,7 @@ export async function fetchUsers(options: {
       createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
     })),
     hasMore: result.hasMore,
+    lastCreatedAt: result.lastCreatedAt,
   }
 }
 

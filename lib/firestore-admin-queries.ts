@@ -78,11 +78,18 @@ function mapUserDoc(id: string, data: FirebaseFirestore.DocumentData): User {
 export async function fetchUsers(options: {
   limitCount?: number
   search?: string
-}): Promise<{ data: User[]; hasMore: boolean }> {
+  startAfter?: string
+}): Promise<{ data: User[]; hasMore: boolean; lastCreatedAt?: string }> {
   const db = getAdminDb()
   const limitCount = options.limitCount || 50
 
-  let ref: FirebaseFirestore.Query = db.collection("users").orderBy("createdAt", "desc").limit(limitCount)
+  let ref: FirebaseFirestore.Query = db.collection("users").orderBy("createdAt", "desc")
+
+  if (options.startAfter) {
+    ref = ref.startAfter(new Date(options.startAfter))
+  }
+
+  ref = ref.limit(limitCount)
   const snapshot = await ref.get()
 
   let users: User[] = snapshot.docs.map((doc) => mapUserDoc(doc.id, doc.data()))
@@ -95,7 +102,10 @@ export async function fetchUsers(options: {
   }
 
   const hasMore = snapshot.docs.length === limitCount
-  return { data: users, hasMore }
+  const lastDoc = snapshot.docs[snapshot.docs.length - 1]
+  const lastCreatedAt = lastDoc?.data()?.createdAt?.toDate?.()?.toISOString()
+
+  return { data: users, hasMore, lastCreatedAt }
 }
 
 export async function fetchUserById(userId: string): Promise<User | null> {

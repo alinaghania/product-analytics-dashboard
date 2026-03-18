@@ -42,25 +42,41 @@ function UserChatAction({ user, onOpen }: { user: User; onOpen: (user: User) => 
 export default function UsersPage() {
   const [search, setSearch] = useState("")
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
+  const [pageCursors, setPageCursors] = useState<string[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
   const [chatDrawerUser, setChatDrawerUser] = useState<{ id: string; email: string } | null>(null)
 
-  // Reset pagination when search changes
+  // Reset pagination and cursors when search changes
   useEffect(() => {
     setPagination({ pageIndex: 0, pageSize: 50 })
+    setPageCursors([])
   }, [search])
 
+  const startAfter = pagination.pageIndex > 0 ? pageCursors[pagination.pageIndex - 1] : undefined
+
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["users", search, pagination.pageSize],
+    queryKey: ["users", search, pagination.pageSize, pagination.pageIndex],
     queryFn: () => fetchUsers({
       limitCount: pagination.pageSize,
-      search
+      search,
+      startAfter,
     }),
-    enabled: true,
+    enabled: pagination.pageIndex === 0 || !!startAfter,
     refetchOnWindowFocus: false,
     staleTime: 2 * 60 * 1000,
   })
+
+  // Store cursor for the current page when data arrives
+  useEffect(() => {
+    if (data?.lastCreatedAt) {
+      setPageCursors((prev) => {
+        const next = [...prev]
+        next[pagination.pageIndex] = data.lastCreatedAt!
+        return next
+      })
+    }
+  }, [data?.lastCreatedAt, pagination.pageIndex])
 
   const users: User[] = data?.data || []
   const userIds = users.map((u) => u.id)
@@ -91,6 +107,7 @@ export default function UsersPage() {
 
   const handleReload = async () => {
     setPagination({ pageIndex: 0, pageSize: 50 })
+    setPageCursors([])
     await refetch()
     setLastUpdated(new Date())
   }

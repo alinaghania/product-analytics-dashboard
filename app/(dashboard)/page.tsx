@@ -236,16 +236,17 @@ export default function OverviewPage() {
     const sevenDaysAgo = subDays(today, 7)
     const thirtyDaysAgo = subDays(today, 30)
 
-    // Current DAU = unique users active TODAY
-    const dauSet = new Set(
-      sessionData
-        .filter((s) => {
-          const sessionDate = new Date(s.startedAt)
-          const sessionDay = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate())
-          return sessionDay.getTime() === today.getTime()
-        })
-        .map((s) => s.userId),
-    )
+    // Avg DAU = average unique users per day over the selected date range
+    const dailyUsers = new Map<string, Set<string>>()
+    sessionData.forEach((s) => {
+      const sessionDate = new Date(s.startedAt)
+      const dayKey = `${sessionDate.getFullYear()}-${sessionDate.getMonth()}-${sessionDate.getDate()}`
+      if (!dailyUsers.has(dayKey)) dailyUsers.set(dayKey, new Set())
+      dailyUsers.get(dayKey)!.add(s.userId)
+    })
+    const avgDau = dailyUsers.size > 0
+      ? Math.round([...dailyUsers.values()].reduce((sum, users) => sum + users.size, 0) / dailyUsers.size)
+      : 0
 
     // WAU = unique users with sessions in last 7 days
     const wauSet = new Set(sessionData.filter((s) => s.startedAt >= sevenDaysAgo).map((s) => s.userId))
@@ -254,10 +255,10 @@ export default function OverviewPage() {
     const mauSet = new Set(sessionData.filter((s) => s.startedAt >= thirtyDaysAgo).map((s) => s.userId))
 
     console.log("[v0] 📊 Activity metrics:", {
-      currentDau: dauSet.size,
+      avgDau,
       wau: wauSet.size,
       mau: mauSet.size,
-      today: today.toISOString(),
+      daysWithData: dailyUsers.size,
       sevenDaysAgo: sevenDaysAgo.toISOString(),
       thirtyDaysAgo: thirtyDaysAgo.toISOString(),
     })
@@ -265,7 +266,7 @@ export default function OverviewPage() {
     return {
       wau: wauSet.size,
       mau: mauSet.size,
-      currentDau: dauSet.size,
+      currentDau: avgDau,
     }
   }, [sessionData])
 
@@ -419,11 +420,11 @@ export default function OverviewPage() {
 
         <div className="grid grid-cols-4 gap-4">
           <KpiCard
-            label="Current DAU"
+            label="Avg. DAU"
             value={calculatedDau.toLocaleString()}
             isLoading={sessionsLoading}
-            tooltipTitle="DAU (Daily Active Users)"
-            tooltipDescription="Question: 'Combien d'utilisatrices sont actives?' | Who is counted: ✅ All active users ✅ New + returning ❌ No seniority distinction | Definition: Active at least once TODAY | Calculation: ≥1 tracking_session today, count by unique userId"
+            tooltipTitle="Avg. DAU (Daily Active Users)"
+            tooltipDescription="Question: 'Combien d'utilisatrices sont actives?' | Who is counted: ✅ All active users ✅ New + returning ❌ No seniority distinction | Definition: Average daily unique users over the selected period | Calculation: For each day in range, count unique userIds with ≥1 tracking_session, then average"
             tooltipHowToRead="Higher = more daily active users"
             tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
           />
@@ -453,7 +454,7 @@ export default function OverviewPage() {
             tooltipDescription="Question: 'À quelle fréquence reviennent-elles?' | Who is counted: Based on active users, includes new + returning, not a people count but a ratio | Definition: Stickiness = DAU / MAU | Interpretation: % of monthly users who use the app each day"
             tooltipHowToRead="Higher means users come back more frequently. >20% = very good engagement, >30% = highly sticky product"
             tooltipLimitations="Based on tracking sessions only (does not count passive app opens)"
-            tooltipDataCoverage={`Current DAU: ${calculatedDau}, MAU: ${mau}`}
+            tooltipDataCoverage={`Avg. DAU: ${calculatedDau}, MAU: ${mau}`}
           />
         </div>
 
