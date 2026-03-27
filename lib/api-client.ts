@@ -310,6 +310,25 @@ export async function calculateRetentionCurve(cohortStart: string, cohortEnd: st
   return result.data
 }
 
+// ============= Feedback =============
+
+export async function fetchFeedback(from: string, to: string): Promise<{
+  positive: any[]
+  negative: any[]
+}> {
+  const result = await apiFetch<any>("/api/feedback", { from, to })
+  return {
+    positive: (result.positive || []).map((e: any) => ({
+      ...e,
+      createdAt: e.createdAt ? new Date(e.createdAt) : new Date(),
+    })),
+    negative: (result.negative || []).map((e: any) => ({
+      ...e,
+      createdAt: e.createdAt ? new Date(e.createdAt) : new Date(),
+    })),
+  }
+}
+
 // ============= Routines =============
 
 export async function fetchRoutines(from: string, to: string) {

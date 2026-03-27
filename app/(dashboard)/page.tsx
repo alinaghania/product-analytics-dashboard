@@ -21,8 +21,9 @@ import {
   fetchChatConversations,
   fetchPhotos,
   calculateRetentionCurve,
+  fetchFeedback,
 } from "@/lib/api-client"
-import { bucketByDay, bucketByHour, toDayKey, uniqueUsersByDay } from "@/lib/analytics"
+import { bucketByDay, bucketByHour, uniqueUsersByDay } from "@/lib/analytics"
 
 let globalInitialLoadDone = false
 
@@ -95,11 +96,22 @@ export default function OverviewPage() {
     enabled: false,
   })
 
+  const {
+    data: feedbackData,
+    isLoading: feedbackLoading,
+    refetch: refetchFeedback,
+  } = useQuery({
+    queryKey: ["feedback", dateRange.from, dateRange.to],
+    queryFn: () => fetchFeedback(dateRange.from, dateRange.to),
+    enabled: false,
+  })
+
   // Refetch date-dependent data when date range changes (after initial load)
   useEffect(() => {
     if (!globalInitialLoadDone) return
     refetchSessions()
     refetchPhotos()
+    refetchFeedback()
   }, [dateRange.from, dateRange.to])
 
   useEffect(() => {
@@ -122,7 +134,7 @@ export default function OverviewPage() {
       }
 
       console.log("[v0] 🎯 First load ever: Fetching data...")
-      await Promise.all([refetchSessions(), refetchUsers(), refetchRetention(), refetchChats(), refetchPhotos()])
+      await Promise.all([refetchSessions(), refetchUsers(), refetchRetention(), refetchChats(), refetchPhotos(), refetchFeedback()])
       globalInitialLoadDone = true
       setLastUpdated(new Date())
     }
@@ -132,7 +144,7 @@ export default function OverviewPage() {
 
   const handleReloadAll = async () => {
     console.log("[v0] 🔄 Reload All clicked - forcing fresh data fetch...")
-    await Promise.all([refetchSessions(), refetchUsers(), refetchRetention(), refetchChats(), refetchPhotos()])
+    await Promise.all([refetchSessions(), refetchUsers(), refetchRetention(), refetchChats(), refetchPhotos(), refetchFeedback()])
     setLastUpdated(new Date())
   }
 
@@ -405,6 +417,46 @@ export default function OverviewPage() {
       avgSessionDuration: avgSessionMinutes,
     }
   }, [sessionData])
+
+  const { feedbackChartData, feedbackPositiveCount, feedbackNegativeCount, feedbackSentiment, recentNegativeFeedbacks } = useMemo(() => {
+    if (!feedbackData) {
+      return { feedbackChartData: [], feedbackPositiveCount: 0, feedbackNegativeCount: 0, feedbackSentiment: 0, recentNegativeFeedbacks: [] }
+    }
+
+    const positiveByDay = bucketByDay(feedbackData.positive.map((e: any) => e.createdAt))
+    const negativeByDay = bucketByDay(feedbackData.negative.map((e: any) => e.createdAt))
+
+    const allDays = new Set([...positiveByDay.keys(), ...negativeByDay.keys()])
+    const chartData = Array.from(allDays)
+      .map((day) => ({
+        day,
+        positive: positiveByDay.get(day) || 0,
+        negative: negativeByDay.get(day) || 0,
+      }))
+      .sort((a, b) => a.day.localeCompare(b.day))
+
+    const posCount = feedbackData.positive.length
+    const negCount = feedbackData.negative.length
+    const total = posCount + negCount
+    const sentiment = total > 0 ? Math.round((posCount / total) * 100) : 0
+
+    const negativeFeedbacks = feedbackData.negative
+      .map((e: any) => ({
+        date: e.createdAt,
+        content: e.params?.feedback || e.params?.text || e.params?.message || e.params?.reason || JSON.stringify(e.params || {}),
+        userId: e.userId,
+      }))
+      .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
+      .slice(0, 50)
+
+    return {
+      feedbackChartData: chartData,
+      feedbackPositiveCount: posCount,
+      feedbackNegativeCount: negCount,
+      feedbackSentiment: sentiment,
+      recentNegativeFeedbacks: negativeFeedbacks,
+    }
+  }, [feedbackData])
 
   return (
     <div className="flex flex-col">
@@ -718,6 +770,104 @@ export default function OverviewPage() {
             tooltipHowToRead="Higher means users spend more time per session. Indicates depth of engagement."
             tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
           />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <KpiCard
+            label="Positive Feedback"
+            value={feedbackPositiveCount.toLocaleString()}
+            isLoading={feedbackLoading}
+            tooltipTitle="Positive Feedback Count"
+            tooltipDescription="Total user_feedback_positive events in the selected date range"
+            tooltipHowToRead="Number of times users gave a positive response"
+          />
+          <KpiCard
+            label="Negative Feedback"
+            value={feedbackNegativeCount.toLocaleString()}
+            isLoading={feedbackLoading}
+            tooltipTitle="Negative Feedback Count"
+            tooltipDescription="Total user_feedback_negative events in the selected date range"
+            tooltipHowToRead="Number of times users gave negative feedback with text content"
+          />
+          <KpiCard
+            label="Positive Rate"
+            value={feedbackPositiveCount + feedbackNegativeCount > 0 ? `${feedbackSentiment}%` : "N/A"}
+            isLoading={feedbackLoading}
+            tooltipTitle="Positive Feedback Rate"
+            tooltipDescription="Percentage of positive feedback out of total feedback (positive + negative)"
+            tooltipHowToRead="Higher means users are more satisfied. 100% = no negative feedback"
+            tooltipDataCoverage={`${feedbackPositiveCount + feedbackNegativeCount} total feedbacks`}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Daily Feedback</span>
+                <InfoTooltip
+                  title="Daily Feedback (Positive vs Negative)"
+                  description="Stacked bar chart showing daily count of positive and negative user feedback events from app_events collection"
+                  howToRead="Green = positive, Red = negative. Taller bars = more feedback that day. Watch for spikes in red after releases."
+                  dataCoverage={`${feedbackPositiveCount} positive, ${feedbackNegativeCount} negative feedbacks`}
+                />
+              </div>
+            }
+            isLoading={feedbackLoading}
+          >
+            <BarChart
+              data={feedbackChartData}
+              xKey="day"
+              yKey="positive"
+              stacks={[
+                { key: "positive", color: "#2ED47A", label: "Positive" },
+                { key: "negative", color: "#FF5C5C", label: "Negative" },
+              ]}
+              maxBars={30}
+            />
+          </ChartCard>
+
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Recent Negative Feedback</span>
+                <InfoTooltip
+                  title="Recent Negative Feedback"
+                  description="Latest negative feedback from users with their text content, extracted from app_events params"
+                  howToRead="Review these to understand user pain points and prioritize fixes"
+                  dataCoverage={`Showing up to 50 most recent`}
+                />
+              </div>
+            }
+            isLoading={feedbackLoading}
+          >
+            <div className="max-h-[200px] overflow-y-auto">
+              {recentNegativeFeedbacks.length === 0 ? (
+                <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                  No negative feedback in this period
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-card">
+                    <tr className="border-b border-border">
+                      <th className="py-1.5 pr-2 text-left font-medium text-muted-foreground">Date</th>
+                      <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Content</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentNegativeFeedbacks.map((fb: any, i: number) => (
+                      <tr key={i} className="border-b border-border/50">
+                        <td className="py-1.5 pr-2 text-muted-foreground whitespace-nowrap">
+                          {formatDate(fb.date, "MMM d")}
+                        </td>
+                        <td className="py-1.5 px-2 text-foreground">{fb.content}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </ChartCard>
         </div>
       </div>
     </div>
