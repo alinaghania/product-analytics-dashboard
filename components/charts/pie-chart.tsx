@@ -9,6 +9,7 @@ interface PieChartProps {
   colors?: string[]
   innerRadius?: number
   showLegend?: boolean
+  showLabel?: boolean
 }
 
 const defaultColors = ["#3B82F6", "#2ED47A", "#22D3EE", "#FFB020", "#FF5C5C"]
@@ -16,10 +17,11 @@ const defaultColors = ["#3B82F6", "#2ED47A", "#22D3EE", "#FFB020", "#FF5C5C"]
 export function PieChart({
   data,
   nameKey = "name",
-  valueKey = "value",
+  valueKey = "count",
   colors = defaultColors,
   innerRadius = 0,
   showLegend = true,
+  showLabel = true,
 }: PieChartProps) {
   const normalizedData = data.map((item) => ({
     name: item.name,
@@ -38,7 +40,7 @@ export function PieChart({
           paddingAngle={2}
           dataKey="value"
           nameKey="name"
-          label={({ name, value }) => `${name}: ${value}`}
+          label={showLabel ? ({ name, value }: { name: string; value: number }) => `${name}: ${value}` : false}
         >
           {normalizedData.map((_, index) => (
             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />

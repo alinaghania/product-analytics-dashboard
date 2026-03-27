@@ -102,48 +102,62 @@ export function BarChart({
     )
   }, [xKey])
 
+  if (isVertical) {
+    if (chartData.length === 0) return null
+
+    const maxValue = Math.max(...chartData.map((d) => Number(d[yKey]) || 0))
+    const barColor = color || colors[0]
+
+    return (
+      <div className="space-y-2 py-2">
+        {chartData.map((item, index) => {
+          const name = String(item[xKey] ?? "")
+          const value = Number(item[yKey]) || 0
+          const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0
+
+          return (
+            <div key={`${name}-${index}`} className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground truncate mr-2" title={name}>{name}</span>
+                <span className="font-medium text-foreground shrink-0">{value.toLocaleString()}</span>
+              </div>
+              <div className="h-5 w-full overflow-hidden rounded bg-muted">
+                <div
+                  className="h-full rounded transition-all duration-300"
+                  style={{
+                    width: `${percentage}%`,
+                    backgroundColor: barColor,
+                  }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <ResponsiveContainer width="100%" height={200}>
       <RechartsBarChart
         data={chartData}
         layout={layout}
-        margin={{ top: 20, right: 5, left: isVertical ? 60 : -20, bottom: isVertical ? 5 : 40 }}
+        margin={{ top: 20, right: 5, left: -20, bottom: 40 }}
       >
-        <CartesianGrid strokeDasharray="3 3" stroke="#1F2A44" horizontal={!isVertical} vertical={isVertical} />
-        {isVertical ? (
-          <>
-            <XAxis
-              type="number"
-              tick={{ fill: "#6B7694", fontSize: 11 }}
-              axisLine={{ stroke: "#1F2A44" }}
-              tickLine={false}
-            />
-            <YAxis
-              type="category"
-              dataKey={xKey}
-              tick={{ fill: "#6B7694", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              width={55}
-            />
-          </>
-        ) : (
-          <>
-            <XAxis
-              dataKey={xKey}
-              tick={{ fill: "#6B7694", fontSize: 11 }}
-              axisLine={{ stroke: "#1F2A44" }}
-              tickLine={false}
-              angle={-45}
-              textAnchor="end"
-              height={60}
-              interval={0}
-              tickFormatter={isAggregated ? undefined : (v: string) => (ISO_DATE_REGEX.test(v) ? formatDateLabel(v) : v)}
-            />
-            <YAxis tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} />
-          </>
-        )}
-        <Tooltip content={renderTooltip} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#1F2A44" horizontal vertical={false} />
+        <XAxis
+          dataKey={xKey}
+          tick={{ fill: "#6B7694", fontSize: 11 }}
+          axisLine={{ stroke: "#1F2A44" }}
+          tickLine={false}
+          angle={-45}
+          textAnchor="end"
+          height={60}
+          interval={0}
+          tickFormatter={isAggregated ? undefined : (v: string) => (ISO_DATE_REGEX.test(v) ? formatDateLabel(v) : v)}
+        />
+        <YAxis tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} />
+        <Tooltip content={renderTooltip} cursor={false} />
         <Bar dataKey={yKey} radius={[4, 4, 0, 0]}>
           {chartData.map((_, index) => (
             <Cell key={`cell-${index}`} fill={color || colors[index % colors.length]} />
@@ -151,7 +165,7 @@ export function BarChart({
           {showLabels && (
             <LabelList
               dataKey={yKey}
-              position={isVertical ? "right" : "top"}
+              position="top"
               style={{ fill: "#9AA4BF", fontSize: 11, fontWeight: 500 }}
               formatter={(value: number) => (value > 0 ? value : "")}
             />

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "postinstall": "node ./scripts/fix-firebase-exports.mjs"
+    "postinstall": "node ./scripts/fix-firebase-exports.mjs",
+    "test:e2e": "npx playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -348,7 +348,7 @@ export default function EventsPage() {
                 isLoading={appLoading}
                 onReload={handleReloadApp}
               >
-                <PieChart data={platformDistribution} innerRadius={40} />
+                <PieChart data={platformDistribution} valueKey="value" innerRadius={40} />
               </ChartCard>
 
               <ChartCard

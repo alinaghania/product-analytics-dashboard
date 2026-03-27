@@ -155,6 +155,7 @@ export default function TrackingPage() {
                 name: d.method,
                 value: d.count,
               }))}
+              valueKey="value"
               innerRadius={40}
             />
           </ChartCard>

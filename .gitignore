@@ -39,3 +39,5 @@ secrets/
 /test-results/
 /playwright-report/
 playwright/.cache/
+tests/.auth/
+/screenshots/

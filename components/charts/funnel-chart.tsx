@@ -7,13 +7,15 @@ interface FunnelChartProps {
 const defaultColors = ["#3B82F6", "#2ED47A", "#22D3EE", "#FFB020", "#FF5C5C"]
 
 export function FunnelChart({ data }: FunnelChartProps) {
+  if (data.length === 0) return null
+
   const maxValue = Math.max(...data.map((d) => d.value))
 
   return (
     <div className="space-y-2 py-2">
       {data.map((item, index) => {
         const percentage = (item.value / maxValue) * 100
-        const conversionRate = index > 0 ? ((item.value / data[index - 1].value) * 100).toFixed(1) : null
+        const conversionRate = index > 0 && data[0].value > 0 ? ((item.value / data[0].value) * 100).toFixed(1) : null
         const color = item.color || defaultColors[index % defaultColors.length]
 
         return (
