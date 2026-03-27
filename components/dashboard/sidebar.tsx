@@ -4,13 +4,14 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { getFirebaseAuth } from "@/lib/firebase"
-import { LayoutDashboard, Users, TrendingUp, ClipboardList } from "lucide-react"
+import { LayoutDashboard, Users, TrendingUp, ClipboardList, Activity } from "lucide-react"
 import { useAuth } from "@/components/providers/auth-provider"
 
 const navItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/onboarding", label: "Onboarding", icon: ClipboardList },
   { href: "/users", label: "Users", icon: Users },
+  { href: "/app-events-analytics", label: "App Events", icon: Activity },
 ]
 
 export function Sidebar() {

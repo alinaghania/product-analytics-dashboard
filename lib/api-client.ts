@@ -329,6 +329,64 @@ export async function fetchFeedback(from: string, to: string): Promise<{
   }
 }
 
+// ============= Event date helpers =============
+
+function mapEventDates(events: any[]): any[] {
+  return (events || []).map((e: any) => ({
+    ...e,
+    createdAt: e.createdAt ? new Date(e.createdAt) : new Date(),
+  }))
+}
+
+// ============= Tracking Behavior Events =============
+
+export async function fetchTrackingBehaviorEvents(from: string, to: string): Promise<{
+  started: any[]
+  sectionSaved: any[]
+  completed: any[]
+}> {
+  const result = await apiFetch<any>("/api/events/tracking-behavior", { from, to })
+  return {
+    started: mapEventDates(result.started),
+    sectionSaved: mapEventDates(result.sectionSaved),
+    completed: mapEventDates(result.completed),
+  }
+}
+
+// ============= Endora AI Events =============
+
+export async function fetchEndoraEvents(from: string, to: string): Promise<{
+  sent: any[]
+  received: any[]
+  failed: any[]
+  screenOpened: any[]
+  conversationStarted: any[]
+  limitReached: any[]
+}> {
+  const result = await apiFetch<any>("/api/events/endora", { from, to })
+  return {
+    sent: mapEventDates(result.sent),
+    received: mapEventDates(result.received),
+    failed: mapEventDates(result.failed),
+    screenOpened: mapEventDates(result.screenOpened),
+    conversationStarted: mapEventDates(result.conversationStarted),
+    limitReached: mapEventDates(result.limitReached),
+  }
+}
+
+// ============= Meal AI Events =============
+
+export async function fetchMealAiEvents(from: string, to: string): Promise<{
+  started: any[]
+  completed: any[]
+}> {
+  const result = await apiFetch<any>("/api/events/meal-ai", { from, to })
+  return {
+    started: mapEventDates(result.started),
+    completed: mapEventDates(result.completed),
+  }
+}
+
 // ============= Routines =============
 
 export async function fetchRoutines(from: string, to: string) {
