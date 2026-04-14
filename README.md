@@ -10,3 +10,5 @@ and then
 ```
 npm run dev
 ```
+
+Dashboard project
