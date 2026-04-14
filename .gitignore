@@ -35,6 +35,9 @@ secrets/
 /plans/
 .claude
 
+# exports
+/exports/
+
 # playwright
 /test-results/
 /playwright-report/
