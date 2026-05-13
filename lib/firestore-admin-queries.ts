@@ -82,6 +82,17 @@ export async function fetchUsers(options: {
 }): Promise<{ data: User[]; hasMore: boolean; lastCreatedAt?: string }> {
   const db = getAdminDb()
   const limitCount = options.limitCount || 50
+  const search = options.search?.trim()
+
+  // Direct lookup when the search term looks like a Firebase UID — the substring
+  // filter below only sees the current paginated page, so users outside it would
+  // otherwise be unreachable by ID.
+  if (search && /^[a-zA-Z0-9]{28}$/.test(search)) {
+    const user = await fetchUserById(search)
+    if (user) {
+      return { data: [user], hasMore: false }
+    }
+  }
 
   let ref: FirebaseFirestore.Query = db.collection("users").orderBy("createdAt", "desc")
 
@@ -94,8 +105,8 @@ export async function fetchUsers(options: {
 
   let users: User[] = snapshot.docs.map((doc) => mapUserDoc(doc.id, doc.data()))
 
-  if (options.search) {
-    const searchLower = options.search.toLowerCase()
+  if (search) {
+    const searchLower = search.toLowerCase()
     users = users.filter(
       (u) => u.email?.toLowerCase().includes(searchLower) || u.username?.toLowerCase().includes(searchLower),
     )
