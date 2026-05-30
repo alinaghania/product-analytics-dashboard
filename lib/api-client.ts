@@ -1,6 +1,7 @@
 "use client"
 
 import { getFirebaseAuth } from "./firebase"
+import type { OnboardingAnalytics } from "./types"
 
 async function getAuthToken(): Promise<string> {
   const auth = getFirebaseAuth()
@@ -37,11 +38,19 @@ export async function fetchUsers(options: {
   limitCount?: number
   search?: string
   startAfter?: string
+  from?: string
+  to?: string
+  platform?: "ios" | "android"
+  premium?: boolean
 }): Promise<{ data: any[]; hasMore: boolean; lastCreatedAt?: string }> {
   const result = await apiFetch<any>("/api/users", {
     limit: options.limitCount?.toString(),
     search: options.search,
     startAfter: options.startAfter,
+    from: options.from,
+    to: options.to,
+    platform: options.platform,
+    premium: options.premium === undefined ? undefined : String(options.premium),
   })
   return {
     data: (result.data || []).map((u: any) => ({
@@ -56,6 +65,162 @@ export async function fetchUsers(options: {
 export async function fetchUserById(userId: string) {
   const result = await apiFetch<any>(`/api/users/${userId}`)
   return result.data
+}
+
+export async function fetchTotalUserCount(): Promise<number> {
+  const result = await apiFetch<{ count: number }>("/api/users/count")
+  return result.count
+}
+
+export async function fetchActivityMetrics(opts: {
+  from: string
+  to: string
+}): Promise<{ avgDau: number; wau: number; mau: number; stickiness: number }> {
+  const result = await apiFetch<{ data: { avgDau: number; wau: number; mau: number; stickiness: number } }>(
+    "/api/metrics/activity",
+    { from: opts.from, to: opts.to },
+  )
+  return result.data
+}
+
+export async function fetchAvgAge(): Promise<{ avgAge: number; sampleSize: number }> {
+  const result = await apiFetch<{ data: { avgAge: number; sampleSize: number } }>("/api/metrics/avg-age")
+  return result.data
+}
+
+export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
+  const result = await apiFetch<{ data: OnboardingAnalytics }>("/api/metrics/onboarding")
+  return result.data
+}
+
+export async function fetchDailySignups(opts: {
+  from: string
+  to: string
+}): Promise<Array<{ date: string; count: number }>> {
+  const result = await apiFetch<{ data: Array<{ date: string; count: number }> }>(
+    "/api/metrics/daily-signups",
+    { from: opts.from, to: opts.to },
+  )
+  return result.data
+}
+
+export interface Ga4ActivityMetricsResponse {
+  active1Day: number
+  active7Day: number
+  active28Day: number
+  stickiness: number
+  asOfDate: string
+}
+
+// Returns null when GA4 is unavailable (not configured, missing permissions,
+// API not enabled). The caller can then fall back to legacy metrics.
+export async function fetchGa4ActivityMetrics(): Promise<Ga4ActivityMetricsResponse | null> {
+  try {
+    const result = await apiFetch<{ data: Ga4ActivityMetricsResponse }>("/api/metrics/ga4-activity")
+    return result.data
+  } catch {
+    return null
+  }
+}
+
+export interface Ga4DailyActivityRow {
+  date: string
+  dau: number
+  sessions: number
+  newUsers: number
+}
+
+export async function fetchGa4DailyActivity(opts: {
+  from: string
+  to: string
+}): Promise<Ga4DailyActivityRow[] | null> {
+  try {
+    const result = await apiFetch<{ data: Ga4DailyActivityRow[] }>("/api/metrics/ga4-daily", {
+      from: opts.from,
+      to: opts.to,
+    })
+    return result.data
+  } catch {
+    return null
+  }
+}
+
+function reviveDates<T extends Record<string, any>>(obj: T, keys: string[]): T {
+  const out: any = { ...obj }
+  for (const key of keys) {
+    if (out[key]) out[key] = new Date(out[key])
+  }
+  return out
+}
+
+export interface UserFullProfile {
+  user: any
+  raw: { userDoc: Record<string, unknown> | null }
+  sections: {
+    trackingEntries: { data: any[]; error: string | null }
+    trackingSessions: { data: any[]; error: string | null }
+    conversations: { data: any[]; error: string | null }
+    photos: { data: any[]; error: string | null }
+    appEvents: { data: any[]; error: string | null }
+    bubbleEvents: { data: any[]; error: string | null }
+    routines: { data: any[]; error: string | null }
+    foodTrials: { data: any[]; error: string | null }
+    lastActivity: { data: { timestamp: Date; type: string; description: string } | null; error: string | null }
+  }
+}
+
+export async function fetchUserFullProfile(userId: string): Promise<UserFullProfile> {
+  const result = await apiFetch<any>(`/api/users/${userId}/full`)
+  const d = result.data
+
+  const user = d.user
+    ? reviveDates(d.user, ["createdAt", "updatedAt", "onboardingCompletedAt"])
+    : d.user
+  if (user?.metadata) {
+    user.metadata = reviveDates(user.metadata, [
+      "lastLoginAt",
+      "lastLoginDate",
+      "accountCreatedDate",
+    ])
+  }
+
+  const wrap = (section: any, dateKeys: string[]) => ({
+    data: (section?.data || []).map((row: any) => reviveDates(row, dateKeys)),
+    error: section?.error ?? null,
+  })
+
+  return {
+    user,
+    raw: { userDoc: d.raw?.userDoc ?? null },
+    sections: {
+      trackingEntries: wrap(d.sections?.trackingEntries, ["createdAt", "updatedAt"]),
+      trackingSessions: wrap(d.sections?.trackingSessions, [
+        "startedAt",
+        "completedAt",
+        "createdAt",
+      ]),
+      conversations: wrap(d.sections?.conversations, [
+        "createdAt",
+        "updatedAt",
+        "startedAt",
+        "lastMessageAt",
+      ]),
+      photos: wrap(d.sections?.photos, ["timestamp", "createdAt"]),
+      appEvents: wrap(d.sections?.appEvents, ["createdAt"]),
+      bubbleEvents: wrap(d.sections?.bubbleEvents, ["createdAt"]),
+      routines: wrap(d.sections?.routines, ["createdAt", "updatedAt", "lastUsed"]),
+      foodTrials: wrap(d.sections?.foodTrials, ["createdAt", "startedAt", "endedAt", "updatedAt"]),
+      lastActivity: {
+        data: d.sections?.lastActivity?.data
+          ? {
+              ...d.sections.lastActivity.data,
+              timestamp: new Date(d.sections.lastActivity.data.timestamp),
+            }
+          : null,
+        error: d.sections?.lastActivity?.error ?? null,
+      },
+    },
+  }
 }
 
 // ============= User activities =============
@@ -299,6 +464,21 @@ export async function fetchPhotos(from?: string, to?: string) {
   }))
 }
 
+export async function fetchPhotoCount(options?: {
+  from?: string
+  to?: string
+  time?: "morning" | "evening"
+  bloated?: boolean
+}): Promise<number> {
+  const result = await apiFetch<{ count: number }>("/api/photos/count", {
+    from: options?.from,
+    to: options?.to,
+    time: options?.time,
+    bloated: options?.bloated === undefined ? undefined : String(options.bloated),
+  })
+  return result.count
+}
+
 // ============= Retention =============
 
 export async function calculateRetentionCurve(cohortStart: string, cohortEnd: string, maxDays?: number) {
@@ -308,25 +488,6 @@ export async function calculateRetentionCurve(cohortStart: string, cohortEnd: st
     maxDays: maxDays?.toString(),
   })
   return result.data
-}
-
-// ============= Feedback =============
-
-export async function fetchFeedback(from: string, to: string): Promise<{
-  positive: any[]
-  negative: any[]
-}> {
-  const result = await apiFetch<any>("/api/feedback", { from, to })
-  return {
-    positive: (result.positive || []).map((e: any) => ({
-      ...e,
-      createdAt: e.createdAt ? new Date(e.createdAt) : new Date(),
-    })),
-    negative: (result.negative || []).map((e: any) => ({
-      ...e,
-      createdAt: e.createdAt ? new Date(e.createdAt) : new Date(),
-    })),
-  }
 }
 
 // ============= Event date helpers =============

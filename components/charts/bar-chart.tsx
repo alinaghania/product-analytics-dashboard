@@ -202,7 +202,16 @@ export function BarChart({
               stackId="a"
               fill={stack.color}
               radius={i === stacks.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-            />
+            >
+              {showLabels && i === stacks.length - 1 && (
+                <LabelList
+                  dataKey={yKey}
+                  position="top"
+                  style={{ fill: "#9AA4BF", fontSize: 11, fontWeight: 500 }}
+                  formatter={(value: number) => (value > 0 ? value : "")}
+                />
+              )}
+            </Bar>
           ))}
         </RechartsBarChart>
       </ResponsiveContainer>

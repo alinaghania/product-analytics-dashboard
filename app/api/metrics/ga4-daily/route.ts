@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
-import { fetchAppEvents } from "@/lib/firestore-admin-queries"
+import { fetchGa4DailyActivity } from "@/lib/google-analytics"
 
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -16,15 +16,13 @@ export async function GET(request: NextRequest) {
       to: searchParams.get("to"),
     })
 
-    const [positiveResult, negativeResult] = await Promise.all([
-      fetchAppEvents({ from: params.from, to: params.to, name: "user_feedback_positive", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "user_feedback_negative", limitCount: 5000 }),
-    ])
-
-    return NextResponse.json({
-      positive: positiveResult.data,
-      negative: negativeResult.data,
-      generatedAt: new Date().toISOString(),
-    })
+    try {
+      const data = await fetchGa4DailyActivity(params)
+      return NextResponse.json({ data, source: "ga4", generatedAt: new Date().toISOString() })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error("[ga4-daily] failed:", message)
+      return NextResponse.json({ error: message, source: "ga4" }, { status: 503 })
+    }
   })
 }

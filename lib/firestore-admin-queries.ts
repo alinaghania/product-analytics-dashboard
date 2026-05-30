@@ -1,16 +1,50 @@
 import { getAdminDb } from "./firebase-admin"
 import { Timestamp } from "firebase-admin/firestore"
 import { format as formatDate } from "date-fns"
+import {
+  labelize,
+  PRIMARY_OBJECTIVE_LABELS,
+  SITUATION_LABELS,
+  APP_EXPECTATIONS_V2_LABELS,
+  TRACKING_PRIORITIES_LABELS,
+  REMINDER_PREFERENCES_LABELS,
+  CYCLE_TRACKING_GOALS_LABELS,
+  SYMPTOM_TIMING_LABELS,
+  MAIN_SYMPTOMS_LABELS,
+  WHAT_WEIGHS_MOST_LABELS,
+  ENDO_TYPES_LABELS,
+  HAS_ENDOMETRIOSIS_LABELS,
+  LIFE_STAGE_LABELS,
+  PERIOD_FREQUENCY_LABELS,
+} from "./onboarding-labels"
 import type {
   User,
   ChatConversation,
   ChatMessage,
   AppEvent,
   BubbleEvent,
+  Photo,
   TrackingEntry,
   TrackingSession,
   LastActivity,
+  OnboardingAnalytics,
+  CountSlice,
 } from "./types"
+
+// Recursively convert Firestore Timestamps (and Dates) to ISO strings, so
+// JSON.stringify produces readable output instead of `{ _seconds, _nanoseconds }`.
+export function serializeTimestamps(value: any): any {
+  if (value === null || value === undefined) return value
+  if (typeof value !== "object") return value
+  if (typeof value.toDate === "function") return value.toDate().toISOString()
+  if (value instanceof Date) return value.toISOString()
+  if (Array.isArray(value)) return value.map(serializeTimestamps)
+  const out: Record<string, any> = {}
+  for (const [k, v] of Object.entries(value)) {
+    out[k] = serializeTimestamps(v)
+  }
+  return out
+}
 
 // Helper to convert Firestore timestamp to Date
 function toDate(timestamp: any): Date | undefined {
@@ -49,14 +83,20 @@ function addDaysToDateString(dateStr: string, days: number): string {
 // ============= USERS =============
 
 function mapUserDoc(id: string, data: FirebaseFirestore.DocumentData): User {
+  const rawPhone = data.registrationData?.phone
+  const phone =
+    typeof rawPhone === "string" && rawPhone.trim().length > 0 ? rawPhone.trim() : undefined
+
   return {
     id,
     email: data.email || "",
     username: data.username || data.registrationData?.username || "",
     displayName: data.displayName,
+    phone,
     createdAt: toDate(data.createdAt) || new Date(),
     updatedAt: toDate(data.updatedAt) || new Date(),
     birthDate: data.registrationData?.birthDate || data.birthDate,
+    onboardingCompletedAt: toDate(data.onboardingCompletedAt),
     metadata: {
       lastLoginAt: toDate(data.metadata?.lastLoginAt),
       lastLoginDate: toDate(data.metadata?.lastLoginDate),
@@ -65,10 +105,14 @@ function mapUserDoc(id: string, data: FirebaseFirestore.DocumentData): User {
       accountCreatedDate: toDate(data.metadata?.accountCreatedDate),
     },
     flags: {
-      onboardingCompleted: data.flags?.onboardingCompleted || false,
-      registrationCompleted: data.flags?.registrationCompleted || false,
-      registrationStep: data.flags?.registrationStep,
-      profileCompletion: data.flags?.profileCompletion || 0,
+      onboardingCompleted:
+        data.flags?.onboardingCompleted ?? data.onboardingCompleted ?? false,
+      registrationCompleted:
+        data.flags?.registrationCompleted ?? data.registrationCompleted ?? false,
+      registrationStep:
+        data.flags?.registrationStep ?? data.registrationStep,
+      profileCompletion:
+        data.flags?.profileCompletion ?? data.metadata?.profileCompleteness ?? 0,
     },
     subscriptionStatus: data.subscriptionStatus,
     registrationData: data.registrationData,
@@ -79,6 +123,10 @@ export async function fetchUsers(options: {
   limitCount?: number
   search?: string
   startAfter?: string
+  from?: string // YYYY-MM-DD inclusive lower bound on createdAt
+  to?: string // YYYY-MM-DD inclusive upper bound on createdAt
+  platform?: "ios" | "android"
+  premium?: boolean
 }): Promise<{ data: User[]; hasMore: boolean; lastCreatedAt?: string }> {
   const db = getAdminDb()
   const limitCount = options.limitCount || 50
@@ -96,11 +144,25 @@ export async function fetchUsers(options: {
 
   let ref: FirebaseFirestore.Query = db.collection("users").orderBy("createdAt", "desc")
 
+  // Date range on createdAt — single-field range + orderBy on same field, no
+  // composite index required.
+  if (options.from) {
+    ref = ref.where("createdAt", ">=", new Date(`${options.from}T00:00:00`))
+  }
+  if (options.to) {
+    ref = ref.where("createdAt", "<=", new Date(`${options.to}T23:59:59`))
+  }
+
   if (options.startAfter) {
     ref = ref.startAfter(new Date(options.startAfter))
   }
 
-  ref = ref.limit(limitCount)
+  // Over-fetch when client-side filters are active so the visible page isn't
+  // mostly empty after we drop non-matching rows. Capped so a slow filter
+  // doesn't pull thousands of docs per request.
+  const hasClientFilters = !!(search || options.platform || options.premium !== undefined)
+  const fetchLimit = hasClientFilters ? Math.min(Math.max(limitCount * 3, 150), 300) : limitCount
+  ref = ref.limit(fetchLimit)
   const snapshot = await ref.get()
 
   let users: User[] = snapshot.docs.map((doc) => mapUserDoc(doc.id, doc.data()))
@@ -111,12 +173,21 @@ export async function fetchUsers(options: {
       (u) => u.email?.toLowerCase().includes(searchLower) || u.username?.toLowerCase().includes(searchLower),
     )
   }
+  if (options.platform) {
+    users = users.filter((u) => u.metadata?.platform?.toLowerCase() === options.platform)
+  }
+  if (options.premium !== undefined) {
+    users = users.filter((u) => Boolean(u.subscriptionStatus?.isPremium) === options.premium)
+  }
 
-  const hasMore = snapshot.docs.length === limitCount
+  // After client-side filtering, trim back to the requested page size.
+  const trimmed = users.slice(0, limitCount)
+
+  const hasMore = snapshot.docs.length === fetchLimit
   const lastDoc = snapshot.docs[snapshot.docs.length - 1]
   const lastCreatedAt = lastDoc?.data()?.createdAt?.toDate?.()?.toISOString()
 
-  return { data: users, hasMore, lastCreatedAt }
+  return { data: trimmed, hasMore, lastCreatedAt }
 }
 
 export async function fetchUserById(userId: string): Promise<User | null> {
@@ -124,6 +195,175 @@ export async function fetchUserById(userId: string): Promise<User | null> {
   const doc = await db.collection("users").doc(userId).get()
   if (!doc.exists) return null
   return mapUserDoc(doc.id, doc.data()!)
+}
+
+// Total user count via Firestore aggregation — costs 1 read regardless of
+// collection size. Use this instead of `fetchUsers().data.length` when the
+// caller only needs the KPI number.
+export async function fetchTotalUserCount(): Promise<number> {
+  const db = getAdminDb()
+  const snapshot = await db.collection("users").count().get()
+  return snapshot.data().count
+}
+
+// Activity KPIs (Avg DAU / WAU / MAU / Stickiness) for the selected range.
+// Server still scans `tracking_sessions` over the date range but returns just
+// 4 numbers — the client doesn't download every session.
+export async function fetchActivityMetrics(options: {
+  from: string
+  to: string
+}): Promise<{ avgDau: number; wau: number; mau: number; stickiness: number }> {
+  const db = getAdminDb()
+  const { fromTs, toTs } = dateRangeTimestamps(options.from, options.to)
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(today.getDate() - 7)
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(today.getDate() - 30)
+
+  // Fetch only the fields we need — slimmer payload, same number of reads.
+  const snapshot = await db
+    .collection("tracking_sessions")
+    .where("startedAt", ">=", fromTs)
+    .where("startedAt", "<=", toTs)
+    .select("userId", "startedAt")
+    .limit(5000)
+    .get()
+
+  const dailyUsers = new Map<string, Set<string>>()
+  const wauSet = new Set<string>()
+  const mauSet = new Set<string>()
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data()
+    const userId: string | undefined = data.userId
+    const startedAt: Date | undefined = data.startedAt?.toDate?.()
+    if (!userId || !startedAt) continue
+
+    const dayKey = `${startedAt.getFullYear()}-${startedAt.getMonth()}-${startedAt.getDate()}`
+    if (!dailyUsers.has(dayKey)) dailyUsers.set(dayKey, new Set())
+    dailyUsers.get(dayKey)!.add(userId)
+
+    if (startedAt >= sevenDaysAgo) wauSet.add(userId)
+    if (startedAt >= thirtyDaysAgo) mauSet.add(userId)
+  }
+
+  const avgDau =
+    dailyUsers.size > 0
+      ? Math.round(
+          [...dailyUsers.values()].reduce((sum, set) => sum + set.size, 0) / dailyUsers.size,
+        )
+      : 0
+  const wau = wauSet.size
+  const mau = mauSet.size
+  const stickiness = mau > 0 ? Math.min(Math.round((avgDau / mau) * 100), 100) : 0
+
+  return { avgDau, wau, mau, stickiness }
+}
+
+// Daily count of Firestore user signups (users.createdAt) in the given range.
+// Fetches only the `createdAt` field via select() and buckets server-side, so
+// the client just receives an array of `{ date, count }` — no doc download.
+export async function fetchDailySignups(options: {
+  from: string
+  to: string
+}): Promise<Array<{ date: string; count: number }>> {
+  const db = getAdminDb()
+  const { fromTs, toTs } = dateRangeTimestamps(options.from, options.to)
+
+  const snapshot = await db
+    .collection("users")
+    .where("createdAt", ">=", fromTs)
+    .where("createdAt", "<=", toTs)
+    .orderBy("createdAt", "asc")
+    .select("createdAt")
+    .limit(10000)
+    .get()
+
+  const byDay = new Map<string, number>()
+  for (const doc of snapshot.docs) {
+    const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    if (!ts) continue
+    const dayKey = ts.toISOString().slice(0, 10)
+    byDay.set(dayKey, (byDay.get(dayKey) || 0) + 1)
+  }
+
+  return [...byDay.entries()]
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+// Average age from users.registrationData.age (or birthDate) without
+// downloading the entire users collection — server reads only the registration
+// fields it needs and returns the average.
+export async function fetchAvgAge(): Promise<{ avgAge: number; sampleSize: number }> {
+  const db = getAdminDb()
+  const snapshot = await db
+    .collection("users")
+    .select("registrationData", "birthDate")
+    .limit(10000)
+    .get()
+
+  const now = new Date()
+  let sum = 0
+  let count = 0
+  for (const doc of snapshot.docs) {
+    const d = doc.data() as any
+    let age: number | undefined
+    const rawAge = d.registrationData?.age
+    if (typeof rawAge === "number") age = rawAge
+    else if (typeof rawAge === "string" && rawAge.trim()) {
+      const n = parseInt(rawAge, 10)
+      if (Number.isFinite(n)) age = n
+    } else {
+      const bd = d.registrationData?.birthDate || d.birthDate
+      if (typeof bd === "string") {
+        const birth = new Date(bd)
+        if (!Number.isNaN(birth.getTime())) {
+          const yrs = now.getFullYear() - birth.getFullYear()
+          const before =
+            now.getMonth() < birth.getMonth() ||
+            (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
+          age = before ? yrs - 1 : yrs
+        }
+      }
+    }
+    if (typeof age === "number" && age > 0 && age < 120) {
+      sum += age
+      count++
+    }
+  }
+
+  const avgAge = count > 0 ? Math.round(sum / count) : 0
+  return { avgAge, sampleSize: count }
+}
+
+// Photo count via Firestore aggregation — 1 read regardless of how many docs
+// match. Supports the same date range + filter shape as `fetchPhotos` so KPIs
+// can be computed without downloading the underlying docs.
+export async function fetchPhotoCount(options?: {
+  from?: string
+  to?: string
+  time?: "morning" | "evening"
+  bloated?: boolean
+}): Promise<number> {
+  const db = getAdminDb()
+  let ref: FirebaseFirestore.Query = db.collection("photos")
+  if (options?.from && options?.to) {
+    ref = ref
+      .where("timestamp", ">=", Timestamp.fromDate(new Date(`${options.from}T00:00:00`)))
+      .where("timestamp", "<=", Timestamp.fromDate(new Date(`${options.to}T23:59:59`)))
+  }
+  if (options?.time) {
+    ref = ref.where("time", "==", options.time)
+  }
+  if (options?.bloated !== undefined) {
+    ref = ref.where("bloated", "==", options.bloated)
+  }
+  const snapshot = await ref.count().get()
+  return snapshot.data().count
 }
 
 // ============= CONVERSATIONS =============
@@ -156,12 +396,20 @@ export async function fetchUserConversations(
       id: doc.id,
       userId: data.userId || "",
       messageCount: data.messageCount || 0,
+      title: typeof data.title === "string" ? data.title : undefined,
       topics: data.topics || (data.topic ? [data.topic] : []),
       topic: data.topic,
       entryPoint: data.entryPoint,
       startedAt: toDate(data.startedAt),
       createdAt,
       updatedAt,
+      lastMessage: typeof data.lastMessage === "string" ? data.lastMessage : undefined,
+      lastMessageSnippet:
+        typeof data.lastMessage === "string"
+          ? data.lastMessage
+          : typeof data.lastMessageSnippet === "string"
+            ? data.lastMessageSnippet
+            : undefined,
     }
   })
 
@@ -196,10 +444,18 @@ export async function fetchConversations(options: {
       id: doc.id,
       userId: data.userId || "",
       messageCount: data.messageCount || 0,
+      title: typeof data.title === "string" ? data.title : undefined,
       topics: data.topics || [],
       entryPoint: data.entryPoint,
       createdAt: toDate(data.createdAt) || new Date(),
       updatedAt: toDate(data.updatedAt) || new Date(),
+      lastMessage: typeof data.lastMessage === "string" ? data.lastMessage : undefined,
+      lastMessageSnippet:
+        typeof data.lastMessage === "string"
+          ? data.lastMessage
+          : typeof data.lastMessageSnippet === "string"
+            ? data.lastMessageSnippet
+            : undefined,
     }
   })
 
@@ -319,23 +575,26 @@ export async function fetchUserChatSessions(userId: string): Promise<ChatConvers
     const lastMessageAt = toDate(data.lastMessageAt)
     const createdAt = createdAtValue || new Date(0)
     const updatedAt = updatedAtValue || createdAt
-    const lastMessageSnippet =
-      typeof data.lastMessageSnippet === "string"
-        ? data.lastMessageSnippet
-        : typeof data.lastMessagePreview === "string"
-          ? data.lastMessagePreview
-          : typeof data.lastMessage?.text === "string"
-            ? data.lastMessage.text
-            : typeof data.lastMessage?.content === "string"
-              ? data.lastMessage.content
-              : typeof data.lastMessage?.message === "string"
-                ? data.lastMessage.message
-                : undefined
+    const lastMessageString =
+      typeof data.lastMessage === "string"
+        ? data.lastMessage
+        : typeof data.lastMessageSnippet === "string"
+          ? data.lastMessageSnippet
+          : typeof data.lastMessagePreview === "string"
+            ? data.lastMessagePreview
+            : typeof data.lastMessage?.text === "string"
+              ? data.lastMessage.text
+              : typeof data.lastMessage?.content === "string"
+                ? data.lastMessage.content
+                : typeof data.lastMessage?.message === "string"
+                  ? data.lastMessage.message
+                  : undefined
 
     const session: ChatConversation = {
       id: doc.id,
       userId: data.userId || "",
       messageCount: data.messageCount || 0,
+      title: typeof data.title === "string" ? data.title : undefined,
       topics: data.topics || (data.topic ? [data.topic] : []),
       topic: data.topic,
       entryPoint: data.entryPoint,
@@ -343,7 +602,8 @@ export async function fetchUserChatSessions(userId: string): Promise<ChatConvers
       createdAt,
       updatedAt,
       lastMessageAt,
-      lastMessageSnippet,
+      lastMessage: lastMessageString,
+      lastMessageSnippet: lastMessageString,
     }
     const sortDate = updatedAtValue || createdAtValue || lastMessageAt
     return { session, sortDate }
@@ -449,6 +709,28 @@ export async function fetchBubbleEvents(options: {
 
 // ============= TRACKING =============
 
+function mapTrackingDoc(id: string, data: FirebaseFirestore.DocumentData): TrackingEntry {
+  const createdAt = toDate(data.createdAt) || new Date()
+  const fallbackDate = createdAt.toISOString().split("T")[0]
+  return {
+    id,
+    date: id.split("_")[1] || fallbackDate,
+    userId: data.userId || id.split("_")[0] || "",
+    completeness: data.completeness || 0,
+    entryMethod: data.entryMethod || "manual",
+    sleep: data.sleep,
+    meals: data.meals,
+    sport: data.sport,
+    digestive: data.digestive,
+    period: data.period,
+    symptoms: data.symptoms || [],
+    sections: data.sections || [],
+    stress: data.stress,
+    createdAt,
+    updatedAt: toDate(data.updatedAt) || createdAt,
+  }
+}
+
 export async function fetchTrackingEntries(options: {
   from: string
   to: string
@@ -458,33 +740,29 @@ export async function fetchTrackingEntries(options: {
   const db = getAdminDb()
   const limitCount = options.limitCount || 100
 
-  const ref = db.collection("tracking").orderBy("createdAt", "desc").limit(limitCount)
-  const snapshot = await ref.get()
+  // When scoped to a single user, use the (userId + date DESC) composite index
+  // that's already deployed in Firestore.
+  if (options.userId) {
+    const snapshot = await db
+      .collection("tracking")
+      .where("userId", "==", options.userId)
+      .where("date", ">=", options.from)
+      .where("date", "<=", options.to)
+      .orderBy("date", "desc")
+      .limit(limitCount)
+      .get()
 
+    const entries = snapshot.docs.map((doc) => mapTrackingDoc(doc.id, doc.data()))
+    return { data: entries, hasMore: snapshot.docs.length === limitCount }
+  }
+
+  const snapshot = await db.collection("tracking").orderBy("createdAt", "desc").limit(limitCount).get()
   const entries: TrackingEntry[] = snapshot.docs
     .map((doc) => {
-      const data = doc.data()
-      const createdAt = toDate(data.createdAt) || new Date()
-      const docDate = createdAt.toISOString().split("T")[0]
-
+      const entry = mapTrackingDoc(doc.id, doc.data())
+      const docDate = entry.date || entry.createdAt.toISOString().split("T")[0]
       if (docDate < options.from || docDate > options.to) return null
-      if (options.userId && data.userId !== options.userId) return null
-
-      return {
-        id: doc.id,
-        date: doc.id.split("_")[1] || docDate,
-        userId: data.userId || doc.id.split("_")[0] || "",
-        completeness: data.completeness || 0,
-        entryMethod: data.entryMethod || "manual",
-        sleep: data.sleep,
-        meals: data.meals,
-        sport: data.sport,
-        digestive: data.digestive,
-        period: data.period,
-        symptoms: data.symptoms || [],
-        createdAt,
-        updatedAt: toDate(data.updatedAt) || createdAt,
-      }
+      return entry
     })
     .filter(Boolean) as TrackingEntry[]
 
@@ -661,7 +939,7 @@ export async function fetchOverviewMetrics(dateRange: { from: string; to: string
   }
 }
 
-export async function fetchChatConversations(dateRange?: { from?: string; to?: string }) {
+export async function fetchChatConversations(_dateRange?: { from?: string; to?: string }) {
   const db = getAdminDb()
 
   // Detect which field to use for ordering
@@ -675,12 +953,14 @@ export async function fetchChatConversations(dateRange?: { from?: string; to?: s
     return {
       id: doc.id,
       userId: data.userId || "",
+      title: typeof data.title === "string" ? data.title : "",
       topic: data.topic || "",
       entryPoint: data.entryPoint || "",
       createdAt: toDate(data.createdAt) || new Date(),
       updatedAt: toDate(data.updatedAt) || new Date(),
       messageCount: data.messageCount || 0,
       topics: data.topics || [],
+      lastMessage: typeof data.lastMessage === "string" ? data.lastMessage : undefined,
     }
   })
 
@@ -1016,4 +1296,482 @@ export async function fetchRoutines(from: string, to: string) {
       }
     })
     .filter((r) => r.createdAt >= fromDate && r.createdAt <= toDateObj)
+}
+
+// ============= PER-USER AGGREGATES =============
+
+// Many of these queries combine `where("userId", "==", id)` with `orderBy(...)`,
+// which requires a composite index Firestore may not have provisioned in prod.
+// We try the indexed query first and gracefully fall back to a scan + JS sort
+// when Firestore complains. The fallback may return an arbitrary slice of the
+// user's docs (not the most recent N) when they exceed the limit — callers must
+// surface that in the UI when an index error is reported.
+async function queryUserDocsWithFallback(
+  collection: string,
+  userId: string,
+  orderField: string,
+  limitCount: number,
+): Promise<{ docs: FirebaseFirestore.QueryDocumentSnapshot[]; error: string | null }> {
+  const db = getAdminDb()
+  try {
+    const snapshot = await db
+      .collection(collection)
+      .where("userId", "==", userId)
+      .orderBy(orderField, "desc")
+      .limit(limitCount)
+      .get()
+    return { docs: snapshot.docs, error: null }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    const snapshot = await db.collection(collection).where("userId", "==", userId).limit(limitCount).get()
+    const docs = snapshot.docs.slice().sort((a, b) => {
+      const aTs = toDate(a.data()[orderField])?.getTime() ?? 0
+      const bTs = toDate(b.data()[orderField])?.getTime() ?? 0
+      return bTs - aTs
+    })
+    return { docs, error: message }
+  }
+}
+
+export async function fetchUserPhotos(
+  userId: string,
+  limitCount: number = 200,
+): Promise<{ data: Photo[]; error: string | null }> {
+  if (!userId) return { data: [], error: null }
+  const { docs, error } = await queryUserDocsWithFallback("photos", userId, "timestamp", limitCount)
+  const data: Photo[] = docs.map((doc) => {
+    const d = doc.data()
+    return {
+      id: doc.id,
+      userId: d.userId || "",
+      pain: typeof d.pain === "number" ? d.pain : undefined,
+      bloated: typeof d.bloated === "boolean" ? d.bloated : typeof d.bloated === "number" ? d.bloated : undefined,
+      time: d.time,
+      notes: typeof d.notes === "string" ? d.notes : undefined,
+      downloadURL: typeof d.downloadURL === "string" ? d.downloadURL : undefined,
+      storagePath: typeof d.storagePath === "string" ? d.storagePath : undefined,
+      photoId: typeof d.photoId === "string" ? d.photoId : undefined,
+      timestamp: toDate(d.timestamp),
+      createdAt: toDate(d.createdAt) || toDate(d.timestamp) || new Date(),
+    }
+  })
+  return { data, error }
+}
+
+export async function fetchUserAppEvents(
+  userId: string,
+  limitCount: number = 200,
+): Promise<{ data: AppEvent[]; error: string | null }> {
+  if (!userId) return { data: [], error: null }
+  const { docs, error } = await queryUserDocsWithFallback("app_events", userId, "createdAt", limitCount)
+  const data: AppEvent[] = docs.map((doc) => {
+    const d = doc.data()
+    return {
+      id: doc.id,
+      userId: d.userId || "",
+      name: d.name || "",
+      screen: d.screen,
+      platform: d.platform,
+      appVersion: d.appVersion,
+      params: d.params,
+      createdAt: toDate(d.createdAt) || new Date(),
+    }
+  })
+  return { data, error }
+}
+
+export async function fetchUserBubbleEvents(
+  userId: string,
+  limitCount: number = 200,
+): Promise<{ data: BubbleEvent[]; error: string | null }> {
+  if (!userId) return { data: [], error: null }
+  const { docs, error } = await queryUserDocsWithFallback("bubble_events", userId, "createdAt", limitCount)
+  const data: BubbleEvent[] = docs.map((doc) => {
+    const d = doc.data()
+    return {
+      id: doc.id,
+      userId: d.userId || "",
+      event: d.event || "",
+      screen: d.screen,
+      viewDurationMs: d.viewDurationMs,
+      platform: d.platform,
+      appVersion: d.appVersion,
+      createdAt: toDate(d.createdAt) || new Date(),
+    }
+  })
+  return { data, error }
+}
+
+export async function fetchUserTrackingSessions(
+  userId: string,
+  limitCount: number = 100,
+): Promise<{ data: TrackingSession[]; error: string | null }> {
+  if (!userId) return { data: [], error: null }
+  const { docs, error } = await queryUserDocsWithFallback("tracking_sessions", userId, "startedAt", limitCount)
+  const data: TrackingSession[] = docs.map((doc) => {
+    const d = doc.data()
+    return {
+      id: doc.id,
+      userId: d.userId || "",
+      startedAt: toDate(d.startedAt) || new Date(),
+      completedAt: toDate(d.completedAt),
+      durationMs: d.durationMs || 0,
+      sections: d.sections || [],
+      entryPoint: d.entryPoint,
+      hasExistingRecord: d.hasExistingRecord || false,
+      entryMethod: d.entryMethod,
+      createdAt: toDate(d.createdAt),
+    }
+  })
+  return { data, error }
+}
+
+export async function fetchUserTrackingEntries(
+  userId: string,
+  options?: { from?: string; to?: string; limitCount?: number },
+): Promise<{ data: TrackingEntry[]; error: string | null }> {
+  if (!userId) return { data: [], error: null }
+  const db = getAdminDb()
+  const limitCount = options?.limitCount ?? 200
+
+  // Uses the existing (userId + date DESC) composite index. The previous
+  // documentId() range approach required a separate index Firestore wouldn't
+  // build implicitly, so it failed silently and returned empty for every user.
+  try {
+    let ref: FirebaseFirestore.Query = db
+      .collection("tracking")
+      .where("userId", "==", userId)
+    if (options?.from) ref = ref.where("date", ">=", options.from)
+    if (options?.to) ref = ref.where("date", "<=", options.to)
+    const snapshot = await ref.orderBy("date", "desc").limit(limitCount).get()
+    const data = snapshot.docs.map((doc) => mapTrackingDoc(doc.id, doc.data()))
+    return { data, error: null }
+  } catch (err) {
+    return {
+      data: [],
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+}
+
+export async function fetchUserRoutines(
+  userId: string,
+  limitCount: number = 100,
+): Promise<{ data: Array<Record<string, unknown>>; error: string | null }> {
+  if (!userId) return { data: [], error: null }
+  const { docs, error } = await queryUserDocsWithFallback("routines", userId, "createdAt", limitCount)
+  const data = docs.map((doc) => {
+    const d = doc.data()
+    // Spread raw fields first so explicit mapped values (Dates) take precedence
+    // — otherwise raw Firestore Timestamps would overwrite the converted Date.
+    return {
+      ...d,
+      id: doc.id,
+      userId: d.userId || "",
+      title: d.title,
+      name: d.name,
+      type: d.type,
+      sections: d.sections,
+      usageCount: d.usageCount || 0,
+      createdAt: toDate(d.createdAt),
+      updatedAt: toDate(d.updatedAt),
+      lastUsed: toDate(d.lastUsed),
+    }
+  })
+  return { data, error }
+}
+
+export async function fetchUserFoodTrials(
+  userId: string,
+  limitCount: number = 200,
+): Promise<{ data: Array<Record<string, unknown>>; error: string | null }> {
+  if (!userId) return { data: [], error: null }
+  const db = getAdminDb()
+  try {
+    const snapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("foodTrials")
+      .limit(limitCount)
+      .get()
+    const data = snapshot.docs.map((doc) => {
+      const d = doc.data()
+      // Spread raw first so the explicitly converted Dates win over raw Timestamps.
+      return {
+        ...d,
+        id: doc.id,
+        foodName:
+          d.foodName ||
+          d.name ||
+          d.food ||
+          d.label ||
+          undefined,
+        category: d.category || d.type || undefined,
+        status: d.status || undefined,
+        result: d.result || d.outcome || d.conclusion || undefined,
+        createdAt: toDate(d.createdAt),
+        startedAt: toDate(d.startedAt || d.startDate),
+        endedAt: toDate(d.endedAt || d.endDate || d.completedAt),
+        updatedAt: toDate(d.updatedAt),
+      }
+    })
+    // Sort newest-first by best-available date.
+    data.sort((a: any, b: any) => {
+      const aTs = (a.createdAt || a.startedAt || a.updatedAt)?.getTime?.() ?? 0
+      const bTs = (b.createdAt || b.startedAt || b.updatedAt)?.getTime?.() ?? 0
+      return bTs - aTs
+    })
+    return { data, error: null }
+  } catch (err) {
+    return {
+      data: [],
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+}
+
+export async function fetchUserRawDoc(userId: string): Promise<Record<string, unknown> | null> {
+  if (!userId) return null
+  const db = getAdminDb()
+  const doc = await db.collection("users").doc(userId).get()
+  if (!doc.exists) return null
+  return { id: doc.id, ...doc.data() }
+}
+
+// ============= ONBOARDING ANALYTICS =============
+
+/** Mutable count accumulator: stored code -> running total. */
+type Counter = Record<string, number>
+
+/** Increment the counter for a single string value (ignores blanks). */
+function tally(counter: Counter, value: unknown): void {
+  if (typeof value !== "string") return
+  const v = value.trim()
+  if (!v) return
+  counter[v] = (counter[v] || 0) + 1
+}
+
+/**
+ * Count a selection field that may be stored as a single string (single-select
+ * steps, e.g. appExpectationsV2) or an array (multi-select steps). Non-string
+ * items are skipped. This tolerance avoids miscounts when a step's select-type
+ * differs from what the field name suggests.
+ */
+function tallyAny(counter: Counter, value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) tally(counter, item)
+  } else {
+    tally(counter, value)
+  }
+}
+
+/**
+ * Turn a counter into sorted `{ name, count }` slices, decoding each code to a
+ * human label via the given map. `topN` keeps only the most common entries.
+ */
+function toSlices(counter: Counter, labels: Record<string, string>, topN?: number): CountSlice[] {
+  const slices = Object.entries(counter)
+    .map(([code, count]) => ({ name: labelize(labels, code), count }))
+    .sort((a, b) => b.count - a.count)
+  return topN ? slices.slice(0, topN) : slices
+}
+
+/**
+ * Aggregate onboarding selections across the whole `users` collection.
+ *
+ * Reads only `registrationData` via select(), counts every tracked field
+ * server-side, and returns compact, display-ready slices — the
+ * client never downloads the user docs. Legacy (V3) and current (V4) field
+ * names are coalesced so both cohorts are counted. Values are decoded to the
+ * app's English labels; unknown / legacy free-text passes through readably.
+ *
+ * Note: onboarding fires no analytics events (the account is created only at
+ * the end), so the funnel below is a field-presence proxy, not real step
+ * tracking.
+ */
+export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
+  const db = getAdminDb()
+  const snapshot = await db.collection("users").select("registrationData").limit(20000).get()
+
+  const totalUsers = snapshot.size
+  let usersWithRegistration = 0
+
+  // Intent
+  const objective: Counter = {}
+  const situation: Counter = {}
+  const appExpectations: Counter = {}
+  const trackingPriorities: Counter = {}
+  const reminderPreferences: Counter = {}
+  const cycleTrackingGoals: Counter = {}
+  const mainSymptoms: Counter = {}
+  const whatWeighsMost: Counter = {}
+  const symptomTiming: Counter = {}
+  // Profile
+  const healthGoals: Counter = {}
+  const lifeStage: Counter = {}
+  const symptoms: Counter = {}
+  const medicalConditions: Counter = {}
+  const endoStatus: Counter = {}
+  const endoTypes: Counter = {}
+  const diagnosisYear: Counter = {}
+  const periodsStatus: Counter = {}
+  const periodFrequency: Counter = {}
+  const periodSymptoms: Counter = {}
+  const menstrualPain: Counter = {}
+  // Demographics
+  const country: Counter = {}
+  const cities: Counter = {}
+  const platform: Counter = {}
+
+  // Funnel (field-presence proxy) + KPI helpers
+  let hasHealthGoals = 0
+  let hasSymptoms = 0
+  let hasMedicalConditions = 0
+  let hasEndoStatus = 0
+  let hasPeriodInfo = 0
+  let hasCity = 0
+  let hasEndoYes = 0
+  let notifYes = 0
+  let notifNo = 0
+  let ageSum = 0
+  let ageCount = 0
+  const ageBucketCounts = { "<18": 0, "18-24": 0, "25-34": 0, "35-44": 0, "45+": 0 }
+
+  const nonEmptyArray = (v: unknown) => Array.isArray(v) && v.length > 0
+
+  for (const doc of snapshot.docs) {
+    const reg = doc.data().registrationData as Record<string, unknown> | undefined
+    if (!reg || typeof reg !== "object") continue
+    usersWithRegistration++
+
+    // ── Intent (single-select fields are strings, multi-select are arrays) ──
+    tallyAny(objective, reg.primaryObjective)
+    tallyAny(situation, reg.situationsConcerned)
+    tallyAny(appExpectations, reg.appExpectationsV2)
+    tallyAny(trackingPriorities, reg.trackingPriorities)
+    tallyAny(reminderPreferences, reg.reminderPreferences)
+    tallyAny(cycleTrackingGoals, reg.cycleTrackingGoals)
+    tallyAny(mainSymptoms, reg.mainSymptoms)
+    tallyAny(whatWeighsMost, reg.whatWeighsMost)
+    tallyAny(symptomTiming, reg.symptomTiming)
+
+    // ── Profile (coalesce legacy + V4 names) ───────────────────────────────
+    tallyAny(healthGoals, reg.healthGoals ?? reg.appExpectations)
+    tallyAny(lifeStage, reg.lifeStage)
+    tallyAny(symptoms, reg.symptoms)
+    tallyAny(medicalConditions, reg.medicalConditions ?? reg.healthConditions)
+    tallyAny(endoStatus, reg.hasEndometriosis)
+    tallyAny(endoTypes, reg.endometriosisTypes ?? reg.endoTypes)
+    tally(diagnosisYear, reg.diagnosisYear == null ? undefined : String(reg.diagnosisYear))
+    tallyAny(periodsStatus, reg.hasPeriods)
+    tallyAny(periodFrequency, reg.periodFrequency)
+    tallyAny(periodSymptoms, reg.periodSymptoms)
+    if (reg.menstrualPain != null && reg.menstrualPain !== "") {
+      tally(menstrualPain, `Level ${reg.menstrualPain}`)
+    }
+
+    // ── Demographics ────────────────────────────────────────────────────────
+    tallyAny(country, reg.location)
+    tallyAny(cities, reg.city)
+    tally(platform, (reg.deviceInfo as Record<string, unknown> | undefined)?.platform)
+
+    // ── Funnel + KPI tallies ──────────────────────────────────────────────
+    if (nonEmptyArray(reg.healthGoals ?? reg.appExpectations)) hasHealthGoals++
+    if (nonEmptyArray(reg.symptoms) || nonEmptyArray(reg.mainSymptoms)) hasSymptoms++
+    if (nonEmptyArray(reg.medicalConditions ?? reg.healthConditions)) hasMedicalConditions++
+    if (reg.hasEndometriosis) hasEndoStatus++
+    if (reg.hasPeriods || reg.bleedingStatus) hasPeriodInfo++
+    if (typeof reg.city === "string" && reg.city.trim()) hasCity++
+    if (reg.hasEndometriosis === "yes") hasEndoYes++
+
+    const notif = (reg.preferences as Record<string, unknown> | undefined)?.notifications
+    if (notif === true) notifYes++
+    else if (notif === false) notifNo++
+
+    const rawAge = reg.age
+    const age =
+      typeof rawAge === "number"
+        ? rawAge
+        : typeof rawAge === "string" && rawAge.trim()
+          ? parseInt(rawAge, 10)
+          : NaN
+    if (Number.isFinite(age) && age > 0 && age < 120) {
+      ageSum += age
+      ageCount++
+      if (age < 18) ageBucketCounts["<18"]++
+      else if (age <= 24) ageBucketCounts["18-24"]++
+      else if (age <= 34) ageBucketCounts["25-34"]++
+      else if (age <= 44) ageBucketCounts["35-44"]++
+      else ageBucketCounts["45+"]++
+    }
+  }
+
+  const completionRate =
+    totalUsers > 0 ? Math.round((usersWithRegistration / totalUsers) * 100) : 0
+  const hasEndoPercent =
+    usersWithRegistration > 0 ? Math.round((hasEndoYes / usersWithRegistration) * 100) : 0
+
+  // Diagnosis year reads best chronologically rather than by frequency.
+  const diagnosisYearSlices = Object.entries(diagnosisYear)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  // Menstrual pain (Level 0..4) reads best in order.
+  const menstrualPainSlices = Object.entries(menstrualPain)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return {
+    totalUsers,
+    usersWithRegistration,
+    completionRate,
+    avgAge: ageCount > 0 ? Math.round(ageSum / ageCount) : 0,
+    hasEndoPercent,
+    funnel: [
+      { name: "Account Created", value: totalUsers },
+      { name: "Registration Data", value: usersWithRegistration },
+      { name: "Health Goals", value: hasHealthGoals },
+      { name: "Symptoms", value: hasSymptoms },
+      { name: "Medical Conditions", value: hasMedicalConditions },
+      { name: "Endo Status", value: hasEndoStatus },
+      { name: "Period Info", value: hasPeriodInfo },
+      { name: "City & Location", value: hasCity },
+    ],
+
+    objective: toSlices(objective, PRIMARY_OBJECTIVE_LABELS),
+    situation: toSlices(situation, SITUATION_LABELS),
+    appExpectations: toSlices(appExpectations, APP_EXPECTATIONS_V2_LABELS),
+    trackingPriorities: toSlices(trackingPriorities, TRACKING_PRIORITIES_LABELS),
+    reminderPreferences: toSlices(reminderPreferences, REMINDER_PREFERENCES_LABELS),
+    cycleTrackingGoals: toSlices(cycleTrackingGoals, CYCLE_TRACKING_GOALS_LABELS),
+    mainSymptoms: toSlices(mainSymptoms, MAIN_SYMPTOMS_LABELS, 12),
+    whatWeighsMost: toSlices(whatWeighsMost, WHAT_WEIGHS_MOST_LABELS, 12),
+    symptomTiming: toSlices(symptomTiming, SYMPTOM_TIMING_LABELS, 12),
+
+    healthGoals: toSlices(healthGoals, {}, 12),
+    lifeStage: toSlices(lifeStage, LIFE_STAGE_LABELS),
+    symptoms: toSlices(symptoms, {}, 12),
+    medicalConditions: toSlices(medicalConditions, {}, 12),
+    endoStatus: toSlices(endoStatus, HAS_ENDOMETRIOSIS_LABELS),
+    endoTypes: toSlices(endoTypes, ENDO_TYPES_LABELS, 10),
+    diagnosisYear: diagnosisYearSlices,
+    periodsStatus: toSlices(periodsStatus, {}),
+    periodFrequency: toSlices(periodFrequency, PERIOD_FREQUENCY_LABELS).filter(
+      (s) => s.name && s.name !== "Unknown",
+    ),
+    periodSymptoms: toSlices(periodSymptoms, {}, 12),
+    menstrualPain: menstrualPainSlices,
+
+    ageBuckets: Object.entries(ageBucketCounts).map(([name, count]) => ({ name, count })),
+    country: toSlices(country, {}, 10),
+    topCities: toSlices(cities, {}, 15),
+    platform: toSlices(platform, {}),
+    notifications: [
+      { name: "Enabled", count: notifYes },
+      { name: "Disabled", count: notifNo },
+      { name: "Unknown", count: Math.max(0, usersWithRegistration - notifYes - notifNo) },
+    ],
+
+    generatedAt: new Date().toISOString(),
+  }
 }

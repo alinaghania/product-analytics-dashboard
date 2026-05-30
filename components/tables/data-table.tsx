@@ -15,6 +15,7 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean
   onReload?: () => void
   onExport?: () => void
+  onRowClick?: (row: TData) => void
   emptyMessage?: string
 }
 
@@ -27,6 +28,7 @@ export function DataTable<TData, TValue>({
   isLoading,
   onReload,
   onExport,
+  onRowClick,
   emptyMessage = "No results found.",
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
@@ -98,7 +100,14 @@ export function DataTable<TData, TValue>({
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="border-border transition-colors hover:bg-card-soft">
+                <TableRow
+                  key={row.id}
+                  className={cn(
+                    "border-border transition-colors hover:bg-card-soft",
+                    onRowClick && "cursor-pointer",
+                  )}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="text-sm text-foreground">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

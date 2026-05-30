@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
 import { Header } from "@/components/dashboard/header"
@@ -8,64 +9,100 @@ import { DataTable } from "@/components/tables/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { UserChatsDrawer } from "@/components/users/UserChatsDrawer"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatDateTime } from "@/lib/date-utils"
 import {
-  checkUserHasChats,
   fetchUsers,
   fetchLastLoginsForUsers,
   fetchLastActivitiesForUsers,
   fetchUserDailySessionTimes,
 } from "@/lib/api-client"
 import type { User } from "@/lib/types"
-import { MessageSquare, Search } from "lucide-react"
+import { Search, X } from "lucide-react"
 
-function UserChatAction({ user, onOpen }: { user: User; onOpen: (user: User) => void }) {
-  const { data: hasChats } = useQuery({
-    queryKey: ["userHasChats", user.id],
-    queryFn: () => checkUserHasChats(user.id),
-    enabled: Boolean(user.id),
-    refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000,
-  })
+type PlatformFilter = "all" | "ios" | "android"
+type PremiumFilter = "all" | "premium" | "free"
 
-  if (!hasChats) return null
+// Wrap any CSV cell so embedded commas, quotes, and newlines don't break the row.
+const csvEscape = (v: unknown): string => {
+  const s = v == null ? "" : String(v)
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
 
-  return (
-    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpen(user)}>
-      <MessageSquare className="h-4 w-4" />
-      <span className="sr-only">Open chats</span>
-    </Button>
-  )
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs)
+    return () => clearTimeout(t)
+  }, [value, delayMs])
+  return debounced
 }
 
 export default function UsersPage() {
+  const router = useRouter()
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounced(search, 350)
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all")
+  const [premiumFilter, setPremiumFilter] = useState<PremiumFilter>("all")
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
   const [pageCursors, setPageCursors] = useState<string[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
-  const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
-  const [chatDrawerUser, setChatDrawerUser] = useState<{ id: string; email: string } | null>(null)
 
-  // Reset pagination and cursors when search changes
+  const filtersActive =
+    !!search ||
+    !!fromDate ||
+    !!toDate ||
+    platformFilter !== "all" ||
+    premiumFilter !== "all"
+
+  // Reset pagination and cursors whenever any filter changes — the cursor
+  // stack from the previous filter combination is no longer valid.
   useEffect(() => {
     setPagination({ pageIndex: 0, pageSize: 50 })
     setPageCursors([])
-  }, [search])
+  }, [debouncedSearch, fromDate, toDate, platformFilter, premiumFilter])
 
   const startAfter = pagination.pageIndex > 0 ? pageCursors[pagination.pageIndex - 1] : undefined
 
+  const platformParam = platformFilter === "all" ? undefined : platformFilter
+  const premiumParam =
+    premiumFilter === "all" ? undefined : premiumFilter === "premium"
+
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["users", search, pagination.pageSize, pagination.pageIndex],
-    queryFn: () => fetchUsers({
-      limitCount: pagination.pageSize,
-      search,
-      startAfter,
-    }),
+    queryKey: [
+      "users",
+      debouncedSearch,
+      fromDate,
+      toDate,
+      platformFilter,
+      premiumFilter,
+      pagination.pageSize,
+      pagination.pageIndex,
+    ],
+    queryFn: () =>
+      fetchUsers({
+        limitCount: pagination.pageSize,
+        search: debouncedSearch,
+        startAfter,
+        from: fromDate || undefined,
+        to: toDate || undefined,
+        platform: platformParam,
+        premium: premiumParam,
+      }),
     enabled: pagination.pageIndex === 0 || !!startAfter,
     refetchOnWindowFocus: false,
     staleTime: 2 * 60 * 1000,
   })
+
+  const resetFilters = () => {
+    setSearch("")
+    setFromDate("")
+    setToDate("")
+    setPlatformFilter("all")
+    setPremiumFilter("all")
+  }
 
   // Store cursor for the current page when data arrives
   useEffect(() => {
@@ -112,32 +149,25 @@ export default function UsersPage() {
     setLastUpdated(new Date())
   }
 
-  const handleOpenChats = (user: User) => {
-    setChatDrawerUser({ id: user.id, email: user.email })
-    setChatDrawerOpen(true)
-  }
-
-  const handleCloseChats = () => {
-    setChatDrawerOpen(false)
-    setChatDrawerUser(null)
-  }
-
   const handleExport = () => {
     if (!data?.data) return
+    const headers = [
+      "Email",
+      "Name",
+      "Phone",
+      "Created At",
+      "Last Login",
+      "Last Activity",
+      "Platform",
+      "Age",
+      "Avg Daily Time",
+      "Payment",
+    ]
     const csv = [
-      [
-        "Email",
-        "Name",
-        "Created At",
-        "Last Login",
-        "Last Activity",
-        "Platform",
-        "Age",
-        "Avg Daily Time",
-        "Payment",
-      ].join(","),
+      headers.map(csvEscape).join(","),
       ...data.data.map((user: User) => {
         const name = user.username || user.displayName || user.registrationData?.name || "-"
+        const phone = user.phone || "—"
         const createdAt = user.createdAt?.toISOString() || ""
         const lastLogin = lastLoginsMap?.[user.id]
         const lastLoginStr = lastLogin ? formatDateTime(lastLogin) : "—"
@@ -172,6 +202,7 @@ export default function UsersPage() {
         return [
           user.email,
           name,
+          phone,
           createdAt,
           lastLoginStr,
           lastActivityStr,
@@ -179,7 +210,9 @@ export default function UsersPage() {
           age,
           avgDailyTimeStr,
           payment,
-        ].join(",")
+        ]
+          .map(csvEscape)
+          .join(",")
       }),
     ].join("\n")
 
@@ -239,6 +272,13 @@ export default function UsersPage() {
         const name = row.original.username || row.original.displayName || row.original.registrationData?.name || "-"
         return <span className="text-sm text-muted-foreground">{name}</span>
       },
+    },
+    {
+      accessorKey: "phone",
+      header: "Phone",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">{row.original.phone || "—"}</span>
+      ),
     },
     {
       accessorKey: "createdAt",
@@ -316,13 +356,6 @@ export default function UsersPage() {
         )
       },
     },
-    {
-      id: "chats",
-      header: "Chats",
-      cell: ({ row }) => (
-        <UserChatAction user={row.original} onOpen={handleOpenChats} />
-      ),
-    },
   ]
 
   return (
@@ -330,15 +363,84 @@ export default function UsersPage() {
       <Header title="Users" description="Manage and analyze user data" lastUpdated={lastUpdated} />
 
       <div className="flex-1 space-y-6 p-6">
-        {/* Search */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by email, username, or user ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-card pl-9"
-          />
+        {/* Search + Filters */}
+        <div className="flex flex-col gap-3">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by email, username, or user ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-card pl-9"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Signup from
+              </label>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-9 w-[160px] bg-card"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Signup to
+              </label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-9 w-[160px] bg-card"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Platform
+              </label>
+              <Select
+                value={platformFilter}
+                onValueChange={(v) => setPlatformFilter(v as PlatformFilter)}
+              >
+                <SelectTrigger className="h-9 w-[140px] bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All platforms</SelectItem>
+                  <SelectItem value="ios">iOS</SelectItem>
+                  <SelectItem value="android">Android</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Subscription
+              </label>
+              <Select
+                value={premiumFilter}
+                onValueChange={(v) => setPremiumFilter(v as PremiumFilter)}
+              >
+                <SelectTrigger className="h-9 w-[140px] bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="free">Free</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {filtersActive && (
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="h-9 gap-1.5">
+                <X className="h-3.5 w-3.5" />
+                Reset
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Table */}
@@ -351,16 +453,10 @@ export default function UsersPage() {
           isLoading={isLoading}
           onReload={handleReload}
           onExport={handleExport}
+          onRowClick={(user) => router.push(`/users/${user.id}`)}
           emptyMessage="No users found. Click Reload to fetch data."
         />
       </div>
-
-      <UserChatsDrawer
-        open={chatDrawerOpen}
-        onClose={handleCloseChats}
-        userId={chatDrawerUser?.id || ""}
-        userEmail={chatDrawerUser?.email || ""}
-      />
     </div>
   )
 }
