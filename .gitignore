@@ -33,7 +33,9 @@ secrets/
 
 # claude code
 /plans/
-.claude
+.claude/*
+# …but share project skills with the team (local settings stay ignored above)
+!.claude/skills/
 
 # exports
 /exports/

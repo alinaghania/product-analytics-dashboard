@@ -5,9 +5,11 @@ export interface User {
   email: string
   username?: string
   displayName?: string // Added fallback field for last login
+  phone?: string
   createdAt: Date
   updatedAt: Date
   birthDate?: string // ISO date string
+  onboardingCompletedAt?: Date
   metadata: {
     lastLoginAt?: Date
     lastLoginDate?: Date // Added fallback field for last login
@@ -34,6 +36,7 @@ export interface User {
     firstName?: string
     lastName?: string
     username?: string
+    phone?: string
     deviceInfo?: {
       platform?: string
     }
@@ -96,10 +99,15 @@ export interface TrackingSession {
 export interface Photo {
   id: string
   userId: string
-  pain: number
-  bloated: number
-  time: string
-  viewCount: number
+  pain?: number
+  bloated?: boolean | number
+  time?: string
+  viewCount?: number
+  notes?: string
+  downloadURL?: string
+  storagePath?: string
+  photoId?: string
+  timestamp?: Date
   createdAt: Date
 }
 
@@ -107,6 +115,7 @@ export interface ChatConversation {
   id: string
   userId: string
   messageCount: number
+  title?: string
   topics?: string[]
   topic?: string
   entryPoint?: string
@@ -114,6 +123,7 @@ export interface ChatConversation {
   createdAt: Date
   updatedAt: Date
   lastMessageAt?: Date
+  lastMessage?: string
   lastMessageSnippet?: string
 }
 
@@ -201,6 +211,59 @@ export interface OverviewMetrics {
 export interface DateRange {
   from: string
   to: string
+}
+
+/** A single `{ name, count }` slice for a chart (name is the display label). */
+export interface CountSlice {
+  name: string
+  count: number
+}
+
+/**
+ * Pre-aggregated onboarding analytics returned by `/api/metrics/onboarding`.
+ * Every selection field is an array of `{ name, count }` ready to chart, with
+ * `name` already decoded to a human-readable label (see lib/onboarding-labels).
+ */
+export interface OnboardingAnalytics {
+  totalUsers: number
+  usersWithRegistration: number
+  completionRate: number
+  avgAge: number
+  hasEndoPercent: number
+  funnel: Array<{ name: string; value: number }>
+
+  // What users want (V4 intent / preference selections)
+  objective: CountSlice[]
+  situation: CountSlice[]
+  appExpectations: CountSlice[]
+  trackingPriorities: CountSlice[]
+  reminderPreferences: CountSlice[]
+  cycleTrackingGoals: CountSlice[]
+  mainSymptoms: CountSlice[]
+  whatWeighsMost: CountSlice[]
+  symptomTiming: CountSlice[]
+
+  // Health profile (legacy + V4)
+  healthGoals: CountSlice[]
+  lifeStage: CountSlice[]
+  symptoms: CountSlice[]
+  medicalConditions: CountSlice[]
+  endoStatus: CountSlice[]
+  endoTypes: CountSlice[]
+  diagnosisYear: CountSlice[]
+  periodsStatus: CountSlice[]
+  periodFrequency: CountSlice[]
+  periodSymptoms: CountSlice[]
+  menstrualPain: CountSlice[]
+
+  // Demographics
+  ageBuckets: CountSlice[]
+  country: CountSlice[]
+  topCities: CountSlice[]
+  platform: CountSlice[]
+  notifications: CountSlice[]
+
+  generatedAt: string
 }
 
 export interface TrackingMetrics {

@@ -10,7 +10,7 @@ import { ChartCard } from "@/components/dashboard/chart-card"
 import { LineChart } from "@/components/charts/line-chart"
 import { BarChart } from "@/components/charts/bar-chart"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
-import { fetchPhotos } from "@/lib/api-client"
+import { fetchPhotos, fetchPhotoCount } from "@/lib/api-client"
 import { bucketByDay } from "@/lib/analytics"
 
 export default function PhotosPage() {
@@ -24,6 +24,8 @@ export default function PhotosPage() {
   })
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
 
+  // Heavy per-doc fetch (used by the per-day / morning-vs-evening / pain
+  // distribution charts) stays lazy: only triggered by Reload All.
   const {
     data: photos,
     isLoading,
@@ -36,8 +38,41 @@ export default function PhotosPage() {
     refetchOnWindowFocus: false,
   })
 
+  // KPI counts via Firestore count() aggregation — 1 read each, no image
+  // metadata downloaded. Auto-fetch on mount so the 4 numbers show instantly.
+  const countQueryOpts = {
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  }
+  const { data: totalCount, isLoading: totalLoading, refetch: refetchTotal } = useQuery({
+    queryKey: ["photo-count", "total", dateRange.from, dateRange.to],
+    queryFn: () => fetchPhotoCount({ from: dateRange.from, to: dateRange.to }),
+    ...countQueryOpts,
+  })
+  const { data: morningCount, isLoading: morningLoading, refetch: refetchMorning } = useQuery({
+    queryKey: ["photo-count", "morning", dateRange.from, dateRange.to],
+    queryFn: () => fetchPhotoCount({ from: dateRange.from, to: dateRange.to, time: "morning" }),
+    ...countQueryOpts,
+  })
+  const { data: eveningCount, isLoading: eveningLoading, refetch: refetchEvening } = useQuery({
+    queryKey: ["photo-count", "evening", dateRange.from, dateRange.to],
+    queryFn: () => fetchPhotoCount({ from: dateRange.from, to: dateRange.to, time: "evening" }),
+    ...countQueryOpts,
+  })
+  const { data: bloatedTrueCount, isLoading: bloatedLoading, refetch: refetchBloated } = useQuery({
+    queryKey: ["photo-count", "bloated-true", dateRange.from, dateRange.to],
+    queryFn: () => fetchPhotoCount({ from: dateRange.from, to: dateRange.to, bloated: true }),
+    ...countQueryOpts,
+  })
+
   const handleReload = async () => {
-    await refetch()
+    await Promise.all([
+      refetchTotal(),
+      refetchMorning(),
+      refetchEvening(),
+      refetchBloated(),
+      refetch(),
+    ])
     setLastUpdated(new Date())
   }
 
@@ -71,11 +106,13 @@ export default function PhotosPage() {
     count: photosList.filter((p) => p.pain === level).length,
   }))
 
-  // P4: Bloated rate
-  const photosWithBloatedData = photosList.filter((p) => typeof p.bloated !== "undefined")
-  const bloatedCount = photosList.filter((p) => p.bloated === true || p.bloated === 1).length
+  // P4: Bloated rate — derived from count() KPIs. Denominator is total photos
+  // in range (not "photos with bloated field set") which was a small caveat in
+  // the previous version. Acceptable simplification for a headline rate.
   const bloatedRate =
-    photosWithBloatedData.length > 0 ? Math.round((bloatedCount / photosWithBloatedData.length) * 100) : 0
+    totalCount && totalCount > 0 && bloatedTrueCount !== undefined
+      ? Math.round((bloatedTrueCount / totalCount) * 100)
+      : 0
 
   return (
     <div className="flex flex-col">
@@ -92,23 +129,28 @@ export default function PhotosPage() {
         <div className="grid grid-cols-4 gap-4">
           <KpiCard
             label="Total Photos"
-            value={photosList.length.toLocaleString()}
-            isLoading={isLoading}
+            value={(totalCount ?? 0).toLocaleString()}
+            isLoading={totalLoading}
             onReload={handleReload}
           />
           <KpiCard
             label="Morning Photos"
-            value={photosList.filter((p) => p.time === "morning").length.toString()}
-            isLoading={isLoading}
+            value={(morningCount ?? 0).toLocaleString()}
+            isLoading={morningLoading}
             variant="info"
           />
           <KpiCard
             label="Evening Photos"
-            value={photosList.filter((p) => p.time === "evening").length.toString()}
-            isLoading={isLoading}
+            value={(eveningCount ?? 0).toLocaleString()}
+            isLoading={eveningLoading}
             variant="success"
           />
-          <KpiCard label="Bloated Rate" value={`${bloatedRate}%`} isLoading={isLoading} variant="warning" />
+          <KpiCard
+            label="Bloated Rate"
+            value={`${bloatedRate}%`}
+            isLoading={bloatedLoading || totalLoading}
+            variant="warning"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-6">

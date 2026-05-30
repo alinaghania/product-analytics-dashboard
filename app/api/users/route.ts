@@ -7,6 +7,10 @@ const querySchema = z.object({
   limit: z.string().transform(Number).default("50"),
   search: z.string().optional(),
   startAfter: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  platform: z.enum(["ios", "android"]).optional(),
+  premium: z.enum(["true", "false"]).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -16,12 +20,20 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get("limit") || "50",
       search: searchParams.get("search") || undefined,
       startAfter: searchParams.get("startAfter") || undefined,
+      from: searchParams.get("from") || undefined,
+      to: searchParams.get("to") || undefined,
+      platform: searchParams.get("platform") || undefined,
+      premium: searchParams.get("premium") || undefined,
     })
 
     const result = await fetchUsers({
       limitCount: params.limit,
       search: params.search,
       startAfter: params.startAfter,
+      from: params.from,
+      to: params.to,
+      platform: params.platform,
+      premium: params.premium === undefined ? undefined : params.premium === "true",
     })
 
     return NextResponse.json({

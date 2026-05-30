@@ -1,84 +1,78 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { format as formatDate, subDays } from "date-fns"
 import { Header } from "@/components/dashboard/header"
-import { DateRangePicker } from "@/components/dashboard/date-range-picker"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { ChartCard } from "@/components/dashboard/chart-card"
 import { BarChart } from "@/components/charts/bar-chart"
 import { PieChart } from "@/components/charts/pie-chart"
 import { FunnelChart } from "@/components/charts/funnel-chart"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
-import { fetchUsers } from "@/lib/api-client"
+import { fetchOnboardingAnalytics } from "@/lib/api-client"
 
-function countArrayField(users: any[], field: string, topN = 10) {
-  const counts: Record<string, number> = {}
-  users.forEach((u) => {
-    const values = u.registrationData?.[field] as string[]
-    if (Array.isArray(values)) {
-      values.forEach((v) => {
-        if (v) counts[v] = (counts[v] || 0) + 1
-      })
-    }
-  })
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, topN)
-    .map(([name, count]) => ({ name, count }))
+interface ChartInfo {
+  title: string
+  description: string
+  howToRead: string
+  limitations: string
+  dataCoverage: string
 }
 
-function countStringField(users: any[], field: string, unknownLabel = "Unknown", normalize?: Record<string, string>) {
-  const counts: Record<string, number> = {}
-  users.forEach((u) => {
-    let value = u.registrationData?.[field] as string
-    if (value) {
-      if (normalize) value = normalize[value] || value
-      counts[value] = (counts[value] || 0) + 1
-    } else {
-      counts[unknownLabel] = (counts[unknownLabel] || 0) + 1
-    }
-  })
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, count]) => ({ name, count }))
+/** ChartCard + InfoTooltip wrapper to keep the (many) chart blocks declarative. */
+function ChartBlock({
+  title,
+  info,
+  isLoading,
+  onReload,
+  children,
+}: {
+  title: string
+  info: ChartInfo
+  isLoading: boolean
+  onReload: () => void
+  children: ReactNode
+}) {
+  return (
+    <ChartCard
+      title={
+        <div className="flex items-center gap-2">
+          <span>{title}</span>
+          <InfoTooltip {...info} />
+        </div>
+      }
+      isLoading={isLoading}
+      onReload={onReload}
+    >
+      {children}
+    </ChartCard>
+  )
 }
 
-const LIFE_STAGE_EN: Record<string, string> = {
-  "Gestion endométriose/OPK": "Endometriosis/PCOS management",
-  "Suivi des règles": "Period tracking",
-  "Suivi de la contraception": "Birth control monitoring",
-  "Planification de grossesse": "Pregnancy planning",
-  "Suivi de la ménopause": "Menopause tracking",
+function SectionHeading({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="pt-2">
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+      <p className="text-sm text-muted-foreground">{subtitle}</p>
+    </div>
+  )
 }
 
-const PERIOD_FREQUENCY_EN: Record<string, string> = {
-  "Tous les mois": "Every month",
-  "Irrégulier": "Irregular",
-  "Toutes les 3 semaines": "Every 3 weeks",
-  "Toutes les 2 semaines": "Every 2 weeks",
-  "Toutes les 5 semaines": "Every 5 weeks",
+const PALETTE = {
+  purple: "#7C3AED",
+  blue: "#3B82F6",
+  green: "#2ED47A",
+  cyan: "#22D3EE",
+  amber: "#F59E0B",
+  red: "#FF5C5C",
 }
 
 export default function OnboardingPage() {
-  const [dateRange, setDateRange] = useState(() => {
-    const to = new Date()
-    const from = subDays(to, 90)
-    return {
-      from: formatDate(from, "yyyy-MM-dd"),
-      to: formatDate(to, "yyyy-MM-dd"),
-    }
-  })
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
 
-  const {
-    data: usersData,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["onboarding-analytics", dateRange.from, dateRange.to],
-    queryFn: () => fetchUsers({ limitCount: 5000 }),
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["onboarding-analytics"],
+    queryFn: fetchOnboardingAnalytics,
     enabled: false,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,
@@ -90,474 +84,481 @@ export default function OnboardingPage() {
   }
 
   useEffect(() => {
-    const loadInitialData = async () => {
+    const load = async () => {
       await refetch()
       setLastUpdated(new Date())
     }
-    loadInitialData()
+    load()
   }, [])
 
-  const users = usersData?.data || []
-  const usersWithReg = users.filter((u) => u.registrationData)
-
-  // ============= KPIs =============
-  // flags.onboardingCompleted/registrationCompleted are not set in Firestore,
-  // so we use presence of registrationData as proxy for completion
-  const completionRate = users.length > 0 ? Math.round((usersWithReg.length / users.length) * 100) : 0
-
-  const ages = usersWithReg
-    .map((u) => Number.parseInt(u.registrationData?.age as string))
-    .filter((age) => !isNaN(age) && age > 0 && age < 120)
-  const avgAge = ages.length > 0 ? Math.round(ages.reduce((sum, a) => sum + a, 0) / ages.length) : 0
-
-  // ============= Field Completion Funnel =============
-  const fieldCompletionData = [
-    { name: "Account Created", value: users.length },
-    { name: "Registration Data", value: usersWithReg.length },
-    { name: "Health Goals", value: users.filter((u) => Array.isArray(u.registrationData?.healthGoals) && (u.registrationData.healthGoals as string[]).length > 0).length },
-    { name: "Symptoms", value: users.filter((u) => Array.isArray(u.registrationData?.symptoms) && (u.registrationData.symptoms as string[]).length > 0).length },
-    { name: "Medical Conditions", value: users.filter((u) => Array.isArray(u.registrationData?.medicalConditions)).length },
-    { name: "Endo Status", value: users.filter((u) => u.registrationData?.hasEndometriosis).length },
-    { name: "Period Info", value: users.filter((u) => u.registrationData?.hasPeriods).length },
-    { name: "City & Location", value: users.filter((u) => u.registrationData?.city).length },
-  ]
-
-  // ============= Demographics =============
-  const ageBuckets = [
-    { range: "<18", count: ages.filter((a) => a < 18).length },
-    { range: "18-24", count: ages.filter((a) => a >= 18 && a <= 24).length },
-    { range: "25-34", count: ages.filter((a) => a >= 25 && a <= 34).length },
-    { range: "35-44", count: ages.filter((a) => a >= 35 && a <= 44).length },
-    { range: "45+", count: ages.filter((a) => a >= 45).length },
-  ]
-
-  const topCities = countStringField(usersWithReg, "city")
-    .filter((c) => c.name !== "Unknown")
-    .slice(0, 15)
-
-  const locationData = countStringField(usersWithReg, "location")
-    .filter((c) => c.name !== "Unknown")
-    .slice(0, 10)
-
-  const platformCounts: Record<string, number> = {}
-  usersWithReg.forEach((u) => {
-    const platform = (u.registrationData as any)?.deviceInfo?.platform as string
-    if (platform) platformCounts[platform] = (platformCounts[platform] || 0) + 1
-  })
-  const platformData = Object.entries(platformCounts).map(([name, count]) => ({ name, count }))
-
-  // ============= Health Profile =============
-  const endoStatusData = countStringField(usersWithReg, "hasEndometriosis")
-  const endoTypesData = countArrayField(usersWithReg, "endometriosisTypes", 8)
-  const medicalConditionsData = countArrayField(usersWithReg, "medicalConditions", 10)
-  const symptomsData = countArrayField(usersWithReg, "symptoms", 10)
-
-  // Diagnosis year distribution
-  const diagYearCounts: Record<string, number> = {}
-  usersWithReg.forEach((u) => {
-    const year = (u.registrationData as any)?.diagnosisYear as number
-    if (year) diagYearCounts[String(year)] = (diagYearCounts[String(year)] || 0) + 1
-  })
-  const diagYearData = Object.entries(diagYearCounts)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([name, count]) => ({ name, count }))
-
-  // ============= Period & Menstrual =============
-  const periodsStatusData = countStringField(usersWithReg, "hasPeriods")
-  const periodFrequencyData = countStringField(usersWithReg, "periodFrequency", "Unknown", PERIOD_FREQUENCY_EN).filter((d) => d.name !== "" && d.name !== "Unknown")
-  const periodSymptomsData = countArrayField(usersWithReg, "periodSymptoms", 10)
-
-  // Menstrual pain distribution
-  const painCounts: Record<string, number> = {}
-  usersWithReg.forEach((u) => {
-    const pain = (u.registrationData as any)?.menstrualPain
-    if (pain !== undefined && pain !== null) {
-      painCounts[String(pain)] = (painCounts[String(pain)] || 0) + 1
-    }
-  })
-  const painData = Object.entries(painCounts)
-    .sort((a, b) => Number(a[0]) - Number(b[0]))
-    .map(([name, count]) => ({ name: `Level ${name}`, count }))
-
-  // ============= Goals & Life Stage =============
-  const healthGoalsData = countArrayField(usersWithReg, "healthGoals", 10)
-  const lifeStageData = countStringField(usersWithReg, "lifeStage", "Unknown", LIFE_STAGE_EN).filter((d) => d.name !== "Unknown")
-
-  // ============= Preferences =============
-  const notificationsYes = usersWithReg.filter((u) => (u.registrationData as any)?.preferences?.notifications === true).length
-  const notificationsNo = usersWithReg.filter((u) => (u.registrationData as any)?.preferences?.notifications === false).length
-  const notificationsData = [
-    { name: "Enabled", count: notificationsYes },
-    { name: "Disabled", count: notificationsNo },
-    { name: "Unknown", count: usersWithReg.length - notificationsYes - notificationsNo },
-  ]
+  const regN = data?.usersWithRegistration ?? 0
+  const v4Coverage = `Asked only in the new (V4) onboarding flow — newest user cohort`
+  const regCoverage = `Computed from ${regN.toLocaleString()} users with registration data`
 
   return (
     <div className="flex flex-col">
       <Header
         title="Onboarding Analytics"
-        description="Registration funnel, user choices during onboarding, and health profiles"
+        description="What users want and select during onboarding — goals, situations, expectations, and health profile"
         lastUpdated={lastUpdated}
         onReloadAll={handleReload}
       />
 
       <div className="flex-1 space-y-6 p-6">
-        <DateRangePicker from={dateRange.from} to={dateRange.to} onChange={(from, to) => setDateRange({ from, to })} />
-
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-4">
-          <KpiCard label="Total Users" value={users.length.toLocaleString()} isLoading={isLoading} onReload={handleReload} />
-          <KpiCard label="Registration %" value={`${completionRate}%`} isLoading={isLoading} variant="success" />
-          <KpiCard label="Avg Age" value={avgAge.toString()} isLoading={isLoading} />
+          <KpiCard
+            label="Total Users"
+            value={(data?.totalUsers ?? 0).toLocaleString()}
+            isLoading={isLoading}
+            onReload={handleReload}
+          />
+          <KpiCard
+            label="Registration %"
+            value={`${data?.completionRate ?? 0}%`}
+            isLoading={isLoading}
+            variant="success"
+          />
+          <KpiCard label="Avg Age" value={(data?.avgAge ?? 0).toString()} isLoading={isLoading} />
           <KpiCard
             label="Has Endo"
-            value={`${usersWithReg.length > 0 ? Math.round((users.filter((u) => u.registrationData?.hasEndometriosis === "yes").length / usersWithReg.length) * 100) : 0}%`}
+            value={`${data?.hasEndoPercent ?? 0}%`}
             isLoading={isLoading}
             variant="info"
           />
         </div>
 
-        {/* Registration Funnel */}
-        <ChartCard
-          title={
-            <div className="flex items-center gap-2">
-              <span>Registration Funnel</span>
-              <InfoTooltip
-                title="Registration Funnel"
-                description="Shows how many users completed each stage of the onboarding flow"
-                howToRead="Each bar shows users who reached that step. Percentage shows step-to-step conversion."
-                limitations="Based on field presence in registrationData, not actual step tracking."
-                dataCoverage={`Computed from ${users.length} users`}
-              />
-            </div>
-          }
+        {/* Registration funnel */}
+        <ChartBlock
+          title="Registration Funnel"
+          info={{
+            title: "Registration Funnel",
+            description: "How many users reached each stage of onboarding.",
+            howToRead: "Each bar shows users who reached that step; percentage is step-to-step conversion.",
+            limitations:
+              "Onboarding fires no analytics events (the account is created only at the very end), so this is a field-presence proxy, not real step tracking.",
+            dataCoverage: `Computed from ${(data?.totalUsers ?? 0).toLocaleString()} users`,
+          }}
           isLoading={isLoading}
           onReload={handleReload}
         >
-          <FunnelChart data={fieldCompletionData} />
-        </ChartCard>
+          <FunnelChart data={data?.funnel ?? []} />
+        </ChartBlock>
 
-        {/* Health Goals & Life Stage */}
+        {/* ============================================================== */}
+        {/* WHAT USERS WANT (V4 intent / preference selections)            */}
+        {/* ============================================================== */}
+        <SectionHeading
+          title="What users want"
+          subtitle="The goals and preferences users actively select during the new onboarding flow"
+        />
+
         <div className="grid grid-cols-2 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Health Goals</span>
-                <InfoTooltip
-                  title="Health Goals"
-                  description="Reasons users gave for downloading the app, from registrationData.healthGoals"
-                  howToRead="Users can select multiple goals. Higher bars = more popular motivation."
-                  limitations="Multiple selections per user, so totals exceed user count."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Primary Objective"
+            info={{
+              title: "Primary Objective",
+              description: "The top-level reason users chose when starting onboarding (registrationData.primaryObjective).",
+              howToRead: "Single selection per user. Shows the headline goal that drives them to the app.",
+              limitations: "Single select.",
+              dataCoverage: v4Coverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <BarChart data={healthGoalsData} xKey="name" yKey="count" layout="vertical" color="#7C3AED" />
-          </ChartCard>
+            <PieChart data={data?.objective ?? []} showLabel={false} />
+          </ChartBlock>
 
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Life Stage</span>
-                <InfoTooltip
-                  title="Life Stage"
-                  description="User's current life stage or primary reason for using the app"
-                  howToRead="Shows the distribution of user segments by life stage."
-                  limitations="Single selection per user."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Situation / Parcours"
+            info={{
+              title: "Situation / Parcours",
+              description: "The specific situation users identified with (registrationData.situationsConcerned).",
+              howToRead: "Single selection; determines the onboarding branch they go through.",
+              limitations: "Single select.",
+              dataCoverage: v4Coverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <PieChart data={lifeStageData} showLabel={false} />
-          </ChartCard>
-        </div>
-
-        {/* Symptoms & Medical Conditions */}
-        <div className="grid grid-cols-2 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Symptoms (Top 10)</span>
-                <InfoTooltip
-                  title="Reported Symptoms"
-                  description="Symptoms users selected during onboarding, from registrationData.symptoms"
-                  howToRead="Multiple selections per user. Shows most common symptoms."
-                  limitations="Self-reported during onboarding, may change over time."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <BarChart data={symptomsData} xKey="name" yKey="count" layout="vertical" color="#F59E0B" />
-          </ChartCard>
-
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Medical Conditions (Top 10)</span>
-                <InfoTooltip
-                  title="Medical Conditions"
-                  description="Self-reported chronic conditions from registrationData.medicalConditions"
-                  howToRead="Multiple conditions per user. Shows prevalence of conditions in user base."
-                  limitations="Self-reported. Empty arrays count as 'no conditions'."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <BarChart data={medicalConditionsData} xKey="name" yKey="count" layout="vertical" color="#3B82F6" />
-          </ChartCard>
-        </div>
-
-        {/* Endometriosis */}
-        <div className="grid grid-cols-3 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Endometriosis Status</span>
-                <InfoTooltip
-                  title="Endometriosis Status"
-                  description="Whether user has endometriosis: yes, suspected, or no"
-                  howToRead="Pie chart shows distribution across all users."
-                  limitations="Self-reported during onboarding."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <PieChart data={endoStatusData} showLabel={false} />
-          </ChartCard>
-
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Endometriosis Types</span>
-                <InfoTooltip
-                  title="Endometriosis Types"
-                  description="Specific types/stages reported by users with endometriosis"
-                  howToRead="Only includes users who reported having endometriosis."
-                  limitations="Self-reported staging. Multiple types can be selected."
-                  dataCoverage={`Computed from ${endoTypesData.reduce((s, d) => s + d.count, 0)} responses`}
-                />
-              </div>
-            }
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <PieChart data={endoTypesData} showLabel={false} />
-          </ChartCard>
-
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Diagnosis Year</span>
-                <InfoTooltip
-                  title="Diagnosis Year"
-                  description="Year of endometriosis diagnosis from registrationData.diagnosisYear"
-                  howToRead="Shows when users were diagnosed. Recent years may have more users."
-                  limitations="Only users with endometriosis who provided a year (65% of users)."
-                  dataCoverage={`Computed from ${diagYearData.reduce((s, d) => s + d.count, 0)} users`}
-                />
-              </div>
-            }
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <BarChart data={diagYearData} xKey="name" yKey="count" color="#22D3EE" />
-          </ChartCard>
-        </div>
-
-        {/* Period & Menstrual */}
-        <div className="grid grid-cols-2 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Period Status</span>
-                <InfoTooltip
-                  title="Period Status"
-                  description="Whether users have periods and contraception status"
-                  howToRead="Categories: yes, yes_on_contraception, no_on_contraception, no_menopause."
-                  limitations="Self-reported during onboarding."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <PieChart data={periodsStatusData} showLabel={false} />
-          </ChartCard>
-
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Period Frequency</span>
-                <InfoTooltip
-                  title="Period Frequency"
-                  description="How often users get their periods from registrationData.periodFrequency"
-                  howToRead="Shows cycle regularity. 'Irrégulier' indicates irregular cycles."
-                  limitations="Self-reported. Some values may be empty."
-                  dataCoverage={`Computed from ${periodFrequencyData.reduce((s, d) => s + d.count, 0)} users with data`}
-                />
-              </div>
-            }
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <PieChart data={periodFrequencyData} showLabel={false} />
-          </ChartCard>
+            <BarChart data={data?.situation ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.purple} />
+          </ChartBlock>
         </div>
 
         <div className="grid grid-cols-2 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Period Symptoms (Top 10)</span>
-                <InfoTooltip
-                  title="Period Symptoms"
-                  description="Menstrual symptoms selected during onboarding from registrationData.periodSymptoms"
-                  howToRead="Multiple selections per user. Shows most common period-related symptoms."
-                  limitations="Self-reported. Users can select multiple symptoms."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="App Expectations"
+            info={{
+              title: "App Expectations",
+              description: "What users expect most from Endora (registrationData.appExpectationsV2).",
+              howToRead: "Single selection. The clearest signal of what users want the product to do for them.",
+              limitations: "Single select.",
+              dataCoverage: v4Coverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <BarChart data={periodSymptomsData} xKey="name" yKey="count" layout="vertical" color="#FF5C5C" />
-          </ChartCard>
+            <BarChart data={data?.appExpectations ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.blue} />
+          </ChartBlock>
 
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Menstrual Pain Level</span>
-                <InfoTooltip
-                  title="Menstrual Pain Level"
-                  description="Self-reported pain level from 0 to 4 from registrationData.menstrualPain"
-                  howToRead="0 = no pain, 4 = severe pain. Shows pain distribution across users."
-                  limitations="Subjective scale. Reported at registration time."
-                  dataCoverage={`Computed from ${painData.reduce((s, d) => s + d.count, 0)} users`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Tracking Priorities"
+            info={{
+              title: "Tracking Priorities",
+              description: "What users most want to track (registrationData.trackingPriorities).",
+              howToRead: "Up to 3 selections per user, so totals exceed the user count.",
+              limitations: "Multi-select (max 3).",
+              dataCoverage: v4Coverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <BarChart data={painData} xKey="name" yKey="count" color="#EF4444" />
-          </ChartCard>
+            <BarChart data={data?.trackingPriorities ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.green} />
+          </ChartBlock>
         </div>
 
-        {/* Demographics */}
         <div className="grid grid-cols-2 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Age Distribution</span>
-                <InfoTooltip
-                  title="Age Distribution"
-                  description="Self-reported age during onboarding from registrationData.age"
-                  howToRead="Shows age groups. Higher bars indicate more users in that range."
-                  limitations="Some users may not have provided age."
-                  dataCoverage={`Computed from ${ages.length} users with valid age data`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Reminder Preferences"
+            info={{
+              title: "Reminder Preferences",
+              description: "Whether and why users want reminders (registrationData.reminderPreferences).",
+              howToRead: "Single selection. Shows appetite for proactive nudges.",
+              limitations: "Single select.",
+              dataCoverage: v4Coverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <BarChart data={ageBuckets} xKey="range" yKey="count" color="#7C3AED" />
-          </ChartCard>
+            <PieChart data={data?.reminderPreferences ?? []} showLabel={false} />
+          </ChartBlock>
 
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Country</span>
-                <InfoTooltip
-                  title="Country Distribution"
-                  description="User's country from registrationData.location"
-                  howToRead="Shows geographic distribution by country."
-                  limitations="Only countries provided during onboarding."
-                  dataCoverage={`Computed from ${locationData.reduce((s, d) => s + d.count, 0)} users`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Cycle Tracking Goals"
+            info={{
+              title: "Cycle Tracking Goals",
+              description: "Goals for users on the cycle-tracking parcours (registrationData.cycleTrackingGoals).",
+              howToRead: "Up to 3 selections. Only the cycle-tracking branch is asked this, so volume is low.",
+              limitations: "Multi-select; small sample (cycle-tracking branch only).",
+              dataCoverage: v4Coverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <BarChart data={locationData} xKey="name" yKey="count" layout="vertical" color="#2ED47A" />
-          </ChartCard>
+            <BarChart data={data?.cycleTrackingGoals ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.cyan} />
+          </ChartBlock>
         </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartBlock
+            title="What Weighs Most (Top 12)"
+            info={{
+              title: "What Weighs Most",
+              description: "The burdens that weigh most on users' daily lives (registrationData.whatWeighsMost).",
+              howToRead: "Up to 3 selections per user. Surfaces the pains people most want relief from.",
+              limitations: "Multi-select (max 3); endo-focused branches only.",
+              dataCoverage: v4Coverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.whatWeighsMost ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.amber} />
+          </ChartBlock>
+
+          <ChartBlock
+            title="Main Symptoms (Top 12)"
+            info={{
+              title: "Main Symptoms",
+              description: "Symptoms that bother users most (registrationData.mainSymptoms).",
+              howToRead: "Up to 4 selections per user.",
+              limitations: "Multi-select; diagnosed/suspected branches.",
+              dataCoverage: v4Coverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.mainSymptoms ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.red} />
+          </ChartBlock>
+        </div>
+
+        <ChartBlock
+          title="Symptom Timing (Top 12)"
+          info={{
+            title: "Symptom Timing",
+            description: "When users' symptoms tend to appear (registrationData.symptomTiming).",
+            howToRead: "Multiple selections per user. Helps understand cycle vs. non-cycle patterns.",
+            limitations: "Multi-select.",
+            dataCoverage: v4Coverage,
+          }}
+          isLoading={isLoading}
+          onReload={handleReload}
+        >
+          <BarChart data={data?.symptomTiming ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.blue} />
+        </ChartBlock>
+
+        {/* ============================================================== */}
+        {/* HEALTH PROFILE (legacy + V4)                                    */}
+        {/* ============================================================== */}
+        <SectionHeading
+          title="Health profile"
+          subtitle="Self-reported health context across all users (legacy and current onboarding)"
+        />
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartBlock
+            title="Health Goals (Top 12)"
+            info={{
+              title: "Health Goals",
+              description: "Reasons users gave for downloading the app (registrationData.healthGoals, legacy onboarding).",
+              howToRead: "Multiple selections per user. The legacy equivalent of App Expectations.",
+              limitations: "Free-text labels (mixed FR/EN) from the older flow.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.healthGoals ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.purple} />
+          </ChartBlock>
+
+          <ChartBlock
+            title="Life Stage"
+            info={{
+              title: "Life Stage",
+              description: "The life stage / care focus users selected (registrationData.lifeStage, legacy onboarding).",
+              howToRead: "Single selection. Why they came to the app at this point in their life.",
+              limitations: "Legacy field; FR labels are normalized to English.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <PieChart data={data?.lifeStage ?? []} showLabel={false} />
+          </ChartBlock>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartBlock
+            title="Symptoms (Top 12)"
+            info={{
+              title: "Reported Symptoms",
+              description: "Symptoms selected during onboarding (registrationData.symptoms).",
+              howToRead: "Multiple selections per user.",
+              limitations: "Self-reported; mixed FR/EN labels from the legacy flow.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.symptoms ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.amber} />
+          </ChartBlock>
+
+          <ChartBlock
+            title="Medical Conditions (Top 12)"
+            info={{
+              title: "Medical Conditions",
+              description: "Self-reported chronic conditions (registrationData.medicalConditions).",
+              howToRead: "Multiple conditions per user.",
+              limitations: "Self-reported free text; many long-tail values are truncated to the top 12.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.medicalConditions ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.blue} />
+          </ChartBlock>
+        </div>
+
+        <ChartBlock
+          title="Diagnosis Year"
+          info={{
+            title: "Diagnosis Year",
+            description: "Year of diagnosis (registrationData.diagnosisYear).",
+            howToRead: "Chronological. Shows when diagnosed users received their diagnosis.",
+            limitations: "Only users who reported a diagnosis year.",
+            dataCoverage: regCoverage,
+          }}
+          isLoading={isLoading}
+          onReload={handleReload}
+        >
+          <BarChart data={data?.diagnosisYear ?? []} xKey="name" yKey="count" color={PALETTE.cyan} />
+        </ChartBlock>
 
         <div className="grid grid-cols-3 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Top Cities</span>
-                <InfoTooltip
-                  title="City Distribution"
-                  description="Top 15 cities from registrationData.city"
-                  howToRead="Shows geographic concentration."
-                  limitations="Only cities provided during onboarding."
-                  dataCoverage={`Computed from ${topCities.reduce((s, d) => s + d.count, 0)} users with city data`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Endometriosis Status"
+            info={{
+              title: "Endometriosis Status",
+              description: "Whether users have endometriosis (registrationData.hasEndometriosis).",
+              howToRead: "yes / suspected / no across all users with data.",
+              limitations: "Self-reported.",
+              dataCoverage: regCoverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <BarChart data={topCities} xKey="name" yKey="count" layout="vertical" color="#3B82F6" />
-          </ChartCard>
+            <PieChart data={data?.endoStatus ?? []} showLabel={false} />
+          </ChartBlock>
 
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Platform</span>
-                <InfoTooltip
-                  title="Platform Distribution"
-                  description="iOS vs Android from registrationData.deviceInfo.platform"
-                  howToRead="Shows mobile platform split."
-                  limitations="Based on device used during registration."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Endometriosis Types (Top 10)"
+            info={{
+              title: "Endometriosis Types",
+              description: "Types/stages reported (registrationData.endometriosisTypes).",
+              howToRead: "Multiple types can be selected.",
+              limitations: "Mixed V4 codes and legacy FR/EN labels, so similar values may appear separately.",
+              dataCoverage: regCoverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <PieChart data={platformData} showLabel={false} />
-          </ChartCard>
+            <PieChart data={data?.endoTypes ?? []} showLabel={false} />
+          </ChartBlock>
 
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Notifications</span>
-                <InfoTooltip
-                  title="Notifications Opt-in"
-                  description="Push notification preferences from registrationData.preferences.notifications"
-                  howToRead="Shows user permission for notifications."
-                  limitations="Set during onboarding. Users may change settings later."
-                  dataCoverage={`Computed from ${usersWithReg.length} users`}
-                />
-              </div>
-            }
+          <ChartBlock
+            title="Menstrual Pain Level"
+            info={{
+              title: "Menstrual Pain Level",
+              description: "Self-reported pain 0–4 (registrationData.menstrualPain).",
+              howToRead: "0 = no pain, 4 = severe. Ordered by level.",
+              limitations: "Subjective scale, reported at registration.",
+              dataCoverage: regCoverage,
+            }}
             isLoading={isLoading}
             onReload={handleReload}
           >
-            <PieChart data={notificationsData} showLabel={false} />
-          </ChartCard>
+            <BarChart data={data?.menstrualPain ?? []} xKey="name" yKey="count" color={PALETTE.red} />
+          </ChartBlock>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartBlock
+            title="Period Status"
+            info={{
+              title: "Period Status",
+              description: "Whether users have periods (registrationData.hasPeriods).",
+              howToRead: "Distribution of period status.",
+              limitations: "Self-reported.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <PieChart data={data?.periodsStatus ?? []} showLabel={false} />
+          </ChartBlock>
+
+          <ChartBlock
+            title="Period Frequency"
+            info={{
+              title: "Period Frequency",
+              description: "How often users get their periods (registrationData.periodFrequency).",
+              howToRead: "Shows cycle regularity.",
+              limitations: "Self-reported; legacy field.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <PieChart data={data?.periodFrequency ?? []} showLabel={false} />
+          </ChartBlock>
+        </div>
+
+        <ChartBlock
+          title="Period Symptoms (Top 12)"
+          info={{
+            title: "Period Symptoms",
+            description: "Menstrual symptoms selected during onboarding (registrationData.periodSymptoms).",
+            howToRead: "Multiple selections per user.",
+            limitations: "Self-reported; legacy field.",
+            dataCoverage: regCoverage,
+          }}
+          isLoading={isLoading}
+          onReload={handleReload}
+        >
+          <BarChart data={data?.periodSymptoms ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.red} />
+        </ChartBlock>
+
+        {/* ============================================================== */}
+        {/* DEMOGRAPHICS                                                    */}
+        {/* ============================================================== */}
+        <SectionHeading title="Demographics" subtitle="Who the users are and where they come from" />
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartBlock
+            title="Age Distribution"
+            info={{
+              title: "Age Distribution",
+              description: "Self-reported age during onboarding (registrationData.age).",
+              howToRead: "Age groups; higher bars = more users in that range.",
+              limitations: "Some users did not provide an age.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.ageBuckets ?? []} xKey="name" yKey="count" color={PALETTE.purple} />
+          </ChartBlock>
+
+          <ChartBlock
+            title="Country (Top 10)"
+            info={{
+              title: "Country Distribution",
+              description: "User's country (registrationData.location).",
+              howToRead: "Geographic distribution by country.",
+              limitations: "Only countries provided during onboarding.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.country ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.green} />
+          </ChartBlock>
+        </div>
+
+        <div className="grid grid-cols-3 gap-6">
+          <ChartBlock
+            title="Top Cities"
+            info={{
+              title: "City Distribution",
+              description: "Top 15 cities (registrationData.city).",
+              howToRead: "Geographic concentration.",
+              limitations: "Only cities provided during onboarding.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <BarChart data={data?.topCities ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.blue} />
+          </ChartBlock>
+
+          <ChartBlock
+            title="Platform"
+            info={{
+              title: "Platform Distribution",
+              description: "iOS vs Android (registrationData.deviceInfo.platform).",
+              howToRead: "Mobile platform split.",
+              limitations: "Based on device used during registration.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <PieChart data={data?.platform ?? []} showLabel={false} />
+          </ChartBlock>
+
+          <ChartBlock
+            title="Notifications"
+            info={{
+              title: "Notifications Opt-in",
+              description: "Push notification preference (registrationData.preferences.notifications).",
+              howToRead: "Opt-in vs opt-out at onboarding.",
+              limitations: "Set during onboarding; users may change settings later.",
+              dataCoverage: regCoverage,
+            }}
+            isLoading={isLoading}
+            onReload={handleReload}
+          >
+            <PieChart data={data?.notifications ?? []} showLabel={false} />
+          </ChartBlock>
         </div>
       </div>
     </div>

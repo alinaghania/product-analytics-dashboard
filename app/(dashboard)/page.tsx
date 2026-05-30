@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { format as formatDate, subDays, addDays } from "date-fns"
 import { Header } from "@/components/dashboard/header"
 import { DateRangePicker } from "@/components/dashboard/date-range-picker"
@@ -18,12 +18,19 @@ import { Settings2 } from "lucide-react"
 import {
   fetchSessionsForActivity,
   fetchUsers,
+  fetchTotalUserCount,
+  fetchActivityMetrics,
+  fetchGa4ActivityMetrics,
+  fetchGa4DailyActivity,
+  fetchAvgAge,
+  fetchDailySignups,
   fetchChatConversations,
   fetchPhotos,
+  fetchPhotoCount,
   calculateRetentionCurve,
-  fetchFeedback,
 } from "@/lib/api-client"
 import { bucketByDay, bucketByHour, uniqueUsersByDay } from "@/lib/analytics"
+import { GOALS } from "@/lib/metric-goals"
 
 let globalInitialLoadDone = false
 
@@ -45,8 +52,6 @@ export default function OverviewPage() {
 
   const [showSessionsChart, setShowSessionsChart] = useState(false)
 
-  const queryClient = useQueryClient()
-
   const {
     data: sessionData,
     isLoading: sessionsLoading,
@@ -65,6 +70,100 @@ export default function OverviewPage() {
     queryKey: ["all-users"],
     queryFn: () => fetchUsers({ limitCount: 5000 }),
     enabled: false,
+  })
+
+  // Total user count via Firestore count() aggregation — 1 read, instant.
+  // Auto-fetches on mount so the headline KPI shows before the heavy
+  // `allUsers` query finishes downloading every doc.
+  const {
+    data: totalUserCount,
+    isLoading: totalUserCountLoading,
+    refetch: refetchTotalUserCount,
+  } = useQuery({
+    queryKey: ["users-count"],
+    queryFn: () => fetchTotalUserCount(),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Total photos via count() — 1 read regardless of how many photos match.
+  const {
+    data: totalPhotoCount,
+    isLoading: totalPhotoCountLoading,
+    refetch: refetchTotalPhotoCount,
+  } = useQuery({
+    queryKey: ["photos-count", dateRange.from, dateRange.to],
+    queryFn: () => fetchPhotoCount({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Activity KPIs (DAU/WAU/MAU/Stickiness) — server-side aggregation from
+  // tracking_sessions. Used as the fallback if Firebase Analytics is offline.
+  const {
+    data: activityMetrics,
+    isLoading: activityMetricsLoading,
+    refetch: refetchActivityMetrics,
+  } = useQuery({
+    queryKey: ["activity-metrics", dateRange.from, dateRange.to],
+    queryFn: () => fetchActivityMetrics({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Firebase Analytics (GA4) — the source of truth for "real" DAU/WAU/MAU
+  // based on app_open / session_start events that the SDK collects on every
+  // launch. Returns null when GA4 isn't reachable, in which case we fall back
+  // to the tracking_sessions-based numbers above.
+  const {
+    data: ga4Metrics,
+    isLoading: ga4MetricsLoading,
+    refetch: refetchGa4Metrics,
+  } = useQuery({
+    queryKey: ["ga4-activity"],
+    queryFn: () => fetchGa4ActivityMetrics(),
+    refetchOnWindowFocus: false,
+    staleTime: 15 * 60 * 1000,
+  })
+
+  // GA4 daily DAU + sessions, used to render the Daily Active Users chart with
+  // real Firebase Analytics numbers. Falls back to the tracking_sessions
+  // bucketing below when GA4 returns null.
+  const {
+    data: ga4Daily,
+    isLoading: ga4DailyLoading,
+    refetch: refetchGa4Daily,
+  } = useQuery({
+    queryKey: ["ga4-daily", dateRange.from, dateRange.to],
+    queryFn: () => fetchGa4DailyActivity({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 15 * 60 * 1000,
+  })
+
+  // Avg Age — server fetches only the registration age field. Auto-fetches.
+  const {
+    data: avgAgeData,
+    isLoading: avgAgeLoading,
+    refetch: refetchAvgAge,
+  } = useQuery({
+    queryKey: ["avg-age"],
+    queryFn: () => fetchAvgAge(),
+    refetchOnWindowFocus: false,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  // Daily Firestore signups (users who completed onboarding per day). Cheap:
+  // single query, only `createdAt` field read. Drives the bottom stack of the
+  // Daily New Downloads chart so we can show the onboarding-completion funnel.
+  const {
+    data: dailySignupsByDay,
+    isLoading: dailySignupsLoading,
+    refetch: refetchDailySignups,
+  } = useQuery({
+    queryKey: ["daily-signups", dateRange.from, dateRange.to],
+    queryFn: () => fetchDailySignups({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
   })
 
   const {
@@ -96,55 +195,33 @@ export default function OverviewPage() {
     enabled: false,
   })
 
-  const {
-    data: feedbackData,
-    isLoading: feedbackLoading,
-    refetch: refetchFeedback,
-  } = useQuery({
-    queryKey: ["feedback", dateRange.from, dateRange.to],
-    queryFn: () => fetchFeedback(dateRange.from, dateRange.to),
-    enabled: false,
-  })
-
-  // Refetch date-dependent data when date range changes (after initial load)
+  // Heavy charts are lazy-loaded: nothing auto-fetches on mount except the
+  // cheap Total Users count() above. The user explicitly triggers everything
+  // else via the "Reload All" button, then date changes refetch the date-bound
+  // queries (sessions, photos) as before.
   useEffect(() => {
     if (!globalInitialLoadDone) return
     refetchSessions()
     refetchPhotos()
-    refetchFeedback()
   }, [dateRange.from, dateRange.to])
-
-  useEffect(() => {
-    const loadInitialData = async () => {
-      // Check if we've EVER loaded the data (global flag)
-      if (globalInitialLoadDone) {
-        console.log("[v0] ✅ Using cached data from previous load")
-        return
-      }
-
-      // Check TanStack Query cache
-      const hasCachedSessions = queryClient.getQueryData(["sessions-activity", dateRange.from, dateRange.to])
-      const hasCachedUsers = queryClient.getQueryData(["all-users"])
-      const hasCachedChats = queryClient.getQueryData(["chat-conversations"])
-
-      if (hasCachedSessions || hasCachedUsers || hasCachedChats) {
-        console.log("[v0] ✅ Found existing cache, skipping fetch")
-        globalInitialLoadDone = true
-        return
-      }
-
-      console.log("[v0] 🎯 First load ever: Fetching data...")
-      await Promise.all([refetchSessions(), refetchUsers(), refetchRetention(), refetchChats(), refetchPhotos(), refetchFeedback()])
-      globalInitialLoadDone = true
-      setLastUpdated(new Date())
-    }
-
-    loadInitialData()
-  }, []) // Empty deps is correct - we only want this on first mount
 
   const handleReloadAll = async () => {
     console.log("[v0] 🔄 Reload All clicked - forcing fresh data fetch...")
-    await Promise.all([refetchSessions(), refetchUsers(), refetchRetention(), refetchChats(), refetchPhotos(), refetchFeedback()])
+    await Promise.all([
+      refetchTotalUserCount(),
+      refetchTotalPhotoCount(),
+      refetchActivityMetrics(),
+      refetchGa4Metrics(),
+      refetchGa4Daily(),
+      refetchAvgAge(),
+      refetchDailySignups(),
+      refetchSessions(),
+      refetchUsers(),
+      refetchRetention(),
+      refetchChats(),
+      refetchPhotos(),
+    ])
+    globalInitialLoadDone = true
     setLastUpdated(new Date())
   }
 
@@ -170,23 +247,53 @@ export default function OverviewPage() {
   }, [allUsers])
 
   const dailySignupsData = useMemo(() => {
-    if (!allUsers?.data) return []
-    const from = new Date(dateRange.from)
-    const to = new Date(dateRange.to)
-    to.setHours(23, 59, 59, 999)
+    // Build a per-day funnel row: { day, downloads, completed, incomplete }.
+    // The chart stacks `completed` (bottom) and `incomplete` (top) so the
+    // total height = downloads. `incomplete` is computed as max(0, dl - done)
+    // because the two metrics can drift (a user can download on D1 and
+    // complete on D2, so day-level counts aren't strictly nested).
+    const downloadsByDay = new Map<string, number>()
+    if (ga4Daily) {
+      for (const row of ga4Daily) downloadsByDay.set(row.date, row.newUsers)
+    }
 
-    const filteredDates = allUsers.data
-      .map((u) => new Date(u.createdAt))
-      .filter((d) => d >= from && d <= to)
+    const completedByDay = new Map<string, number>()
+    if (dailySignupsByDay) {
+      for (const row of dailySignupsByDay) completedByDay.set(row.date, row.count)
+    } else if (allUsers?.data) {
+      // Fallback before the cheap query loads: derive from the heavy allUsers
+      // fetch if it happens to be in the cache.
+      const from = new Date(dateRange.from)
+      const to = new Date(dateRange.to)
+      to.setHours(23, 59, 59, 999)
+      const dates = allUsers.data
+        .map((u) => new Date(u.createdAt))
+        .filter((d) => d >= from && d <= to)
+      for (const [day, count] of bucketByDay(dates).entries()) {
+        completedByDay.set(day, count)
+      }
+    }
 
-    const signupsByDay = bucketByDay(filteredDates)
-
-    return Array.from(signupsByDay.entries())
-      .map(([day, count]) => ({ day, count }))
-      .sort((a, b) => a.day.localeCompare(b.day))
-  }, [allUsers, dateRange.from, dateRange.to])
+    const allDays = new Set<string>([...downloadsByDay.keys(), ...completedByDay.keys()])
+    return [...allDays]
+      .sort()
+      .map((day) => {
+        const downloads = downloadsByDay.get(day) || 0
+        const completed = completedByDay.get(day) || 0
+        const incomplete = Math.max(0, downloads - completed)
+        return { day, downloads, completed, incomplete }
+      })
+  }, [ga4Daily, dailySignupsByDay, allUsers, dateRange.from, dateRange.to])
 
   const dailyData = useMemo(() => {
+    // Prefer Firebase Analytics rows when available — that's the canonical
+    // source for DAU. The legacy bucketing from tracking_sessions only kicks
+    // in if GA4 isn't reachable.
+    if (ga4Daily && ga4Daily.length > 0) {
+      return ga4Daily
+        .map((row) => ({ day: row.date, dau: row.dau, sessions: row.sessions }))
+        .sort((a, b) => a.day.localeCompare(b.day))
+    }
     const dauByDay = sessionData
       ? uniqueUsersByDay(sessionData.map((s) => ({ userId: s.userId, date: s.startedAt })))
       : new Map()
@@ -194,7 +301,7 @@ export default function OverviewPage() {
     return Array.from(dauByDay.entries())
       .map(([day, dau]) => ({ day, dau, sessions: sessionsByDay.get(day) || 0 }))
       .sort((a, b) => a.day.localeCompare(b.day))
-  }, [sessionData])
+  }, [ga4Daily, sessionData])
 
   const retentionChartData = useMemo(() => {
     if (!retentionData?.curve || retentionData.curve.length === 0) return []
@@ -235,6 +342,36 @@ export default function OverviewPage() {
       d30: retentionData.curve.find((r) => r.day === 30)?.retentionPct,
     }
   }, [retentionData])
+
+  // Surface the D1/D7/D30 milestones from the retention curve as headline cards,
+  // each scored against its health-app benchmark. d30 is only populated when the
+  // retention window is ≥ 30 days; otherwise the card reads N/A (no goal bar).
+  const retentionMilestones = [
+    {
+      label: "D1 Retention",
+      pct: retentionMetadata?.d1,
+      goal: GOALS.retentionD1,
+      tooltipTitle: "Day 1 Retention",
+      tooltipDescription: "% of the signup cohort active exactly 1 day after signing up.",
+      tooltipHowToRead: "Measures the onboarding hook. Benchmark for daily-habit health apps ≈ 25%.",
+    },
+    {
+      label: "D7 Retention",
+      pct: retentionMetadata?.d7,
+      goal: GOALS.retentionD7,
+      tooltipTitle: "Day 7 Retention",
+      tooltipDescription: "% of the signup cohort still active 7 days after signing up.",
+      tooltipHowToRead: "The 'did the habit stick' check. Benchmark ≈ 15%.",
+    },
+    {
+      label: "D30 Retention",
+      pct: retentionMetadata?.d30,
+      goal: GOALS.retentionD30,
+      tooltipTitle: "Day 30 Retention",
+      tooltipDescription: "% of the signup cohort still active 30 days after signing up.",
+      tooltipHowToRead: "Long-term stickiness / PMF signal. Benchmark ≈ 10%. Needs a ≥30-day window.",
+    },
+  ]
 
   const {
     wau,
@@ -288,6 +425,10 @@ export default function OverviewPage() {
     // Cap at 100% to ensure it never exceeds maximum possible value
     return Math.min(Math.round(ratio), 100)
   }, [calculatedDau, mau])
+
+  // Resolved stickiness shown on the KPI card (GA4 first, then tracking-session
+  // fallbacks). Drives the goal bar against the 20% "sticky" benchmark.
+  const stickinessValue = ga4Metrics?.stickiness ?? activityMetrics?.stickiness ?? stickiness
 
   const { avgAge, ageChartData, usersWithAge } = useMemo(() => {
     if (!allUsers?.data) {
@@ -418,46 +559,6 @@ export default function OverviewPage() {
     }
   }, [sessionData])
 
-  const { feedbackChartData, feedbackPositiveCount, feedbackNegativeCount, feedbackSentiment, recentNegativeFeedbacks } = useMemo(() => {
-    if (!feedbackData) {
-      return { feedbackChartData: [], feedbackPositiveCount: 0, feedbackNegativeCount: 0, feedbackSentiment: 0, recentNegativeFeedbacks: [] }
-    }
-
-    const positiveByDay = bucketByDay(feedbackData.positive.map((e: any) => e.createdAt))
-    const negativeByDay = bucketByDay(feedbackData.negative.map((e: any) => e.createdAt))
-
-    const allDays = new Set([...positiveByDay.keys(), ...negativeByDay.keys()])
-    const chartData = Array.from(allDays)
-      .map((day) => ({
-        day,
-        positive: positiveByDay.get(day) || 0,
-        negative: negativeByDay.get(day) || 0,
-      }))
-      .sort((a, b) => a.day.localeCompare(b.day))
-
-    const posCount = feedbackData.positive.length
-    const negCount = feedbackData.negative.length
-    const total = posCount + negCount
-    const sentiment = total > 0 ? Math.round((posCount / total) * 100) : 0
-
-    const negativeFeedbacks = feedbackData.negative
-      .map((e: any) => ({
-        date: e.createdAt,
-        content: e.params?.feedback || e.params?.text || e.params?.message || e.params?.reason || JSON.stringify(e.params || {}),
-        userId: e.userId,
-      }))
-      .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
-      .slice(0, 50)
-
-    return {
-      feedbackChartData: chartData,
-      feedbackPositiveCount: posCount,
-      feedbackNegativeCount: negCount,
-      feedbackSentiment: sentiment,
-      recentNegativeFeedbacks: negativeFeedbacks,
-    }
-  }, [feedbackData])
-
   return (
     <div className="flex flex-col">
       <Header
@@ -472,69 +573,91 @@ export default function OverviewPage() {
 
         <div className="grid grid-cols-4 gap-4">
           <KpiCard
-            label="Avg. DAU"
-            value={calculatedDau.toLocaleString()}
-            isLoading={sessionsLoading}
-            tooltipTitle="Avg. DAU (Daily Active Users)"
-            tooltipDescription="Question: 'Combien d'utilisatrices sont actives?' | Who is counted: ✅ All active users ✅ New + returning ❌ No seniority distinction | Definition: Average daily unique users over the selected period | Calculation: For each day in range, count unique userIds with ≥1 tracking_session, then average"
-            tooltipHowToRead="Higher = more daily active users"
-            tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
+            label="DAU"
+            value={(ga4Metrics?.active1Day ?? activityMetrics?.avgDau ?? calculatedDau).toLocaleString()}
+            isLoading={(ga4MetricsLoading || activityMetricsLoading) && !ga4Metrics && !activityMetrics}
+            tooltipTitle="DAU (Daily Active Users)"
+            tooltipDescription={
+              ga4Metrics
+                ? `Source: Firebase Analytics (GA4 active1DayUsers). Counts unique users who triggered any event (app_open/session_start) yesterday. As of ${ga4Metrics.asOfDate}.`
+                : "Source: tracking_sessions (fallback). Counts unique users with ≥1 tracking_session per day, averaged over the selected range."
+            }
+            tooltipHowToRead="Higher = more daily active users. GA4 numbers reflect every app launch, not just tracking activity."
           />
           <KpiCard
             label="WAU (7 days)"
-            value={wau.toLocaleString()}
-            isLoading={sessionsLoading}
+            value={(ga4Metrics?.active7Day ?? activityMetrics?.wau ?? wau).toLocaleString()}
+            isLoading={(ga4MetricsLoading || activityMetricsLoading) && !ga4Metrics && !activityMetrics}
             tooltipTitle="WAU (Weekly Active Users)"
-            tooltipDescription="Question: 'Combien d'utilisatrices sont actives?' | Who is counted: ✅ All active users ✅ New + returning ❌ No seniority distinction | Definition: Active at least once in last 7 days | Calculation: ≥1 tracking_session in 7-day window, count by unique userId"
+            tooltipDescription={
+              ga4Metrics
+                ? `Source: Firebase Analytics (GA4 active7DayUsers). Unique users active in the last 7 days as of ${ga4Metrics.asOfDate}.`
+                : "Source: tracking_sessions (fallback). Unique userIds with ≥1 tracking_session in last 7 days."
+            }
             tooltipHowToRead="Higher = more weekly engagement"
-            tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
           />
           <KpiCard
-            label="MAU (30 days)"
-            value={mau.toLocaleString()}
-            isLoading={sessionsLoading}
+            label="MAU (28 days)"
+            value={(ga4Metrics?.active28Day ?? activityMetrics?.mau ?? mau).toLocaleString()}
+            isLoading={(ga4MetricsLoading || activityMetricsLoading) && !ga4Metrics && !activityMetrics}
             tooltipTitle="MAU (Monthly Active Users)"
-            tooltipDescription="Question: 'Combien d'utilisatrices sont actives?' | Who is counted: ✅ All active users ✅ New + returning ❌ No seniority distinction | Definition: Active at least once in last 30 days | Calculation: ≥1 tracking_session in 30-day window, count by unique userId"
+            tooltipDescription={
+              ga4Metrics
+                ? `Source: Firebase Analytics (GA4 active28DayUsers). Google uses 28 days (not 30) to align with calendar weeks. As of ${ga4Metrics.asOfDate}.`
+                : "Source: tracking_sessions (fallback). Unique userIds with ≥1 tracking_session in last 30 days."
+            }
             tooltipHowToRead="Higher = more monthly engagement"
-            tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
           />
           <KpiCard
             label="Stickiness"
-            value={stickiness > 0 ? `${stickiness}%` : "N/A"}
-            isLoading={sessionsLoading}
-            tooltipTitle="Stickiness (DAU/MAU)"
-            tooltipDescription="Question: 'À quelle fréquence reviennent-elles?' | Who is counted: Based on active users, includes new + returning, not a people count but a ratio | Definition: Stickiness = DAU / MAU | Interpretation: % of monthly users who use the app each day"
-            tooltipHowToRead="Higher means users come back more frequently. >20% = very good engagement, >30% = highly sticky product"
-            tooltipLimitations="Based on tracking sessions only (does not count passive app opens)"
-            tooltipDataCoverage={`Avg. DAU: ${calculatedDau}, MAU: ${mau}`}
+            value={stickinessValue > 0 ? `${stickinessValue}%` : "N/A"}
+            numericValue={stickinessValue > 0 ? stickinessValue : undefined}
+            target={stickinessValue > 0 ? GOALS.stickiness.target : undefined}
+            goalLabel={GOALS.stickiness.label}
+            isLoading={(ga4MetricsLoading || activityMetricsLoading) && !ga4Metrics && !activityMetrics}
+            tooltipTitle="Stickiness (DAU / MAU)"
+            tooltipDescription={
+              ga4Metrics
+                ? `Source: Firebase Analytics (GA4 dauPerMau). Ratio of daily to monthly active users as of ${ga4Metrics.asOfDate}.`
+                : "Source: tracking_sessions (fallback). Computed Avg DAU / MAU."
+            }
+            tooltipHowToRead="Higher means users come back more frequently. >20% very good, >30% highly sticky."
+            tooltipLimitations={
+              ga4Metrics
+                ? "GA4 stickiness can be slightly noisy on small audiences."
+                : "Based on tracking sessions only — doesn't count passive app opens."
+            }
           />
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           <KpiCard
             label="Total Users"
-            value={(allUsers?.data.length || 0).toLocaleString()}
-            isLoading={usersLoading}
+            value={(totalUserCount ?? allUsers?.data.length ?? 0).toLocaleString()}
+            isLoading={totalUserCountLoading && !totalUserCount}
             tooltipTitle="Total Users"
             tooltipDescription="Total registered users in the system"
             tooltipHowToRead="Shows user base size"
           />
           <KpiCard
             label="Avg Age"
-            value={avgAge > 0 ? `${avgAge} yrs` : "N/A"}
-            isLoading={usersLoading}
+            value={(() => {
+              const v = avgAgeData?.avgAge ?? avgAge
+              return v > 0 ? `${v} yrs` : "N/A"
+            })()}
+            isLoading={avgAgeLoading && !avgAgeData}
             tooltipTitle="Average Age"
             tooltipDescription="Average age from users.registrationData.age or birthDate"
             tooltipHowToRead="Shows demographic profile"
             tooltipLimitations="Only users with age/birthDate data"
-            tooltipDataCoverage={`${usersWithAge.length} users have age data`}
+            tooltipDataCoverage={`${avgAgeData?.sampleSize ?? usersWithAge.length} users have age data`}
           />
           <KpiCard
             label="Total Photos"
-            value={(photosData?.length || 0).toLocaleString()}
-            isLoading={photosLoading}
+            value={(totalPhotoCount ?? photosData?.length ?? 0).toLocaleString()}
+            isLoading={totalPhotoCountLoading && totalPhotoCount === undefined}
             tooltipTitle="Total Photos"
-            tooltipDescription="Total photos in the photos collection (Endobelly tracking)"
+            tooltipDescription="Total photos in the photos collection (Endobelly tracking) in the selected date range"
             tooltipHowToRead="Shows photo tracking usage"
           />
         </div>
@@ -543,18 +666,33 @@ export default function OverviewPage() {
           <ChartCard
             title={
               <div className="flex items-center gap-2">
-                <span>Daily New Signups</span>
+                <span>Daily New Downloads</span>
                 <InfoTooltip
-                  title="Daily New Signups"
-                  description="Number of new users who signed up each day, based on users.createdAt within the selected date range"
-                  howToRead="Higher bars indicate more signups that day"
-                  dataCoverage={`From ${allUsers?.data.length || 0} total users`}
+                  title="Daily New Downloads"
+                  description="Funnel per day: total bar height = downloads (GA4 first_open events). Bottom segment = users who completed onboarding (users.createdAt). Top segment = downloaded but didn't finish onboarding."
+                  howToRead="Bottom = registered users, top = drop-off after install"
+                  dataCoverage={
+                    ga4Daily
+                      ? `GA4 · ${ga4Daily.length} days · Firestore signups: ${dailySignupsByDay?.length ?? 0} days`
+                      : `Firestore signups only — GA4 unavailable`
+                  }
                 />
               </div>
             }
-            isLoading={usersLoading}
+            isLoading={
+              (ga4DailyLoading && !ga4Daily) || (dailySignupsLoading && !dailySignupsByDay)
+            }
           >
-            <BarChart data={dailySignupsData} xKey="day" yKey="count" color="#7C3AED" maxBars={30} />
+            <BarChart
+              data={dailySignupsData}
+              xKey="day"
+              yKey="downloads"
+              maxBars={30}
+              stacks={[
+                { key: "completed", color: "#7C3AED", label: "Completed Onboarding" },
+                { key: "incomplete", color: "#3B82F6", label: "Downloaded — No Onboarding" },
+              ]}
+            />
           </ChartCard>
 
           <ChartCard
@@ -563,11 +701,21 @@ export default function OverviewPage() {
                 <span>{showSessionsChart ? "Sessions per day" : "Daily Active Users (DAU)"}</span>
                 <InfoTooltip
                   title={showSessionsChart ? "Sessions per day" : "Daily Active Users"}
-                  description={showSessionsChart
-                    ? "Total tracking_sessions started each day"
-                    : "Number of unique users who started at least one tracking session that day"}
+                  description={
+                    ga4Daily
+                      ? showSessionsChart
+                        ? "Total Firebase Analytics sessions per day"
+                        : "Firebase Analytics activeUsers per day (counts unique users with ≥1 engaged session)"
+                      : showSessionsChart
+                        ? "Total tracking_sessions started each day (fallback — GA4 unavailable)"
+                        : "Unique users with ≥1 tracking_session per day (fallback — GA4 unavailable)"
+                  }
                   howToRead="Higher values indicate more active usage"
-                  dataCoverage={`From ${sessionData?.length || 0} sessions`}
+                  dataCoverage={
+                    ga4Daily
+                      ? `Firebase Analytics · ${ga4Daily.length} days`
+                      : `From ${sessionData?.length || 0} tracking sessions`
+                  }
                 />
                 <button
                   onClick={() => setShowSessionsChart(!showSessionsChart)}
@@ -577,10 +725,33 @@ export default function OverviewPage() {
                 </button>
               </div>
             }
-            isLoading={sessionsLoading}
+            isLoading={(ga4DailyLoading && !ga4Daily) || (sessionsLoading && !ga4Daily)}
           >
             <LineChart data={dailyData} xKey="day" lines={[{ key: showSessionsChart ? "sessions" : "dau", color: "#7C3AED" }]} />
           </ChartCard>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          {retentionMilestones.map((m) => (
+            <KpiCard
+              key={m.label}
+              label={m.label}
+              value={m.pct != null ? `${Math.round(m.pct)}%` : "N/A"}
+              numericValue={m.pct != null ? m.pct : undefined}
+              target={m.pct != null ? m.goal.target : undefined}
+              goalLabel={m.goal.label}
+              isLoading={retentionLoading}
+              tooltipTitle={m.tooltipTitle}
+              tooltipDescription={m.tooltipDescription}
+              tooltipHowToRead={m.tooltipHowToRead}
+              tooltipLimitations="Cohort-based. Set the cohort range and retention window in the Retention Curve settings below."
+              tooltipDataCoverage={
+                retentionMetadata?.cohortSize != null
+                  ? `Cohort: ${retentionMetadata.cohortSize} users (${retentionMetadata.periodStart} → ${retentionMetadata.periodEnd})`
+                  : retentionMetadata?.error || undefined
+              }
+            />
+          ))}
         </div>
 
         <div className="grid grid-cols-2 gap-6">
@@ -770,104 +941,6 @@ export default function OverviewPage() {
             tooltipHowToRead="Higher means users spend more time per session. Indicates depth of engagement."
             tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
           />
-        </div>
-
-        <div className="grid grid-cols-3 gap-4">
-          <KpiCard
-            label="Positive Feedback"
-            value={feedbackPositiveCount.toLocaleString()}
-            isLoading={feedbackLoading}
-            tooltipTitle="Positive Feedback Count"
-            tooltipDescription="Total user_feedback_positive events in the selected date range"
-            tooltipHowToRead="Number of times users gave a positive response"
-          />
-          <KpiCard
-            label="Negative Feedback"
-            value={feedbackNegativeCount.toLocaleString()}
-            isLoading={feedbackLoading}
-            tooltipTitle="Negative Feedback Count"
-            tooltipDescription="Total user_feedback_negative events in the selected date range"
-            tooltipHowToRead="Number of times users gave negative feedback with text content"
-          />
-          <KpiCard
-            label="Positive Rate"
-            value={feedbackPositiveCount + feedbackNegativeCount > 0 ? `${feedbackSentiment}%` : "N/A"}
-            isLoading={feedbackLoading}
-            tooltipTitle="Positive Feedback Rate"
-            tooltipDescription="Percentage of positive feedback out of total feedback (positive + negative)"
-            tooltipHowToRead="Higher means users are more satisfied. 100% = no negative feedback"
-            tooltipDataCoverage={`${feedbackPositiveCount + feedbackNegativeCount} total feedbacks`}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Daily Feedback</span>
-                <InfoTooltip
-                  title="Daily Feedback (Positive vs Negative)"
-                  description="Stacked bar chart showing daily count of positive and negative user feedback events from app_events collection"
-                  howToRead="Green = positive, Red = negative. Taller bars = more feedback that day. Watch for spikes in red after releases."
-                  dataCoverage={`${feedbackPositiveCount} positive, ${feedbackNegativeCount} negative feedbacks`}
-                />
-              </div>
-            }
-            isLoading={feedbackLoading}
-          >
-            <BarChart
-              data={feedbackChartData}
-              xKey="day"
-              yKey="positive"
-              stacks={[
-                { key: "positive", color: "#2ED47A", label: "Positive" },
-                { key: "negative", color: "#FF5C5C", label: "Negative" },
-              ]}
-              maxBars={30}
-            />
-          </ChartCard>
-
-          <ChartCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Recent Negative Feedback</span>
-                <InfoTooltip
-                  title="Recent Negative Feedback"
-                  description="Latest negative feedback from users with their text content, extracted from app_events params"
-                  howToRead="Review these to understand user pain points and prioritize fixes"
-                  dataCoverage={`Showing up to 50 most recent`}
-                />
-              </div>
-            }
-            isLoading={feedbackLoading}
-          >
-            <div className="max-h-[200px] overflow-y-auto">
-              {recentNegativeFeedbacks.length === 0 ? (
-                <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-                  No negative feedback in this period
-                </div>
-              ) : (
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-card">
-                    <tr className="border-b border-border">
-                      <th className="py-1.5 pr-2 text-left font-medium text-muted-foreground">Date</th>
-                      <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Content</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentNegativeFeedbacks.map((fb: any, i: number) => (
-                      <tr key={i} className="border-b border-border/50">
-                        <td className="py-1.5 pr-2 text-muted-foreground whitespace-nowrap">
-                          {formatDate(fb.date, "MMM d")}
-                        </td>
-                        <td className="py-1.5 px-2 text-foreground">{fb.content}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </ChartCard>
         </div>
       </div>
     </div>
