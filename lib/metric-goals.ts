@@ -27,6 +27,35 @@ export const GOALS = {
   retentionD30: { target: 10, label: "Goal 10%" },
 } as const satisfies Record<string, MetricGoal>
 
+// Team-set monthly user-acquisition targets — unlike the benchmark ratios
+// above, these are absolute signup headcounts the team commits to for a given
+// calendar month. Keyed by "YYYY-MM". Drives the goal bars on the "Monthly
+// Signups vs Goal" chart on the Overview. Add a new entry each month.
+export const MONTHLY_SIGNUP_GOALS: Record<string, number> = {
+  "2026-06": 1000,
+  "2026-07": 1500,
+  "2026-08": 2000,
+}
+
+// Cumulative "Total Users" target for a given calendar month: the running total
+// at the START of that month + the month's acquisition goal. The base advances
+// automatically as the calendar moves (July picks up June's actual signups,
+// August picks up July's, …) so only a new MONTHLY_SIGNUP_GOALS entry is needed
+// each month. Returns null when the month has no goal set, so the card simply
+// hides its goal bar.
+export function totalUsersGoalForMonth(
+  monthlySignups: Array<{ month: string; count: number }>,
+  month: string, // "YYYY-MM"
+): MetricGoal | null {
+  const monthGoal = MONTHLY_SIGNUP_GOALS[month]
+  if (monthGoal === undefined) return null
+  const baseAtMonthStart = monthlySignups
+    .filter((m) => m.month < month)
+    .reduce((sum, m) => sum + m.count, 0)
+  const target = baseAtMonthStart + monthGoal
+  return { target, label: `Goal ${target.toLocaleString()}` }
+}
+
 // Map a value against its target to a traffic-light status:
 //   >= 100% of target -> success (at/above goal)
 //   >=  50% of target -> warning (approaching)

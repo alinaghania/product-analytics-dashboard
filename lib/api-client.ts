@@ -104,6 +104,13 @@ export async function fetchDailySignups(opts: {
   return result.data
 }
 
+export async function fetchMonthlySignups(): Promise<Array<{ month: string; count: number }>> {
+  const result = await apiFetch<{ data: Array<{ month: string; count: number }> }>(
+    "/api/metrics/monthly-signups",
+  )
+  return result.data
+}
+
 export interface Ga4ActivityMetricsResponse {
   active1Day: number
   active7Day: number

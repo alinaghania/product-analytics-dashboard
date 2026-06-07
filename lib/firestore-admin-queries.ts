@@ -295,6 +295,39 @@ export async function fetchDailySignups(options: {
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
+// Monthly count of user signups (users.createdAt) across the whole user base.
+// Fetches only `createdAt` and buckets server-side into "YYYY-MM" keys
+// (Europe/Paris, matching the dashboard's timezone) so the client receives a
+// compact array — no doc download. Docs missing createdAt are dropped by the
+// orderBy and can't be bucketed anyway.
+export async function fetchMonthlySignups(): Promise<Array<{ month: string; count: number }>> {
+  const db = getAdminDb()
+  const snapshot = await db
+    .collection("users")
+    .orderBy("createdAt", "asc")
+    .select("createdAt")
+    .limit(50000)
+    .get()
+
+  const monthFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+  })
+
+  const byMonth = new Map<string, number>()
+  for (const doc of snapshot.docs) {
+    const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    if (!ts) continue
+    const monthKey = monthFmt.format(ts).slice(0, 7) // "YYYY-MM"
+    byMonth.set(monthKey, (byMonth.get(monthKey) || 0) + 1)
+  }
+
+  return [...byMonth.entries()]
+    .map(([month, count]) => ({ month, count }))
+    .sort((a, b) => a.month.localeCompare(b.month))
+}
+
 // Average age from users.registrationData.age (or birthDate) without
 // downloading the entire users collection — server reads only the registration
 // fields it needs and returns the average.

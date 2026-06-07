@@ -24,13 +24,14 @@ import {
   fetchGa4DailyActivity,
   fetchAvgAge,
   fetchDailySignups,
+  fetchMonthlySignups,
   fetchChatConversations,
   fetchPhotos,
   fetchPhotoCount,
   calculateRetentionCurve,
 } from "@/lib/api-client"
 import { bucketByDay, bucketByHour, uniqueUsersByDay } from "@/lib/analytics"
-import { GOALS } from "@/lib/metric-goals"
+import { GOALS, MONTHLY_SIGNUP_GOALS, totalUsersGoalForMonth } from "@/lib/metric-goals"
 
 let globalInitialLoadDone = false
 
@@ -166,6 +167,20 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  // Monthly Firestore signups across the whole user base (users.createdAt),
+  // bucketed server-side. Drives the "Monthly Signups vs Goal" chart at the
+  // bottom of the page. Cheap: only `createdAt` is read.
+  const {
+    data: monthlySignups,
+    isLoading: monthlySignupsLoading,
+    refetch: refetchMonthlySignups,
+  } = useQuery({
+    queryKey: ["monthly-signups"],
+    queryFn: () => fetchMonthlySignups(),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const {
     data: retentionData,
     isLoading: retentionLoading,
@@ -215,6 +230,7 @@ export default function OverviewPage() {
       refetchGa4Daily(),
       refetchAvgAge(),
       refetchDailySignups(),
+      refetchMonthlySignups(),
       refetchSessions(),
       refetchUsers(),
       refetchRetention(),
@@ -284,6 +300,30 @@ export default function OverviewPage() {
         return { day, downloads, completed, incomplete }
       })
   }, [ga4Daily, dailySignupsByDay, allUsers, dateRange.from, dateRange.to])
+
+  const monthlySignupsData = useMemo(() => {
+    // One row per month: actual signups + the team's acquisition goal (when set).
+    // Goal-only months with no signups yet (e.g. an upcoming month) are still
+    // included so the upcoming target shows on the chart.
+    const counts = new Map<string, number>()
+    for (const row of monthlySignups ?? []) counts.set(row.month, row.count)
+
+    const months = new Set<string>([...counts.keys(), ...Object.keys(MONTHLY_SIGNUP_GOALS)])
+    return [...months].sort().map((month) => ({
+      month,
+      label: formatDate(new Date(`${month}-01T00:00:00`), "MMM yyyy"),
+      signups: counts.get(month) ?? 0,
+      goal: MONTHLY_SIGNUP_GOALS[month],
+    }))
+  }, [monthlySignups])
+
+  // Total Users goal bar: the running total at the start of the current month
+  // plus this month's acquisition goal. Recomputes automatically each month
+  // from today's date. Null (no bar) until the monthly data has loaded.
+  const totalUsersGoal = useMemo(() => {
+    if (!monthlySignups) return null
+    return totalUsersGoalForMonth(monthlySignups, formatDate(new Date(), "yyyy-MM"))
+  }, [monthlySignups])
 
   const dailyData = useMemo(() => {
     // Prefer Firebase Analytics rows when available — that's the canonical
@@ -634,10 +674,14 @@ export default function OverviewPage() {
           <KpiCard
             label="Total Users"
             value={(totalUserCount ?? allUsers?.data.length ?? 0).toLocaleString()}
+            numericValue={totalUserCount ?? allUsers?.data.length}
+            target={totalUsersGoal?.target}
+            goalLabel={totalUsersGoal?.label}
             isLoading={totalUserCountLoading && !totalUserCount}
             tooltipTitle="Total Users"
             tooltipDescription="Total registered users in the system"
-            tooltipHowToRead="Shows user base size"
+            tooltipHowToRead="Shows user base size. Goal = total users at the start of the current month + this month's acquisition target. It rolls forward automatically each month."
+            tooltipDataCoverage={totalUsersGoal ? `This month's target: ${totalUsersGoal.target.toLocaleString()}` : undefined}
           />
           <KpiCard
             label="Avg Age"
@@ -941,6 +985,35 @@ export default function OverviewPage() {
             tooltipHowToRead="Higher means users spend more time per session. Indicates depth of engagement."
             tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
           />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Monthly Signups vs Goal</span>
+                <InfoTooltip
+                  title="Monthly Signups vs Goal"
+                  description="New user signups per calendar month (users.createdAt, Europe/Paris) compared to the team's monthly acquisition target."
+                  howToRead="Purple = users acquired that month. Green = the goal for that month. Goals are only shown for months that have a target set."
+                  dataCoverage={`${monthlySignups?.length ?? 0} months with signups · goals: ${Object.keys(MONTHLY_SIGNUP_GOALS).join(", ")}`}
+                />
+              </div>
+            }
+            isLoading={monthlySignupsLoading && !monthlySignups}
+          >
+            <BarChart
+              data={monthlySignupsData}
+              xKey="label"
+              yKey="signups"
+              compareKey="goal"
+              layout="vertical"
+              color="#7C3AED"
+              compareColor="#2ED47A"
+              mainLabel="Signups"
+              compareLabel="Goal"
+            />
+          </ChartCard>
         </div>
       </div>
     </div>
