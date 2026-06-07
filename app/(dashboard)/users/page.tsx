@@ -10,18 +10,50 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { UserChatsDrawer } from "@/components/users/UserChatsDrawer"
 import { formatDateTime } from "@/lib/date-utils"
 import {
+  checkUserHasChats,
   fetchUsers,
   fetchLastLoginsForUsers,
   fetchLastActivitiesForUsers,
   fetchUserDailySessionTimes,
 } from "@/lib/api-client"
 import type { User } from "@/lib/types"
-import { Search, X } from "lucide-react"
+import { MessageSquare, Search, X } from "lucide-react"
 
 type PlatformFilter = "all" | "ios" | "android"
 type PremiumFilter = "all" | "premium" | "free"
+
+// Per-row shortcut to read a user's conversations without leaving the list.
+// Only renders for users that actually have chats so the column stays sparse.
+function UserChatAction({ user, onOpen }: { user: User; onOpen: (user: User) => void }) {
+  const { data: hasChats } = useQuery({
+    queryKey: ["userHasChats", user.id],
+    queryFn: () => checkUserHasChats(user.id),
+    enabled: Boolean(user.id),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  if (!hasChats) return null
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
+      onClick={(e) => {
+        // Stop the row's onClick (navigate to user detail) from also firing.
+        e.stopPropagation()
+        onOpen(user)
+      }}
+    >
+      <MessageSquare className="h-4 w-4" />
+      <span className="sr-only">Open chats</span>
+    </Button>
+  )
+}
 
 // Wrap any CSV cell so embedded commas, quotes, and newlines don't break the row.
 const csvEscape = (v: unknown): string => {
@@ -49,6 +81,8 @@ export default function UsersPage() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
   const [pageCursors, setPageCursors] = useState<string[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
+  const [chatDrawerUser, setChatDrawerUser] = useState<{ id: string; email: string } | null>(null)
 
   const filtersActive =
     !!search ||
@@ -147,6 +181,16 @@ export default function UsersPage() {
     setPageCursors([])
     await refetch()
     setLastUpdated(new Date())
+  }
+
+  const handleOpenChats = (user: User) => {
+    setChatDrawerUser({ id: user.id, email: user.email })
+    setChatDrawerOpen(true)
+  }
+
+  const handleCloseChats = () => {
+    setChatDrawerOpen(false)
+    setChatDrawerUser(null)
   }
 
   const handleExport = () => {
@@ -356,6 +400,11 @@ export default function UsersPage() {
         )
       },
     },
+    {
+      id: "chats",
+      header: "Chats",
+      cell: ({ row }) => <UserChatAction user={row.original} onOpen={handleOpenChats} />,
+    },
   ]
 
   return (
@@ -457,6 +506,13 @@ export default function UsersPage() {
           emptyMessage="No users found. Click Reload to fetch data."
         />
       </div>
+
+      <UserChatsDrawer
+        open={chatDrawerOpen}
+        onClose={handleCloseChats}
+        userId={chatDrawerUser?.id || ""}
+        userEmail={chatDrawerUser?.email || ""}
+      />
     </div>
   )
 }
