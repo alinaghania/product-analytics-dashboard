@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserChatsDrawer } from "@/components/users/UserChatsDrawer"
+import { ConversationInsightsPanel } from "@/components/users/ConversationInsightsPanel"
 import { formatDateTime } from "@/lib/date-utils"
 import {
   checkUserHasChats,
@@ -183,10 +184,13 @@ export default function UsersPage() {
     setLastUpdated(new Date())
   }
 
-  const handleOpenChats = (user: User) => {
-    setChatDrawerUser({ id: user.id, email: user.email })
+  // Shared chats-drawer opener: callers may have only a userId (e.g. the
+  // insights panel) or a full User (the Chats column).
+  const openChatsForUser = (userId: string, email = "") => {
+    setChatDrawerUser({ id: userId, email })
     setChatDrawerOpen(true)
   }
+  const handleOpenChats = (user: User) => openChatsForUser(user.id, user.email)
 
   const handleCloseChats = () => {
     setChatDrawerOpen(false)
@@ -412,6 +416,8 @@ export default function UsersPage() {
       <Header title="Users" description="Manage and analyze user data" lastUpdated={lastUpdated} />
 
       <div className="flex-1 space-y-6 p-6">
+        <ConversationInsightsPanel onOpenChats={openChatsForUser} />
+
         {/* Search + Filters */}
         <div className="flex flex-col gap-3">
           <div className="relative max-w-sm">

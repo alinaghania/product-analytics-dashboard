@@ -11,6 +11,7 @@
     "test:e2e": "npx playwright test"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "@google-analytics/data": "^6.1.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",

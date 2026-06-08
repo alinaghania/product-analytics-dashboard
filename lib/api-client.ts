@@ -32,6 +32,27 @@ async function apiFetch<T>(path: string, params?: Record<string, string | undefi
   return response.json()
 }
 
+// POST twin of apiFetch (JSON body, same auth + error handling).
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const token = await getAuthToken()
+
+  const response = await fetch(new URL(path, window.location.origin).toString(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: response.statusText }))
+    throw new Error(errorBody.error || `API error: ${response.status}`)
+  }
+
+  return response.json()
+}
+
 // ============= Users =============
 
 export async function fetchUsers(options: {
@@ -64,6 +85,24 @@ export async function fetchUsers(options: {
 
 export async function fetchUserById(userId: string) {
   const result = await apiFetch<any>(`/api/users/${userId}`)
+  return result.data
+}
+
+export interface ConversationInsights {
+  summary: string
+  bestConversation: { conversationId: string; userId: string; reason: string } | null
+  // Unit = conversation (a userId may repeat); deduped by conversationId, ≤ 30.
+  interestingConversations: { conversationId: string; userId: string; reason: string }[]
+  meta: {
+    conversationsAnalyzed: number
+    onboardingExcluded: number
+    truncated: boolean
+    hallucinationsFiltered: number
+  }
+}
+
+export async function generateConversationInsights(): Promise<ConversationInsights> {
+  const result = await apiPost<{ data: ConversationInsights }>("/api/users/conversation-insights", {})
   return result.data
 }
 
