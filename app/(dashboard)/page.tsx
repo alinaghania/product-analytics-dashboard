@@ -47,9 +47,28 @@ export default function OverviewPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
 
   // Retention curve own controls
-  const [retentionCohortStart, setRetentionCohortStart] = useState(dateRange.from)
-  const [retentionCohortEnd, setRetentionCohortEnd] = useState(dateRange.to)
-  const [retentionDays, setRetentionDays] = useState<7 | 30 | 90>(30)
+  const [retentionWeeks, setRetentionWeeks] = useState<4 | 8 | 12>(8)
+
+  // Auto cohort: the most recent 30-day signup window fully "mature" for the
+  // chosen follow-up length. cohortEnd is `retentionWeeks*7 + 7` days back so the
+  // last week's window (ending at + retentionWeeks*7 + 6) closes on `today - 1` —
+  // a fully elapsed day for the whole cohort, never a partial "today" (the session
+  // query is clamped to `now`). So the curve always shows complete weeks
+  // W0..W{retentionWeeks}, with no missing or undercounted tail. Recomputed when
+  // the window changes.
+  const autoCohort = useMemo(() => {
+    const end = subDays(new Date(), retentionWeeks * 7 + 7)
+    const start = subDays(end, 30)
+    return { start: formatDate(start, "yyyy-MM-dd"), end: formatDate(end, "yyyy-MM-dd") }
+  }, [retentionWeeks])
+
+  // Optional manual override (the "Customize cohort range" disclosure in settings).
+  const [customCohort, setCustomCohort] = useState(false)
+  const [customCohortStart, setCustomCohortStart] = useState(autoCohort.start)
+  const [customCohortEnd, setCustomCohortEnd] = useState(autoCohort.end)
+
+  const retentionCohortStart = customCohort ? customCohortStart : autoCohort.start
+  const retentionCohortEnd = customCohort ? customCohortEnd : autoCohort.end
 
   const [showSessionsChart, setShowSessionsChart] = useState(false)
 
@@ -186,8 +205,8 @@ export default function OverviewPage() {
     isLoading: retentionLoading,
     refetch: refetchRetention,
   } = useQuery({
-    queryKey: ["retention-curve", retentionCohortStart, retentionCohortEnd, retentionDays],
-    queryFn: () => calculateRetentionCurve(retentionCohortStart, retentionCohortEnd, retentionDays),
+    queryKey: ["retention-curve", retentionCohortStart, retentionCohortEnd, retentionWeeks],
+    queryFn: () => calculateRetentionCurve(retentionCohortStart, retentionCohortEnd, retentionWeeks),
   })
 
   const {
@@ -348,8 +367,8 @@ export default function OverviewPage() {
     const cohortStartDate = new Date(retentionCohortStart + "T00:00:00")
     const cohortEndDate = new Date(retentionCohortEnd + "T00:00:00")
     return retentionData.curve.map((point) => {
-      const rangeStart = addDays(cohortStartDate, point.day)
-      const rangeEnd = addDays(cohortEndDate, point.day)
+      const rangeStart = addDays(cohortStartDate, point.week * 7)
+      const rangeEnd = addDays(cohortEndDate, point.week * 7 + 6)
       const startMonth = formatDate(rangeStart, "MMM")
       const endMonth = formatDate(rangeEnd, "MMM")
       const startDay = formatDate(rangeStart, "d")
@@ -358,10 +377,10 @@ export default function OverviewPage() {
         ? `${startMonth} ${startDay}-${endDay}`
         : `${startMonth} ${startDay} - ${endMonth} ${endDay}`
       return {
-        day: point.day,
+        week: point.week,
         retentionPct: point.retentionPct,
         retainedCount: point.retainedCount,
-        label: `D${point.day} (${dateLabel})`,
+        label: `W${point.week} (${dateLabel})`,
       }
     })
   }, [retentionData, retentionCohortStart, retentionCohortEnd])
@@ -377,39 +396,40 @@ export default function OverviewPage() {
       cohortSize: retentionData.cohortSize,
       periodStart: retentionData.periodStart,
       periodEnd: retentionData.periodEnd,
-      d1: retentionData.curve.find((r) => r.day === 1)?.retentionPct,
-      d7: retentionData.curve.find((r) => r.day === 7)?.retentionPct,
-      d30: retentionData.curve.find((r) => r.day === 30)?.retentionPct,
+      w1: retentionData.curve.find((r) => r.week === 1)?.retentionPct,
+      w4: retentionData.curve.find((r) => r.week === 4)?.retentionPct,
+      w8: retentionData.curve.find((r) => r.week === 8)?.retentionPct,
     }
   }, [retentionData])
 
-  // Surface the D1/D7/D30 milestones from the retention curve as headline cards,
-  // each scored against its health-app benchmark. d30 is only populated when the
-  // retention window is ≥ 30 days; otherwise the card reads N/A (no goal bar).
+  // Surface the W1/W4/W8 milestones from the retention curve as headline cards,
+  // each scored against its (provisional) weekly benchmark. A week is only
+  // populated once the whole cohort has lived through it; otherwise the card
+  // reads N/A (no goal bar) — e.g. W8 needs a cohort older than ~8 weeks.
   const retentionMilestones = [
     {
-      label: "D1 Retention",
-      pct: retentionMetadata?.d1,
-      goal: GOALS.retentionD1,
-      tooltipTitle: "Day 1 Retention",
-      tooltipDescription: "% of the signup cohort active exactly 1 day after signing up.",
-      tooltipHowToRead: "Measures the onboarding hook. Benchmark for daily-habit health apps ≈ 25%.",
+      label: "W1 Retention",
+      pct: retentionMetadata?.w1,
+      goal: GOALS.retentionW1,
+      tooltipTitle: "Week 1 Retention",
+      tooltipDescription: "% of the signup cohort active at least once during week 1 after signing up.",
+      tooltipHowToRead: "Measures the onboarding hook. Provisional weekly benchmark ≈ 35%.",
     },
     {
-      label: "D7 Retention",
-      pct: retentionMetadata?.d7,
-      goal: GOALS.retentionD7,
-      tooltipTitle: "Day 7 Retention",
-      tooltipDescription: "% of the signup cohort still active 7 days after signing up.",
-      tooltipHowToRead: "The 'did the habit stick' check. Benchmark ≈ 15%.",
+      label: "W4 Retention",
+      pct: retentionMetadata?.w4,
+      goal: GOALS.retentionW4,
+      tooltipTitle: "Week 4 Retention",
+      tooltipDescription: "% of the signup cohort active at least once during week 4 after signing up.",
+      tooltipHowToRead: "The 'did the habit stick' check. Provisional weekly benchmark ≈ 18%.",
     },
     {
-      label: "D30 Retention",
-      pct: retentionMetadata?.d30,
-      goal: GOALS.retentionD30,
-      tooltipTitle: "Day 30 Retention",
-      tooltipDescription: "% of the signup cohort still active 30 days after signing up.",
-      tooltipHowToRead: "Long-term stickiness / PMF signal. Benchmark ≈ 10%. Needs a ≥30-day window.",
+      label: "W8 Retention",
+      pct: retentionMetadata?.w8,
+      goal: GOALS.retentionW8,
+      tooltipTitle: "Week 8 Retention",
+      tooltipDescription: "% of the signup cohort active at least once during week 8 after signing up.",
+      tooltipHowToRead: "Long-term stickiness / PMF signal. Provisional weekly benchmark ≈ 12%. Needs a cohort old enough for week 8 to be mature.",
     },
   ]
 
@@ -802,16 +822,16 @@ export default function OverviewPage() {
           <ChartCard
             title={
               <div className="flex items-center gap-2">
-                <span>{`Retention Curve (D0-D${retentionDays})`}</span>
+                <span>{`Retention Curve (W0-W${retentionWeeks})`}</span>
                 {retentionMetadata?.cohortSize != null && (
                   <span className="text-sm font-normal text-muted-foreground">
                     · {retentionMetadata.cohortSize} users
                   </span>
                 )}
                 <InfoTooltip
-                  title="Retention Curve (D1/D7/D30)"
-                  description="Question: 'Parmi celles inscrites à T0, combien reviennent à T+X?' | Who is counted: ✅ Only new signups from specific cohort ❌ Never existing users ❌ Never signups after T0 | Definition: Cohort = users signed up at given date/period. Retention D+X = % of cohort active exactly X days after signup | Calculation: users.createdAt ∈ cohort AND tracking_sessions.startedAt = createdAt + X days"
-                  howToRead="Higher line = better retention. D0=signup day. Each point = % of original cohort still active. Look for D1, D7, D30 milestones."
+                  title="Retention Curve (W1/W4/W8)"
+                  description="Question: 'Parmi celles inscrites à T0, combien reviennent en semaine N?' | Who is counted: ✅ Only new signups from specific cohort ❌ Never existing users ❌ Never signups after T0 | Definition: Cohort = users signed up in the given period. Retention W = % of cohort with ≥1 tracking_session on any day of the 7-day window [signup + W×7 … signup + W×7 + 6]. W0 = signup week"
+                  howToRead="Higher line = better retention. W0=signup week. Each point = % of original cohort active at least once that week. The trend usually declines, but rebounds are normal (a user idle in W4 can return in W8). Look for W1, W4, W8 milestones."
                   dataCoverage={
                     retentionMetadata?.error
                       ? retentionMetadata.error
@@ -819,7 +839,7 @@ export default function OverviewPage() {
                         ? `Cohort: ${retentionMetadata.cohortSize} users (${retentionMetadata.periodStart} to ${retentionMetadata.periodEnd}). Retention calculated on total cohort size.`
                         : "Loading..."
                   }
-                  limitations="Max 30 days period, max 2000 users. Points only shown when data available (never 0% for missing data). Cohort-based metric, different from Returning Users."
+                  limitations="Max 30 days cohort window, max 2000 users. By default the cohort is auto-selected to be fully mature for the chosen follow-up length (every week shown is complete); override it via 'Customize cohort range'. A week is only plotted once the whole cohort has lived through it (immature weeks hidden, never 0%)."
                 />
                 <Popover>
                   <PopoverTrigger asChild>
@@ -830,38 +850,68 @@ export default function OverviewPage() {
                   <PopoverContent className="w-auto" align="end">
                     <div className="space-y-3">
                       <div className="space-y-1">
-                        <label className="text-xs font-medium">Cohort date range</label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="date"
-                            value={retentionCohortStart}
-                            onChange={(e) => setRetentionCohortStart(e.target.value)}
-                            className="h-7 w-[130px] text-xs"
-                          />
-                          <span className="text-xs text-muted-foreground">to</span>
-                          <Input
-                            type="date"
-                            value={retentionCohortEnd}
-                            onChange={(e) => setRetentionCohortEnd(e.target.value)}
-                            className="h-7 w-[130px] text-xs"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium">Retention window</label>
+                        <label className="text-xs font-medium">Follow-up length</label>
                         <div className="flex items-center gap-1">
-                          {([7, 30, 90] as const).map((d) => (
+                          {([4, 8, 12] as const).map((w) => (
                             <Button
-                              key={d}
-                              variant={retentionDays === d ? "default" : "outline"}
+                              key={w}
+                              variant={retentionWeeks === w ? "default" : "outline"}
                               size="sm"
                               className="h-7 px-2 text-xs"
-                              onClick={() => setRetentionDays(d)}
+                              onClick={() => setRetentionWeeks(w)}
                             >
-                              {d}d
+                              {w}w
                             </Button>
                           ))}
                         </div>
+                        <p className="text-[11px] text-muted-foreground">Weeks tracked after signup</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">
+                          Cohort (auto): signups {retentionMetadata?.periodStart ?? retentionCohortStart} →{" "}
+                          {retentionMetadata?.periodEnd ?? retentionCohortEnd}
+                          {retentionMetadata?.cohortSize != null ? ` · ${retentionMetadata.cohortSize} users` : ""}
+                        </p>
+                        {!customCohort ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-1 text-xs text-muted-foreground"
+                            onClick={() => {
+                              setCustomCohortStart(autoCohort.start)
+                              setCustomCohortEnd(autoCohort.end)
+                              setCustomCohort(true)
+                            }}
+                          >
+                            ▸ Customize cohort range
+                          </Button>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="date"
+                                value={customCohortStart}
+                                onChange={(e) => setCustomCohortStart(e.target.value)}
+                                className="h-7 w-[130px] text-xs"
+                              />
+                              <span className="text-xs text-muted-foreground">to</span>
+                              <Input
+                                type="date"
+                                value={customCohortEnd}
+                                onChange={(e) => setCustomCohortEnd(e.target.value)}
+                                className="h-7 w-[130px] text-xs"
+                              />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-1 text-xs text-muted-foreground"
+                              onClick={() => setCustomCohort(false)}
+                            >
+                              ↺ Back to automatic
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </PopoverContent>

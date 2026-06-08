@@ -527,11 +527,29 @@ export async function fetchPhotoCount(options?: {
 
 // ============= Retention =============
 
-export async function calculateRetentionCurve(cohortStart: string, cohortEnd: string, maxDays?: number) {
-  const result = await apiFetch<any>("/api/retention", {
+export interface RetentionCurvePoint {
+  week: number
+  retentionPct: number
+  retainedCount: number
+}
+
+export interface RetentionCurveResult {
+  curve: RetentionCurvePoint[]
+  cohortSize: number
+  periodStart: string
+  periodEnd: string
+  error?: string
+}
+
+export async function calculateRetentionCurve(
+  cohortStart: string,
+  cohortEnd: string,
+  maxWeeks?: number,
+): Promise<RetentionCurveResult> {
+  const result = await apiFetch<{ data: RetentionCurveResult }>("/api/retention", {
     cohortStart,
     cohortEnd,
-    maxDays: maxDays?.toString(),
+    maxWeeks: maxWeeks?.toString(),
   })
   return result.data
 }

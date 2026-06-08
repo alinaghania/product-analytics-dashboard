@@ -1220,9 +1220,9 @@ export async function fetchChatConversations(_dateRange?: { from?: string; to?: 
 export async function calculateRetentionCurve(
   cohortStart: string,
   cohortEnd: string,
-  maxDays: number = 30,
+  maxWeeks: number = 8,
 ): Promise<{
-  curve: Array<{ day: number; retentionPct: number; retainedCount: number }>
+  curve: Array<{ week: number; retentionPct: number; retainedCount: number }>
   cohortSize: number
   periodStart: string
   periodEnd: string
@@ -1270,7 +1270,7 @@ export async function calculateRetentionCurve(
 
   const today = new Date()
   const maxSessionDate = new Date(cohortEnd + "T23:59:59Z")
-  maxSessionDate.setUTCDate(maxSessionDate.getUTCDate() + maxDays)
+  maxSessionDate.setUTCDate(maxSessionDate.getUTCDate() + maxWeeks * 7 + 6)
   const sessionEndDate = maxSessionDate < today ? maxSessionDate : today
 
   const sessionsSnapshot = await db
@@ -1292,25 +1292,31 @@ export async function calculateRetentionCurve(
     }
   })
 
-  const curve: { day: number; retentionPct: number; retainedCount: number }[] = []
+  const curve: { week: number; retentionPct: number; retainedCount: number }[] = []
   const todayKey = toDayKey(today)
 
-  for (let d = 0; d <= maxDays; d++) {
+  // Weekly cohort retention: a user is "retained" in week w if they had at least
+  // one active day within the 7-day window [signup + w*7 … signup + w*7 + 6].
+  // We only emit a Wn point once the WHOLE cohort has had that full window elapse
+  // (the latest signup — cohortEnd — must be mature), so partially-elapsed weeks
+  // are never plotted artificially low. Denominator is always the full cohortSize.
+  for (let w = 0; w <= maxWeeks; w++) {
+    if (addDaysToDateString(cohortEnd, w * 7 + 6) > todayKey) break
+
     let retainedCount = 0
-    let usersWithDataAvailable = 0
-
     for (const user of cohortUsers) {
-      const targetDay = addDaysToDateString(user.signupDay, d)
-      if (targetDay > todayKey) continue
-      usersWithDataAvailable++
       const activeDays = activeDaysByUser.get(user.id)
-      if (activeDays && activeDays.has(targetDay)) retainedCount++
+      if (!activeDays) continue
+      for (let k = 0; k < 7; k++) {
+        if (activeDays.has(addDaysToDateString(user.signupDay, w * 7 + k))) {
+          retainedCount++
+          break
+        }
+      }
     }
 
-    if (usersWithDataAvailable > 0) {
-      const retentionPct = (retainedCount / cohortSize) * 100
-      curve.push({ day: d, retentionPct: Math.round(retentionPct * 10) / 10, retainedCount })
-    }
+    const retentionPct = (retainedCount / cohortSize) * 100
+    curve.push({ week: w, retentionPct: Math.round(retentionPct * 10) / 10, retainedCount })
   }
 
   return { curve, cohortSize, periodStart: cohortStart, periodEnd: cohortEnd }
