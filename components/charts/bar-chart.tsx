@@ -32,6 +32,14 @@ interface BarChartProps {
   showLabels?: boolean
   maxBars?: number
   stacks?: StackConfig[]
+  /** Data key for a second, grouped "target/goal" bar drawn next to `yKey`. */
+  compareKey?: string
+  /** Fill color of the comparison bar. */
+  compareColor?: string
+  /** Legend label for the main `yKey` bar (shown only when comparing). */
+  mainLabel?: string
+  /** Legend label for the `compareKey` bar. */
+  compareLabel?: string
 }
 
 const defaultColors = ["#3B82F6", "#2ED47A", "#22D3EE", "#FFB020", "#FF5C5C"]
@@ -85,11 +93,18 @@ export function BarChart({
   showLabels = true,
   maxBars,
   stacks,
+  compareKey,
+  compareColor = "#2ED47A",
+  mainLabel,
+  compareLabel,
 }: BarChartProps) {
   const isVertical = layout === "vertical"
 
   const chartData = useMemo(() => {
-    const filtered = isVertical
+    // The zero-value filter is a feature of the simple vertical bar list only —
+    // grouped compare charts must keep rows where the main value is 0 but the
+    // goal isn't (e.g. an upcoming month with a target but no signups yet).
+    const filtered = isVertical && !compareKey
       ? data.filter((item) => {
           const value = item[yKey]
           return typeof value === "number" && value > 0
@@ -102,7 +117,7 @@ export function BarChart({
     }
 
     return filtered
-  }, [data, xKey, yKey, isVertical, maxBars, stacks])
+  }, [data, xKey, yKey, isVertical, maxBars, stacks, compareKey])
 
   const isAggregated = !!(maxBars && !isVertical && data.length > maxBars)
 
@@ -117,7 +132,7 @@ export function BarChart({
     )
   }, [xKey])
 
-  if (isVertical) {
+  if (isVertical && !compareKey) {
     if (chartData.length === 0) return null
 
     const maxValue = Math.max(...chartData.map((d) => Number(d[yKey]) || 0))
@@ -169,6 +184,95 @@ export function BarChart({
       </div>
     )
   }, [xKey, stacks])
+
+  const renderCompareTooltip = useCallback(({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string; payload?: Record<string, unknown> }>; label?: string }) => {
+    if (!active || !payload?.length) return null
+    const displayLabel = resolveTooltipLabel(payload, xKey, label)
+    return (
+      <div style={tooltipContainerStyle}>
+        <p style={tooltipLabelStyle}>{displayLabel}</p>
+        {payload.map((entry, i) => (
+          <p key={i} style={{ ...tooltipValueStyle, color: entry.color }}>
+            {entry.name}: {entry.value?.toLocaleString?.() ?? entry.value}
+          </p>
+        ))}
+      </div>
+    )
+  }, [xKey])
+
+  if (compareKey) {
+    // layout="vertical" makes the bars extend horizontally (category on Y).
+    const horizontal = isVertical
+    const barRadius: [number, number, number, number] = horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]
+    const labelPos = horizontal ? "right" : "top"
+    const height = horizontal ? Math.max(220, chartData.length * 52) : 200
+    const categoryFormatter = isAggregated
+      ? undefined
+      : (v: string) => (ISO_DATE_REGEX.test(v) ? formatDateLabel(v) : v)
+
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        <RechartsBarChart
+          data={chartData}
+          layout={horizontal ? "vertical" : "horizontal"}
+          margin={horizontal ? { top: 8, right: 36, left: 8, bottom: 8 } : { top: 20, right: 5, left: -20, bottom: 40 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#1F2A44" horizontal={!horizontal} vertical={horizontal} />
+          {horizontal ? (
+            <XAxis type="number" tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+          ) : (
+            <XAxis
+              dataKey={xKey}
+              tick={{ fill: "#6B7694", fontSize: 11 }}
+              axisLine={{ stroke: "#1F2A44" }}
+              tickLine={false}
+              angle={-45}
+              textAnchor="end"
+              height={60}
+              interval={0}
+              tickFormatter={categoryFormatter}
+            />
+          )}
+          {horizontal ? (
+            <YAxis
+              type="category"
+              dataKey={xKey}
+              tick={{ fill: "#6B7694", fontSize: 11 }}
+              axisLine={{ stroke: "#1F2A44" }}
+              tickLine={false}
+              width={72}
+              interval={0}
+              tickFormatter={categoryFormatter}
+            />
+          ) : (
+            <YAxis tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+          )}
+          <Tooltip content={renderCompareTooltip} cursor={false} />
+          <Legend wrapperStyle={{ fontSize: 12, color: "#9AA4BF" }} />
+          <Bar dataKey={yKey} name={mainLabel ?? yKey} fill={color || colors[0]} radius={barRadius}>
+            {showLabels && (
+              <LabelList
+                dataKey={yKey}
+                position={labelPos}
+                style={{ fill: "#9AA4BF", fontSize: 11, fontWeight: 500 }}
+                formatter={(value: number) => (value > 0 ? value.toLocaleString() : "")}
+              />
+            )}
+          </Bar>
+          <Bar dataKey={compareKey} name={compareLabel ?? compareKey} fill={compareColor} fillOpacity={0.45} radius={barRadius}>
+            {showLabels && (
+              <LabelList
+                dataKey={compareKey}
+                position={labelPos}
+                style={{ fill: "#6B7694", fontSize: 11, fontWeight: 500 }}
+                formatter={(value: number) => (value > 0 ? value.toLocaleString() : "")}
+              />
+            )}
+          </Bar>
+        </RechartsBarChart>
+      </ResponsiveContainer>
+    )
+  }
 
   if (stacks) {
     return (

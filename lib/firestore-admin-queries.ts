@@ -56,6 +56,42 @@ function toDate(timestamp: any): Date | undefined {
   return undefined
 }
 
+// Normalize the many role spellings the mobile app has used over time.
+function normalizeMessageRole(data: any): ChatMessage["role"] {
+  const rawRole = String(data.role ?? data.sender ?? data.type ?? data.author ?? data.from ?? "").toLowerCase()
+  if (["user", "client", "human"].includes(rawRole)) return "user"
+  if (["assistant", "bot", "ai", "endora"].includes(rawRole)) return rawRole === "endora" ? "endora" : "assistant"
+  if (rawRole === "system") return "system"
+  return "assistant"
+}
+
+// Pull plain text out of the various message content shapes (string, array of
+// blocks, or { text|content|message } object), trying the known field names.
+function extractMessageContent(data: any): string {
+  const extract = (value: unknown): string => {
+    if (typeof value === "string") return value
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => {
+          if (typeof item === "string") return item
+          if (item && typeof item === "object") {
+            const candidate = (item as any).text ?? (item as any).content ?? (item as any).message
+            return typeof candidate === "string" ? candidate : ""
+          }
+          return ""
+        })
+        .filter(Boolean)
+        .join("\\n")
+    }
+    if (value && typeof value === "object") {
+      const candidate = (value as any).text ?? (value as any).content ?? (value as any).message
+      return typeof candidate === "string" ? candidate : ""
+    }
+    return value ? String(value) : ""
+  }
+  return extract(data.text) || extract(data.content) || extract(data.message) || extract(data.body) || ""
+}
+
 // Helper to build date range constraints
 function dateRangeTimestamps(from: string, to: string) {
   return {
@@ -295,6 +331,39 @@ export async function fetchDailySignups(options: {
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
+// Monthly count of user signups (users.createdAt) across the whole user base.
+// Fetches only `createdAt` and buckets server-side into "YYYY-MM" keys
+// (Europe/Paris, matching the dashboard's timezone) so the client receives a
+// compact array — no doc download. Docs missing createdAt are dropped by the
+// orderBy and can't be bucketed anyway.
+export async function fetchMonthlySignups(): Promise<Array<{ month: string; count: number }>> {
+  const db = getAdminDb()
+  const snapshot = await db
+    .collection("users")
+    .orderBy("createdAt", "asc")
+    .select("createdAt")
+    .limit(50000)
+    .get()
+
+  const monthFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+  })
+
+  const byMonth = new Map<string, number>()
+  for (const doc of snapshot.docs) {
+    const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    if (!ts) continue
+    const monthKey = monthFmt.format(ts).slice(0, 7) // "YYYY-MM"
+    byMonth.set(monthKey, (byMonth.get(monthKey) || 0) + 1)
+  }
+
+  return [...byMonth.entries()]
+    .map(([month, count]) => ({ month, count }))
+    .sort((a, b) => a.month.localeCompare(b.month))
+}
+
 // Average age from users.registrationData.age (or birthDate) without
 // downloading the entire users collection — server reads only the registration
 // fields it needs and returns the average.
@@ -492,38 +561,8 @@ export async function fetchConversationMessages(
     const timestamp =
       toDateLoose(data.createdAt) || toDateLoose(data.timestamp) || toDateLoose(data.sentAt) || toDateLoose(data.time)
 
-    const rawRole = String(data.role ?? data.sender ?? data.type ?? data.author ?? data.from ?? "").toLowerCase()
-    let role: ChatMessage["role"] = "assistant"
-    if (["user", "client", "human"].includes(rawRole)) role = "user"
-    else if (["assistant", "bot", "ai", "endora"].includes(rawRole))
-      role = rawRole === "endora" ? "endora" : "assistant"
-    else if (rawRole === "system") role = "system"
-
-    const extractText = (value: unknown): string => {
-      if (typeof value === "string") return value
-      if (Array.isArray(value)) {
-        return value
-          .map((item) => {
-            if (typeof item === "string") return item
-            if (item && typeof item === "object") {
-              const candidate =
-                (item as any).text ?? (item as any).content ?? (item as any).message
-              return typeof candidate === "string" ? candidate : ""
-            }
-            return ""
-          })
-          .filter(Boolean)
-          .join("\\n")
-      }
-      if (value && typeof value === "object") {
-        const candidate = (value as any).text ?? (value as any).content ?? (value as any).message
-        return typeof candidate === "string" ? candidate : ""
-      }
-      return value ? String(value) : ""
-    }
-
-    const content =
-      extractText(data.text) || extractText(data.content) || extractText(data.message) || extractText(data.body) || ""
+    const role = normalizeMessageRole(data)
+    const content = extractMessageContent(data)
 
     return {
       message: {
@@ -622,6 +661,216 @@ export async function fetchUserChatSessions(userId: string): Promise<ChatConvers
 export async function fetchChatSessionMessages(conversationId: string): Promise<ChatMessage[]> {
   const result = await fetchConversationMessages(conversationId, { limitCount: 500 })
   return result.data
+}
+
+// ============= CONVERSATION INSIGHTS CORPUS =============
+//
+// Assembles a corpus of recent, non-onboarding conversations for the LLM
+// "interesting conversations" panel on the Users page. Unlike
+// fetchConversationMessages (which drops entryPoint/topic), this reader keeps
+// the per-message markers needed to detect and strip the Endora intro flow.
+
+export interface InsightsConversation {
+  conversationId: string
+  userId: string
+  messages: { role: ChatMessage["role"]; content: string }[]
+}
+
+export interface InsightsCorpusMeta {
+  conversationsAnalyzed: number
+  onboardingExcluded: number
+  truncated: boolean
+}
+
+interface RawInsightMessage {
+  role: ChatMessage["role"]
+  content: string
+  entryPoint?: string
+  topic?: string
+}
+
+const INSIGHTS_DEFAULTS = {
+  fetchCount: 400, // conversations to scan (createdAt desc)
+  keepCount: 200, // most-recent non-onboarding conversations to keep
+  maxMessagesPerConv: 50,
+  maxCharsPerMessage: 2000,
+  maxTotalChars: 300_000,
+  concurrency: 10,
+} as const
+
+// A message belongs to the Endora intro flow when the mobile app tagged it as
+// such (source: lotus-mobile/src/intro-flow/persistence.ts). The conversation
+// doc does NOT store these — they live on individual messages.
+const isIntroMessage = (m: RawInsightMessage): boolean =>
+  m.entryPoint === "intro_flow" || m.topic === "intro_flow"
+const isNonEmptyMessage = (m: RawInsightMessage): boolean => m.content.trim().length > 0
+
+// Fallback for legacy data with no intro markers: the scripted intro opens with
+// this assistant line and contains only canned user replies (no real request).
+const INTRO_OPENER_RE = /^Bonjour\b.*je suis Endora/i
+
+// The intro conversation is created with this exact title (FR + EN variants,
+// verified in production). Note: the title is NOT updated when the chat later
+// turns into a real conversation, so it can corroborate "intro-flavoured" but
+// can NEVER alone decide exclusion — hence it's gated on "no real user request".
+const INTRO_TITLE_RE = /^(bienvenue sur endora|welcome to endora)$/i
+
+// Canned user replies in the intro script — normalized (lowercase, no accents,
+// no punctuation). A user message matching one of these is NOT a real request.
+function normalizeReply(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // strip combining diacritics
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+// The full set of canned user replies in the intro script (verified against
+// production message data). A partial onboarding is a prefix of this sequence,
+// so its replies are always a subset — keeping it complete is what lets the
+// fallback exclude both partial and completed markerless onboarding.
+const INTRO_SCRIPT_REPLIES = new Set(
+  [
+    "Ravie de te rencontrer",
+    "Mais c'est génial, je vais en apprendre plus sur moi",
+    "J'aurais des choses à montrer à mon médecin",
+    "J'adore le concept",
+    "Bon à savoir",
+    "Ça va me faciliter mon suivi",
+  ].map(normalizeReply),
+)
+
+// Classify a conversation's messages: either exclude it as onboarding, or keep
+// it with the residual intro messages stripped from the transcript. `title` is
+// the conversation-doc title (corroborating signal for the markerless fallback).
+function classifyConversation(
+  messages: RawInsightMessage[],
+  title?: string,
+): { excluded: true } | { excluded: false; messages: RawInsightMessage[] } {
+  const hasMarker = messages.some(isIntroMessage)
+
+  if (hasMarker) {
+    // Structured marker (recent data): exclude only if EVERY non-empty message
+    // is intro; otherwise keep the conversation but drop the intro messages.
+    // (The title is deliberately ignored here: onboarding-then-real chats keep
+    // the "Bienvenue sur Endora" title, and we must keep their real part.)
+    const nonEmpty = messages.filter(isNonEmptyMessage)
+    if (nonEmpty.length > 0 && nonEmpty.every(isIntroMessage)) return { excluded: true }
+    return { excluded: false, messages: messages.filter((m) => !isIntroMessage(m)) }
+  }
+
+  // Content/title fallback (legacy data, no markers): exclude only when the
+  // intro opener OR the intro title is present AND there is no real user request
+  // anywhere. The "no real request" gate prevents over-excluding a chat that
+  // started as onboarding (same title) but became a genuine conversation.
+  const firstAssistant = messages.find((m) => m.role !== "user" && isNonEmptyMessage(m))
+  const opensWithIntro =
+    (!!firstAssistant && INTRO_OPENER_RE.test(firstAssistant.content.trim())) ||
+    (!!title && INTRO_TITLE_RE.test(title.trim()))
+  if (!opensWithIntro) return { excluded: false, messages }
+
+  const hasRealUserRequest = messages.some(
+    (m) => m.role === "user" && isNonEmptyMessage(m) && !INTRO_SCRIPT_REPLIES.has(normalizeReply(m.content)),
+  )
+  return hasRealUserRequest ? { excluded: false, messages } : { excluded: true }
+}
+
+// Read a conversation's messages while preserving entryPoint/topic markers.
+// Messages store their time in `timestamp` (NOT `createdAt`), so we order by
+// that and also sort in memory by a derived timestamp — guaranteeing chrono
+// order even for the unordered fallback or legacy docs with a different field.
+async function fetchRawInsightMessages(conversationId: string, limitCount: number): Promise<RawInsightMessage[]> {
+  const db = getAdminDb()
+  const base = db.collection("chat_conversations").doc(conversationId).collection("messages")
+  let snapshot = await base.orderBy("timestamp", "asc").limit(limitCount).get()
+  if (snapshot.empty) snapshot = await base.limit(limitCount).get()
+
+  return snapshot.docs
+    .map((doc, index) => {
+      const data = doc.data()
+      const ts = toDate(data.timestamp) || toDate(data.createdAt) || toDate(data.sentAt) || toDate(data.time)
+      return {
+        sortKey: ts ? ts.getTime() : index,
+        role: normalizeMessageRole(data),
+        content: extractMessageContent(data),
+        entryPoint: typeof data.entryPoint === "string" ? data.entryPoint : undefined,
+        topic: typeof data.topic === "string" ? data.topic : undefined,
+      }
+    })
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .map(({ sortKey, ...message }) => message)
+}
+
+// Build the insights corpus: scan recent conversations, exclude onboarding,
+// keep the most-recent non-onboarding ones, and cap size for the LLM.
+export async function fetchRecentConversationsForInsights(opts?: {
+  fetchCount?: number
+  keepCount?: number
+}): Promise<{ conversations: InsightsConversation[]; meta: InsightsCorpusMeta }> {
+  const cfg = { ...INSIGHTS_DEFAULTS, ...opts }
+  const { data: conversations } = await fetchConversations({ limitCount: cfg.fetchCount })
+
+  // Read messages + classify, in bounded-concurrency batches. Stop early once
+  // we have enough non-onboarding conversations.
+  const kept: { conversationId: string; userId: string; messages: RawInsightMessage[] }[] = []
+  // Counts onboarding conversations seen *while collecting* the keepCount slots.
+  // The loop stops early once keepCount non-onboarding are found, so this is the
+  // exclusion count over the scanned prefix, not the full fetched set — a
+  // deliberate trade to avoid reading subcollections we don't need.
+  let onboardingExcluded = 0
+
+  for (let i = 0; i < conversations.length && kept.length < cfg.keepCount; i += cfg.concurrency) {
+    const batch = conversations.slice(i, i + cfg.concurrency)
+    const classified = await Promise.all(
+      batch.map(async (conv) => ({
+        conv,
+        result: classifyConversation(await fetchRawInsightMessages(conv.id, cfg.maxMessagesPerConv), conv.title),
+      })),
+    )
+    for (const { conv, result } of classified) {
+      if (kept.length >= cfg.keepCount) break
+      if (result.excluded) {
+        onboardingExcluded++
+        continue
+      }
+      if (result.messages.some(isNonEmptyMessage)) {
+        kept.push({ conversationId: conv.id, userId: conv.userId, messages: result.messages })
+      }
+    }
+  }
+
+  // Cap content: truncate long messages and enforce a global character budget.
+  let totalChars = 0
+  let truncated = false
+  const out: InsightsConversation[] = []
+  for (const conv of kept) {
+    if (totalChars >= cfg.maxTotalChars) {
+      truncated = true
+      break
+    }
+    const messages: { role: ChatMessage["role"]; content: string }[] = []
+    for (const m of conv.messages) {
+      if (!isNonEmptyMessage(m)) continue
+      let content = m.content.trim()
+      if (content.length > cfg.maxCharsPerMessage) {
+        content = content.slice(0, cfg.maxCharsPerMessage) + "…"
+        truncated = true
+      }
+      if (totalChars + content.length > cfg.maxTotalChars) {
+        truncated = true
+        break
+      }
+      totalChars += content.length
+      messages.push({ role: m.role, content })
+    }
+    if (messages.length > 0) out.push({ conversationId: conv.conversationId, userId: conv.userId, messages })
+  }
+
+  return {
+    conversations: out,
+    meta: { conversationsAnalyzed: out.length, onboardingExcluded, truncated },
+  }
 }
 
 // ============= APP EVENTS =============
@@ -971,9 +1220,9 @@ export async function fetchChatConversations(_dateRange?: { from?: string; to?: 
 export async function calculateRetentionCurve(
   cohortStart: string,
   cohortEnd: string,
-  maxDays: number = 30,
+  maxWeeks: number = 8,
 ): Promise<{
-  curve: Array<{ day: number; retentionPct: number; retainedCount: number }>
+  curve: Array<{ week: number; retentionPct: number; retainedCount: number }>
   cohortSize: number
   periodStart: string
   periodEnd: string
@@ -1021,7 +1270,7 @@ export async function calculateRetentionCurve(
 
   const today = new Date()
   const maxSessionDate = new Date(cohortEnd + "T23:59:59Z")
-  maxSessionDate.setUTCDate(maxSessionDate.getUTCDate() + maxDays)
+  maxSessionDate.setUTCDate(maxSessionDate.getUTCDate() + maxWeeks * 7 + 6)
   const sessionEndDate = maxSessionDate < today ? maxSessionDate : today
 
   const sessionsSnapshot = await db
@@ -1043,25 +1292,31 @@ export async function calculateRetentionCurve(
     }
   })
 
-  const curve: { day: number; retentionPct: number; retainedCount: number }[] = []
+  const curve: { week: number; retentionPct: number; retainedCount: number }[] = []
   const todayKey = toDayKey(today)
 
-  for (let d = 0; d <= maxDays; d++) {
+  // Weekly cohort retention: a user is "retained" in week w if they had at least
+  // one active day within the 7-day window [signup + w*7 … signup + w*7 + 6].
+  // We only emit a Wn point once the WHOLE cohort has had that full window elapse
+  // (the latest signup — cohortEnd — must be mature), so partially-elapsed weeks
+  // are never plotted artificially low. Denominator is always the full cohortSize.
+  for (let w = 0; w <= maxWeeks; w++) {
+    if (addDaysToDateString(cohortEnd, w * 7 + 6) > todayKey) break
+
     let retainedCount = 0
-    let usersWithDataAvailable = 0
-
     for (const user of cohortUsers) {
-      const targetDay = addDaysToDateString(user.signupDay, d)
-      if (targetDay > todayKey) continue
-      usersWithDataAvailable++
       const activeDays = activeDaysByUser.get(user.id)
-      if (activeDays && activeDays.has(targetDay)) retainedCount++
+      if (!activeDays) continue
+      for (let k = 0; k < 7; k++) {
+        if (activeDays.has(addDaysToDateString(user.signupDay, w * 7 + k))) {
+          retainedCount++
+          break
+        }
+      }
     }
 
-    if (usersWithDataAvailable > 0) {
-      const retentionPct = (retainedCount / cohortSize) * 100
-      curve.push({ day: d, retentionPct: Math.round(retentionPct * 10) / 10, retainedCount })
-    }
+    const retentionPct = (retainedCount / cohortSize) * 100
+    curve.push({ week: w, retentionPct: Math.round(retentionPct * 10) / 10, retainedCount })
   }
 
   return { curve, cohortSize, periodStart: cohortStart, periodEnd: cohortEnd }

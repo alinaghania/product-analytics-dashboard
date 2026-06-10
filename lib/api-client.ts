@@ -32,6 +32,27 @@ async function apiFetch<T>(path: string, params?: Record<string, string | undefi
   return response.json()
 }
 
+// POST twin of apiFetch (JSON body, same auth + error handling).
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const token = await getAuthToken()
+
+  const response = await fetch(new URL(path, window.location.origin).toString(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: response.statusText }))
+    throw new Error(errorBody.error || `API error: ${response.status}`)
+  }
+
+  return response.json()
+}
+
 // ============= Users =============
 
 export async function fetchUsers(options: {
@@ -64,6 +85,24 @@ export async function fetchUsers(options: {
 
 export async function fetchUserById(userId: string) {
   const result = await apiFetch<any>(`/api/users/${userId}`)
+  return result.data
+}
+
+export interface ConversationInsights {
+  summary: string
+  bestConversation: { conversationId: string; userId: string; reason: string } | null
+  // Unit = conversation (a userId may repeat); deduped by conversationId, ≤ 30.
+  interestingConversations: { conversationId: string; userId: string; reason: string }[]
+  meta: {
+    conversationsAnalyzed: number
+    onboardingExcluded: number
+    truncated: boolean
+    hallucinationsFiltered: number
+  }
+}
+
+export async function generateConversationInsights(): Promise<ConversationInsights> {
+  const result = await apiPost<{ data: ConversationInsights }>("/api/users/conversation-insights", {})
   return result.data
 }
 
@@ -100,6 +139,13 @@ export async function fetchDailySignups(opts: {
   const result = await apiFetch<{ data: Array<{ date: string; count: number }> }>(
     "/api/metrics/daily-signups",
     { from: opts.from, to: opts.to },
+  )
+  return result.data
+}
+
+export async function fetchMonthlySignups(): Promise<Array<{ month: string; count: number }>> {
+  const result = await apiFetch<{ data: Array<{ month: string; count: number }> }>(
+    "/api/metrics/monthly-signups",
   )
   return result.data
 }
@@ -481,11 +527,29 @@ export async function fetchPhotoCount(options?: {
 
 // ============= Retention =============
 
-export async function calculateRetentionCurve(cohortStart: string, cohortEnd: string, maxDays?: number) {
-  const result = await apiFetch<any>("/api/retention", {
+export interface RetentionCurvePoint {
+  week: number
+  retentionPct: number
+  retainedCount: number
+}
+
+export interface RetentionCurveResult {
+  curve: RetentionCurvePoint[]
+  cohortSize: number
+  periodStart: string
+  periodEnd: string
+  error?: string
+}
+
+export async function calculateRetentionCurve(
+  cohortStart: string,
+  cohortEnd: string,
+  maxWeeks?: number,
+): Promise<RetentionCurveResult> {
+  const result = await apiFetch<{ data: RetentionCurveResult }>("/api/retention", {
     cohortStart,
     cohortEnd,
-    maxDays: maxDays?.toString(),
+    maxWeeks: maxWeeks?.toString(),
   })
   return result.data
 }
