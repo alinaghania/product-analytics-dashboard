@@ -366,6 +366,33 @@ export default function OverviewPage() {
     [acquisitionData],
   )
 
+  // Last 7 days with data — kept short on purpose so the stacked bars stay wide
+  // and readable (no maxBars aggregation that squishes them).
+  const acquisitionLast7 = useMemo(
+    () => (acquisitionData?.daily ?? []).slice(-7),
+    [acquisitionData],
+  )
+
+  // Most recent day's breakdown, as pie slices + a matching fixed-color array.
+  // A pie is the clearest "snapshot of the latest day" view (few channels).
+  const { lastDaySlices, lastDayColors, lastDayLabel, lastDayTotal } = useMemo(() => {
+    const rows = acquisitionData?.daily ?? []
+    const last = rows[rows.length - 1]
+    if (!last) {
+      return { lastDaySlices: [], lastDayColors: [], lastDayLabel: "", lastDayTotal: 0 }
+    }
+    const slices = Object.entries(last)
+      .filter(([k]) => k !== "date" && k !== "total")
+      .map(([name, count]) => ({ name, count: Number(count) || 0 }))
+      .sort((a, b) => b.count - a.count)
+    return {
+      lastDaySlices: slices,
+      lastDayColors: slices.map((s) => ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR),
+      lastDayLabel: formatDate(new Date(`${last.date}T00:00:00`), "MMM d"),
+      lastDayTotal: Number(last.total) || 0,
+    }
+  }, [acquisitionData])
+
   const monthlySignupsData = useMemo(() => {
     // One row per month: actual signups + the team's acquisition goal (when set).
     // Goal-only months with no signups yet (e.g. an upcoming month) are still
@@ -841,33 +868,56 @@ export default function OverviewPage() {
           </ChartCard>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-2 gap-6">
           <ChartCard
             title={
               <div className="flex items-center gap-2">
-                <span>Daily Signups by Source</span>
+                <span>Sources — Latest Day{lastDayLabel ? ` (${lastDayLabel})` : ""}</span>
                 <InfoTooltip
-                  title="Daily Signups by Source"
-                  description="New users per day, stacked by where they said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
-                  howToRead="Each bar is one day; each colored segment is the number of signups from that channel (Instagram, TikTok, friends/word-of-mouth, Google...). Hover any bar for the exact per-source breakdown. Days merge into ranges when the window is long."
-                  limitations="Only users who answered the acquisition question appear (asked in the new V4 onboarding). Users who skipped it or signed up before it existed are not counted, so totals here are lower than total signups."
-                  dataCoverage={`${(acquisitionData?.answered ?? 0).toLocaleString()} users answered in this range`}
+                  title="Acquisition Sources — Latest Day"
+                  description="Where the most recent day's new users said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
+                  howToRead="Each slice is one channel's share of that day's signups. Hover for exact counts."
+                  limitations="Only users who answered the acquisition question (asked in the new V4 onboarding). Reflects the latest day that has at least one answer."
+                  dataCoverage={lastDayTotal > 0 ? `${lastDayTotal.toLocaleString()} signups that day` : "No data yet"}
                 />
               </div>
             }
             isLoading={acquisitionLoading && !acquisitionData}
           >
-            {acquisitionStacks.length === 0 ? (
+            {lastDaySlices.length === 0 ? (
               <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-                No acquisition answers in this date range.
+                No acquisition answers yet.
+              </div>
+            ) : (
+              <PieChart data={lastDaySlices} colors={lastDayColors} showLabel={false} />
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Signups by Source — Last 7 Days</span>
+                <InfoTooltip
+                  title="Signups by Source — Last 7 Days"
+                  description="New users per day over the last 7 days with data, stacked by acquisition channel (registrationData.acquisitionSource)."
+                  howToRead="Each bar is one day; each colored segment is signups from that channel. The number on top is the day's total. Hover for the full per-source breakdown."
+                  limitations="Only users who answered the acquisition question (V4 onboarding). Limited to the 7 most recent days with answers so the bars stay wide and readable."
+                  dataCoverage={`${(acquisitionData?.answered ?? 0).toLocaleString()} users answered in the selected range`}
+                />
+              </div>
+            }
+            isLoading={acquisitionLoading && !acquisitionData}
+          >
+            {acquisitionLast7.length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                No acquisition answers yet.
               </div>
             ) : (
               <BarChart
-                data={acquisitionData?.daily ?? []}
+                data={acquisitionLast7}
                 xKey="date"
                 yKey="total"
                 stacks={acquisitionStacks}
-                maxBars={30}
               />
             )}
           </ChartCard>
