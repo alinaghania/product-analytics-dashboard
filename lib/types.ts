@@ -263,6 +263,11 @@ export interface OnboardingAnalytics {
   platform: CountSlice[]
   notifications: CountSlice[]
 
+  // Acquisition ("How did you hear about Endora?" — registrationData.acquisitionSource)
+  acquisitionSource: CountSlice[]
+  // One row per day: { date, total, [sourceLabel]: count } for the stacked chart
+  acquisitionDaily: Array<Record<string, number | string>>
+
   generatedAt: string
 }
 
