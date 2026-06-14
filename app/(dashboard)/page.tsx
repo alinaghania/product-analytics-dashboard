@@ -24,6 +24,7 @@ import {
   fetchGa4DailyActivity,
   fetchAvgAge,
   fetchDailySignups,
+  fetchAcquisitionMetrics,
   fetchMonthlySignups,
   fetchChatConversations,
   fetchPhotos,
@@ -34,6 +35,24 @@ import { bucketByDay, bucketByHour, uniqueUsersByDay } from "@/lib/analytics"
 import { GOALS, MONTHLY_SIGNUP_GOALS, totalUsersGoalForMonth } from "@/lib/metric-goals"
 
 let globalInitialLoadDone = false
+
+// A fixed, high-contrast color per acquisition source (keyed by its display
+// label) so each channel keeps a recognisable, distinct color — no two blues,
+// and Facebook isn't a near-black blob on the dark background.
+const ACQUISITION_SOURCE_COLORS: Record<string, string> = {
+  Instagram: "#E1306C", // instagram magenta
+  TikTok: "#22D3EE", // tiktok cyan
+  "Friends or family": "#2ED47A", // word of mouth — green
+  "Google search": "#FBBC05", // google yellow
+  "App Store": "#A855F7", // purple
+  Facebook: "#1877F2", // facebook blue
+  "YouTube or TV": "#EF4444", // youtube red
+  "Influencer or celebrity": "#F97316", // orange
+  "Healthcare professional": "#14B8A6", // teal
+  Other: "#94A3B8", // slate
+  "Prefer not to say": "#64748B", // muted slate
+}
+const ACQUISITION_FALLBACK_COLOR = "#6B7694"
 
 export default function OverviewPage() {
   const [dateRange, setDateRange] = useState(() => {
@@ -186,6 +205,20 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  // Acquisition: where each day's signups came from ("How did you hear about
+  // Endora?" — registrationData.acquisitionSource). Cheap: reads only the nested
+  // source field + createdAt. Drives the "Daily Signups by Source" stacked chart.
+  const {
+    data: acquisitionData,
+    isLoading: acquisitionLoading,
+    refetch: refetchAcquisition,
+  } = useQuery({
+    queryKey: ["acquisition", dateRange.from, dateRange.to],
+    queryFn: () => fetchAcquisitionMetrics({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
   // Monthly Firestore signups across the whole user base (users.createdAt),
   // bucketed server-side. Drives the "Monthly Signups vs Goal" chart at the
   // bottom of the page. Cheap: only `createdAt` is read.
@@ -249,6 +282,7 @@ export default function OverviewPage() {
       refetchGa4Daily(),
       refetchAvgAge(),
       refetchDailySignups(),
+      refetchAcquisition(),
       refetchMonthlySignups(),
       refetchSessions(),
       refetchUsers(),
@@ -319,6 +353,18 @@ export default function OverviewPage() {
         return { day, downloads, completed, incomplete }
       })
   }, [ga4Daily, dailySignupsByDay, allUsers, dateRange.from, dateRange.to])
+
+  // Stacked-chart series, one per acquisition source, ordered by total desc, each
+  // with its fixed brand color so colors stay stable and distinct across reloads.
+  const acquisitionStacks = useMemo(
+    () =>
+      (acquisitionData?.sources ?? []).map((s) => ({
+        key: s.name,
+        label: s.name,
+        color: ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR,
+      })),
+    [acquisitionData],
+  )
 
   const monthlySignupsData = useMemo(() => {
     // One row per month: actual signups + the team's acquisition goal (when set).
@@ -792,6 +838,38 @@ export default function OverviewPage() {
             isLoading={(ga4DailyLoading && !ga4Daily) || (sessionsLoading && !ga4Daily)}
           >
             <LineChart data={dailyData} xKey="day" lines={[{ key: showSessionsChart ? "sessions" : "dau", color: "#7C3AED" }]} />
+          </ChartCard>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Daily Signups by Source</span>
+                <InfoTooltip
+                  title="Daily Signups by Source"
+                  description="New users per day, stacked by where they said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
+                  howToRead="Each bar is one day; each colored segment is the number of signups from that channel (Instagram, TikTok, friends/word-of-mouth, Google...). Hover any bar for the exact per-source breakdown. Days merge into ranges when the window is long."
+                  limitations="Only users who answered the acquisition question appear (asked in the new V4 onboarding). Users who skipped it or signed up before it existed are not counted, so totals here are lower than total signups."
+                  dataCoverage={`${(acquisitionData?.answered ?? 0).toLocaleString()} users answered in this range`}
+                />
+              </div>
+            }
+            isLoading={acquisitionLoading && !acquisitionData}
+          >
+            {acquisitionStacks.length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                No acquisition answers in this date range.
+              </div>
+            ) : (
+              <BarChart
+                data={acquisitionData?.daily ?? []}
+                xKey="date"
+                yKey="total"
+                stacks={acquisitionStacks}
+                maxBars={30}
+              />
+            )}
           </ChartCard>
         </div>
 

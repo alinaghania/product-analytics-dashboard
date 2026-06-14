@@ -67,22 +67,6 @@ const PALETTE = {
   red: "#FF5C5C",
 }
 
-// Distinct colors for the acquisition sources (one per source, assigned in the
-// order returned by the API — i.e. most common source first).
-const ACQUISITION_COLORS = [
-  "#E1306C", // instagram pink
-  "#000000aa", // tiktok
-  "#2ED47A", // friends / word of mouth
-  "#4285F4", // google
-  "#0A84FF", // app store
-  "#1877F2", // facebook
-  "#FF0000", // youtube
-  "#F59E0B", // influencer
-  "#22D3EE", // medical
-  "#7C3AED", // other
-  "#6B7694", // prefer not to say
-]
-
 export default function OnboardingPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
 
@@ -110,15 +94,6 @@ export default function OnboardingPage() {
   const regN = data?.usersWithRegistration ?? 0
   const v4Coverage = `Asked only in the new (V4) onboarding flow — newest user cohort`
   const regCoverage = `Computed from ${regN.toLocaleString()} users with registration data`
-
-  // Stacked-chart series, one per acquisition source, in API order (most common
-  // first) so each source keeps a stable color across the daily and total charts.
-  const acquisitionStacks = (data?.acquisitionSource ?? []).map((s, i) => ({
-    key: s.name,
-    label: s.name,
-    color: ACQUISITION_COLORS[i % ACQUISITION_COLORS.length],
-  }))
-  const acquisitionTotal = (data?.acquisitionSource ?? []).reduce((sum, s) => sum + s.count, 0)
 
   return (
     <div className="flex flex-col">
@@ -169,70 +144,6 @@ export default function OnboardingPage() {
         >
           <FunnelChart data={data?.funnel ?? []} />
         </ChartBlock>
-
-        {/* ============================================================== */}
-        {/* ACQUISITION — where users come from                            */}
-        {/* ============================================================== */}
-        <SectionHeading
-          title="Acquisition"
-          subtitle={`How users discovered Endora — "How did you hear about us?" (${acquisitionTotal.toLocaleString()} answered)`}
-        />
-
-        <ChartBlock
-          title="Daily Signups by Source"
-          info={{
-            title: "Daily Signups by Source",
-            description:
-              "New users per day, stacked by where they said they discovered Endora (registrationData.acquisitionSource, U4_SOURCE).",
-            howToRead:
-              "Each bar is one day; segment height is the number of signups from that channel. Hover for the per-source breakdown. Days are merged into ranges when the window is long.",
-            limitations:
-              "Only users who answered the acquisition question (V4 onboarding) appear. Users who skipped it are not counted.",
-            dataCoverage: `Computed from ${acquisitionTotal.toLocaleString()} users who answered`,
-          }}
-          isLoading={isLoading}
-          onReload={handleReload}
-        >
-          <BarChart
-            data={data?.acquisitionDaily ?? []}
-            xKey="date"
-            yKey="total"
-            stacks={acquisitionStacks}
-            maxBars={30}
-          />
-        </ChartBlock>
-
-        <div className="grid grid-cols-2 gap-6">
-          <ChartBlock
-            title="Source Share"
-            info={{
-              title: "Source Share",
-              description: "Overall split of how all users discovered Endora (registrationData.acquisitionSource).",
-              howToRead: "Each slice is one acquisition channel; size is its share of all answers.",
-              limitations: "Single select; only users who answered the acquisition question.",
-              dataCoverage: `Computed from ${acquisitionTotal.toLocaleString()} users who answered`,
-            }}
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <PieChart data={data?.acquisitionSource ?? []} showLabel={false} />
-          </ChartBlock>
-
-          <ChartBlock
-            title="Sources Ranked"
-            info={{
-              title: "Sources Ranked",
-              description: "Acquisition channels ordered by number of users (registrationData.acquisitionSource).",
-              howToRead: "Longer bars = more users discovered Endora through that channel.",
-              limitations: "Single select; only users who answered the acquisition question.",
-              dataCoverage: `Computed from ${acquisitionTotal.toLocaleString()} users who answered`,
-            }}
-            isLoading={isLoading}
-            onReload={handleReload}
-          >
-            <BarChart data={data?.acquisitionSource ?? []} xKey="name" yKey="count" layout="vertical" color={PALETTE.purple} />
-          </ChartBlock>
-        </div>
 
         {/* ============================================================== */}
         {/* WHAT USERS WANT (V4 intent / preference selections)            */}

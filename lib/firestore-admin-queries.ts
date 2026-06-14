@@ -29,6 +29,7 @@ import type {
   TrackingSession,
   LastActivity,
   OnboardingAnalytics,
+  AcquisitionMetrics,
   CountSlice,
 } from "./types"
 
@@ -330,6 +331,69 @@ export async function fetchDailySignups(options: {
   return [...byDay.entries()]
     .map(([date, count]) => ({ date, count }))
     .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+// Acquisition over the selected window: where signups came from, per day.
+// Answers "How did you hear about Endora?" (registrationData.acquisitionSource,
+// onboarding step U4_SOURCE). Reads only the nested source field + createdAt via
+// select() — no full doc download. Returns the stacked-chart rows (one per day,
+// keyed by human source label), the source totals, and the answered count.
+export async function fetchAcquisitionMetrics(options: {
+  from: string
+  to: string
+}): Promise<AcquisitionMetrics> {
+  const db = getAdminDb()
+  const { fromTs, toTs } = dateRangeTimestamps(options.from, options.to)
+
+  const snapshot = await db
+    .collection("users")
+    .where("createdAt", ">=", fromTs)
+    .where("createdAt", "<=", toTs)
+    .orderBy("createdAt", "asc")
+    .select("createdAt", "registrationData.acquisitionSource")
+    .limit(20000)
+    .get()
+
+  const totals: Counter = {}
+  const byDay = new Map<string, Counter>() // dayKey → source label → count
+
+  for (const doc of snapshot.docs) {
+    const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    const reg = doc.data().registrationData as Record<string, unknown> | undefined
+    const code = typeof reg?.acquisitionSource === "string" ? reg.acquisitionSource.trim() : ""
+    if (!ts || !code) continue
+
+    const label = labelize(ACQUISITION_SOURCE_LABELS, code)
+    totals[label] = (totals[label] || 0) + 1
+
+    const dayKey = ts.toISOString().slice(0, 10)
+    const dayCounter = byDay.get(dayKey) ?? {}
+    dayCounter[label] = (dayCounter[label] || 0) + 1
+    byDay.set(dayKey, dayCounter)
+  }
+
+  const sources = Object.entries(totals)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+
+  const daily = [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, perSource]) => {
+      const row: Record<string, number | string> = { date }
+      let total = 0
+      for (const [label, count] of Object.entries(perSource)) {
+        row[label] = count
+        total += count
+      }
+      row.total = total
+      return row
+    })
+
+  return {
+    daily,
+    sources,
+    answered: sources.reduce((sum, s) => sum + s.count, 0),
+  }
 }
 
 // Monthly count of user signups (users.createdAt) across the whole user base.
@@ -1847,11 +1911,7 @@ function toSlices(counter: Counter, labels: Record<string, string>, topN?: numbe
  */
 export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
   const db = getAdminDb()
-  const snapshot = await db
-    .collection("users")
-    .select("registrationData", "createdAt")
-    .limit(20000)
-    .get()
+  const snapshot = await db.collection("users").select("registrationData").limit(20000).get()
 
   const totalUsers = snapshot.size
   let usersWithRegistration = 0
@@ -1882,16 +1942,6 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
   const country: Counter = {}
   const cities: Counter = {}
   const platform: Counter = {}
-  // Acquisition ("How did you hear about Endora?" — U4_SOURCE)
-  const acquisition: Counter = {}
-  // date (YYYY-MM-DD, Europe/Paris) → source code → signups that day
-  const acquisitionByDay = new Map<string, Counter>()
-  const dayFmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
 
   // Funnel (field-presence proxy) + KPI helpers
   let hasHealthGoals = 0
@@ -1945,20 +1995,6 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
     tallyAny(cities, reg.city)
     tally(platform, (reg.deviceInfo as Record<string, unknown> | undefined)?.platform)
 
-    // ── Acquisition: total + signups-per-day broken down by source ──────────
-    const sourceCode =
-      typeof reg.acquisitionSource === "string" ? reg.acquisitionSource.trim() : ""
-    if (sourceCode) {
-      tally(acquisition, sourceCode)
-      const createdAt: Date | undefined = doc.data().createdAt?.toDate?.()
-      if (createdAt) {
-        const dayKey = dayFmt.format(createdAt) // "YYYY-MM-DD"
-        const dayCounter = acquisitionByDay.get(dayKey) ?? {}
-        dayCounter[sourceCode] = (dayCounter[sourceCode] || 0) + 1
-        acquisitionByDay.set(dayKey, dayCounter)
-      }
-    }
-
     // ── Funnel + KPI tallies ──────────────────────────────────────────────
     if (nonEmptyArray(reg.healthGoals ?? reg.appExpectations)) hasHealthGoals++
     if (nonEmptyArray(reg.symptoms) || nonEmptyArray(reg.mainSymptoms)) hasSymptoms++
@@ -2005,24 +2041,6 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  // Acquisition source totals (ordered desc; doubles as the chart's series order).
-  const acquisitionSource = toSlices(acquisition, ACQUISITION_SOURCE_LABELS)
-
-  // Daily signups broken down by source, keyed by the human label so the stacked
-  // bar chart can read each source directly. One row per day, sorted ascending.
-  const acquisitionDaily = [...acquisitionByDay.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, perSource]) => {
-      const row: Record<string, number | string> = { date }
-      let total = 0
-      for (const [code, count] of Object.entries(perSource)) {
-        row[labelize(ACQUISITION_SOURCE_LABELS, code)] = count
-        total += count
-      }
-      row.total = total
-      return row
-    })
-
   return {
     totalUsers,
     usersWithRegistration,
@@ -2068,8 +2086,6 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
     country: toSlices(country, {}, 10),
     topCities: toSlices(cities, {}, 15),
     platform: toSlices(platform, {}),
-    acquisitionSource,
-    acquisitionDaily,
     notifications: [
       { name: "Enabled", count: notifYes },
       { name: "Disabled", count: notifNo },

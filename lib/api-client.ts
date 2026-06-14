@@ -1,7 +1,7 @@
 "use client"
 
 import { getFirebaseAuth } from "./firebase"
-import type { OnboardingAnalytics } from "./types"
+import type { OnboardingAnalytics, AcquisitionMetrics } from "./types"
 
 async function getAuthToken(): Promise<string> {
   const auth = getFirebaseAuth()
@@ -129,6 +129,17 @@ export async function fetchAvgAge(): Promise<{ avgAge: number; sampleSize: numbe
 
 export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
   const result = await apiFetch<{ data: OnboardingAnalytics }>("/api/metrics/onboarding")
+  return result.data
+}
+
+export async function fetchAcquisitionMetrics(opts: {
+  from: string
+  to: string
+}): Promise<AcquisitionMetrics> {
+  const result = await apiFetch<{ data: AcquisitionMetrics }>("/api/metrics/acquisition", {
+    from: opts.from,
+    to: opts.to,
+  })
   return result.data
 }
 
