@@ -748,6 +748,9 @@ export interface InsightsCorpusMeta {
 }
 
 interface RawInsightMessage {
+  // Firestore message doc id — kept so the "Ask" feature can cite a precise
+  // message and deep-link to it. Optional because classification never needs it.
+  messageId?: string
   role: ChatMessage["role"]
   content: string
   entryPoint?: string
@@ -857,6 +860,7 @@ async function fetchRawInsightMessages(conversationId: string, limitCount: numbe
       const ts = toDate(data.timestamp) || toDate(data.createdAt) || toDate(data.sentAt) || toDate(data.time)
       return {
         sortKey: ts ? ts.getTime() : index,
+        messageId: doc.id,
         role: normalizeMessageRole(data),
         content: extractMessageContent(data),
         entryPoint: typeof data.entryPoint === "string" ? data.entryPoint : undefined,
@@ -928,6 +932,82 @@ export async function fetchRecentConversationsForInsights(opts?: {
       }
       totalChars += content.length
       messages.push({ role: m.role, content })
+    }
+    if (messages.length > 0) out.push({ conversationId: conv.conversationId, userId: conv.userId, messages })
+  }
+
+  return {
+    conversations: out,
+    meta: { conversationsAnalyzed: out.length, onboardingExcluded, truncated },
+  }
+}
+
+// ============= ASK-CONVERSATIONS CORPUS =============
+//
+// Same recent/non-onboarding corpus as the insights reader, but each kept
+// message carries its real Firestore messageId. The "Ask" feature needs that id
+// to cite a precise message and deep-link to it (/chats/{id}#msg-{messageId}),
+// and to verify — server-side — that every cited id actually exists.
+
+export interface AskConversation {
+  conversationId: string
+  userId: string
+  messages: { messageId: string; role: ChatMessage["role"]; content: string }[]
+}
+
+export async function fetchConversationsForAsk(opts?: {
+  fetchCount?: number
+  keepCount?: number
+}): Promise<{ conversations: AskConversation[]; meta: InsightsCorpusMeta }> {
+  const cfg = { ...INSIGHTS_DEFAULTS, ...opts }
+  const { data: conversations } = await fetchConversations({ limitCount: cfg.fetchCount })
+
+  const kept: { conversationId: string; userId: string; messages: RawInsightMessage[] }[] = []
+  let onboardingExcluded = 0
+
+  for (let i = 0; i < conversations.length && kept.length < cfg.keepCount; i += cfg.concurrency) {
+    const batch = conversations.slice(i, i + cfg.concurrency)
+    const classified = await Promise.all(
+      batch.map(async (conv) => ({
+        conv,
+        result: classifyConversation(await fetchRawInsightMessages(conv.id, cfg.maxMessagesPerConv), conv.title),
+      })),
+    )
+    for (const { conv, result } of classified) {
+      if (kept.length >= cfg.keepCount) break
+      if (result.excluded) {
+        onboardingExcluded++
+        continue
+      }
+      if (result.messages.some(isNonEmptyMessage)) {
+        kept.push({ conversationId: conv.id, userId: conv.userId, messages: result.messages })
+      }
+    }
+  }
+
+  // Cap content (same budget as insights), keeping only messages with a real id.
+  let totalChars = 0
+  let truncated = false
+  const out: AskConversation[] = []
+  for (const conv of kept) {
+    if (totalChars >= cfg.maxTotalChars) {
+      truncated = true
+      break
+    }
+    const messages: { messageId: string; role: ChatMessage["role"]; content: string }[] = []
+    for (const m of conv.messages) {
+      if (!isNonEmptyMessage(m) || !m.messageId) continue
+      let content = m.content.trim()
+      if (content.length > cfg.maxCharsPerMessage) {
+        content = content.slice(0, cfg.maxCharsPerMessage) + "…"
+        truncated = true
+      }
+      if (totalChars + content.length > cfg.maxTotalChars) {
+        truncated = true
+        break
+      }
+      totalChars += content.length
+      messages.push({ messageId: m.messageId, role: m.role, content })
     }
     if (messages.length > 0) out.push({ conversationId: conv.conversationId, userId: conv.userId, messages })
   }

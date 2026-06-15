@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { Header } from "@/components/dashboard/header"
@@ -21,6 +21,9 @@ export default function ConversationDetailPage() {
   const params = useParams()
   const conversationId = params.conversationId as string
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
+  // Deep-link target message id from the URL hash (#msg-<id>), set by the "Ask
+  // Conversations" citations. Drives auto-load + scroll/highlight.
+  const [highlightMessageId, setHighlightMessageId] = useState<string | undefined>()
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["conversation", conversationId],
@@ -34,6 +37,16 @@ export default function ConversationDetailPage() {
     await refetch()
     setLastUpdated(new Date())
   }
+
+  // Arriving via a citation deep-link (#msg-<id>): the page otherwise loads
+  // nothing (enabled: false), so trigger the fetch and remember the target.
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash.startsWith("#msg-")) return
+    setHighlightMessageId(hash.slice("#msg-".length))
+    void handleReload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId])
 
   const conversation = data?.conversation || {
     id: conversationId,
@@ -135,6 +148,7 @@ export default function ConversationDetailPage() {
           entryPoint={conversation.entryPoint}
           isLoading={isLoading}
           onReload={handleReload}
+          highlightMessageId={highlightMessageId}
         />
       </div>
     </div>

@@ -48,7 +48,7 @@ export function getLlmClient(): Anthropic {
 // `model` body field — required by the Anthropic schema but non-routing on
 // Azure (the deployment query param does the routing).
 export function getLlmModel(): string {
-  return process.env.LLM_MODEL || "claude-opus-4-6"
+  return process.env.LLM_MODEL || "claude-opus-4-8"
 }
 
 // `cache_control` is optional and a Foundry proxy may or may not accept it. The

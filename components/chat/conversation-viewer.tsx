@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,9 @@ interface ConversationViewerProps {
   entryPoint?: string
   isLoading?: boolean
   onReload?: () => void
+  // Deep-link target (#msg-<id>): once this message is rendered, scroll to it
+  // and highlight it.
+  highlightMessageId?: string
 }
 
 export function ConversationViewer({
@@ -30,7 +34,16 @@ export function ConversationViewer({
   entryPoint,
   isLoading,
   onReload,
+  highlightMessageId,
 }: ConversationViewerProps) {
+  // Scroll the highlighted message into view once it's in the DOM. Runs when the
+  // messages arrive (the page loads them manually) or the target changes.
+  useEffect(() => {
+    if (!highlightMessageId || messages.length === 0) return
+    const el = document.getElementById(`msg-${highlightMessageId}`)
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [highlightMessageId, messages])
+
   return (
     <Card className="border-border bg-card">
       {/* Header with metrics */}
@@ -103,7 +116,11 @@ export function ConversationViewer({
         ) : (
           <div className="max-h-[600px] space-y-4 overflow-y-auto rounded-lg bg-card-soft p-4">
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                highlighted={message.id === highlightMessageId}
+              />
             ))}
           </div>
         )}
