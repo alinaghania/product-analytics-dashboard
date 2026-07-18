@@ -24,6 +24,7 @@ import {
   fetchGa4DailyActivity,
   fetchAvgAge,
   fetchDailySignups,
+  fetchAcquisitionMetrics,
   fetchMonthlySignups,
   fetchChatConversations,
   fetchPhotos,
@@ -34,6 +35,24 @@ import { bucketByDay, bucketByHour, uniqueUsersByDay } from "@/lib/analytics"
 import { GOALS, MONTHLY_SIGNUP_GOALS, totalUsersGoalForMonth } from "@/lib/metric-goals"
 
 let globalInitialLoadDone = false
+
+// A fixed, high-contrast color per acquisition source (keyed by its display
+// label) so each channel keeps a recognisable, distinct color — no two blues,
+// and Facebook isn't a near-black blob on the dark background.
+const ACQUISITION_SOURCE_COLORS: Record<string, string> = {
+  Instagram: "#E1306C", // instagram magenta
+  TikTok: "#22D3EE", // tiktok cyan
+  "Friends or family": "#2ED47A", // word of mouth — green
+  "Google search": "#FBBC05", // google yellow
+  "App Store": "#A855F7", // purple
+  Facebook: "#1877F2", // facebook blue
+  "YouTube or TV": "#EF4444", // youtube red
+  "Influencer or celebrity": "#F97316", // orange
+  "Healthcare professional": "#14B8A6", // teal
+  Other: "#94A3B8", // slate
+  "Prefer not to say": "#64748B", // muted slate
+}
+const ACQUISITION_FALLBACK_COLOR = "#6B7694"
 
 export default function OverviewPage() {
   const [dateRange, setDateRange] = useState(() => {
@@ -186,6 +205,20 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  // Acquisition: where each day's signups came from ("How did you hear about
+  // Endora?" — registrationData.acquisitionSource). Cheap: reads only the nested
+  // source field + createdAt. Drives the "Daily Signups by Source" stacked chart.
+  const {
+    data: acquisitionData,
+    isLoading: acquisitionLoading,
+    refetch: refetchAcquisition,
+  } = useQuery({
+    queryKey: ["acquisition", dateRange.from, dateRange.to],
+    queryFn: () => fetchAcquisitionMetrics({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
   // Monthly Firestore signups across the whole user base (users.createdAt),
   // bucketed server-side. Drives the "Monthly Signups vs Goal" chart at the
   // bottom of the page. Cheap: only `createdAt` is read.
@@ -249,6 +282,7 @@ export default function OverviewPage() {
       refetchGa4Daily(),
       refetchAvgAge(),
       refetchDailySignups(),
+      refetchAcquisition(),
       refetchMonthlySignups(),
       refetchSessions(),
       refetchUsers(),
@@ -319,6 +353,45 @@ export default function OverviewPage() {
         return { day, downloads, completed, incomplete }
       })
   }, [ga4Daily, dailySignupsByDay, allUsers, dateRange.from, dateRange.to])
+
+  // Stacked-chart series, one per acquisition source, ordered by total desc, each
+  // with its fixed brand color so colors stay stable and distinct across reloads.
+  const acquisitionStacks = useMemo(
+    () =>
+      (acquisitionData?.sources ?? []).map((s) => ({
+        key: s.name,
+        label: s.name,
+        color: ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR,
+      })),
+    [acquisitionData],
+  )
+
+  // Last 7 days with data — kept short on purpose so the stacked bars stay wide
+  // and readable (no maxBars aggregation that squishes them).
+  const acquisitionLast7 = useMemo(
+    () => (acquisitionData?.daily ?? []).slice(-7),
+    [acquisitionData],
+  )
+
+  // Most recent day's breakdown, as pie slices + a matching fixed-color array.
+  // A pie is the clearest "snapshot of the latest day" view (few channels).
+  const { lastDaySlices, lastDayColors, lastDayLabel, lastDayTotal } = useMemo(() => {
+    const rows = acquisitionData?.daily ?? []
+    const last = rows[rows.length - 1]
+    if (!last) {
+      return { lastDaySlices: [], lastDayColors: [], lastDayLabel: "", lastDayTotal: 0 }
+    }
+    const slices = Object.entries(last)
+      .filter(([k]) => k !== "date" && k !== "total")
+      .map(([name, count]) => ({ name, count: Number(count) || 0 }))
+      .sort((a, b) => b.count - a.count)
+    return {
+      lastDaySlices: slices,
+      lastDayColors: slices.map((s) => ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR),
+      lastDayLabel: formatDate(new Date(`${last.date}T00:00:00`), "MMM d"),
+      lastDayTotal: Number(last.total) || 0,
+    }
+  }, [acquisitionData])
 
   const monthlySignupsData = useMemo(() => {
     // One row per month: actual signups + the team's acquisition goal (when set).
@@ -792,6 +865,61 @@ export default function OverviewPage() {
             isLoading={(ga4DailyLoading && !ga4Daily) || (sessionsLoading && !ga4Daily)}
           >
             <LineChart data={dailyData} xKey="day" lines={[{ key: showSessionsChart ? "sessions" : "dau", color: "#7C3AED" }]} />
+          </ChartCard>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Sources — Latest Day{lastDayLabel ? ` (${lastDayLabel})` : ""}</span>
+                <InfoTooltip
+                  title="Acquisition Sources — Latest Day"
+                  description="Where the most recent day's new users said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
+                  howToRead="Each slice is one channel's share of that day's signups. Hover for exact counts."
+                  limitations="Only users who answered the acquisition question (asked in the new V4 onboarding). Reflects the latest day that has at least one answer."
+                  dataCoverage={lastDayTotal > 0 ? `${lastDayTotal.toLocaleString()} signups that day` : "No data yet"}
+                />
+              </div>
+            }
+            isLoading={acquisitionLoading && !acquisitionData}
+          >
+            {lastDaySlices.length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                No acquisition answers yet.
+              </div>
+            ) : (
+              <PieChart data={lastDaySlices} colors={lastDayColors} showLabel={false} />
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Signups by Source — Last 7 Days</span>
+                <InfoTooltip
+                  title="Signups by Source — Last 7 Days"
+                  description="New users per day over the last 7 days with data, stacked by acquisition channel (registrationData.acquisitionSource)."
+                  howToRead="Each bar is one day; each colored segment is signups from that channel. The number on top is the day's total. Hover for the full per-source breakdown."
+                  limitations="Only users who answered the acquisition question (V4 onboarding). Limited to the 7 most recent days with answers so the bars stay wide and readable."
+                  dataCoverage={`${(acquisitionData?.answered ?? 0).toLocaleString()} users answered in the selected range`}
+                />
+              </div>
+            }
+            isLoading={acquisitionLoading && !acquisitionData}
+          >
+            {acquisitionLast7.length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                No acquisition answers yet.
+              </div>
+            ) : (
+              <BarChart
+                data={acquisitionLast7}
+                xKey="date"
+                yKey="total"
+                stacks={acquisitionStacks}
+              />
+            )}
           </ChartCard>
         </div>
 

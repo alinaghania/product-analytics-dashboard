@@ -4,6 +4,7 @@ import { Timestamp } from "firebase-admin/firestore"
 import { format as formatDate } from "date-fns"
 import {
   labelize,
+  ACQUISITION_SOURCE_LABELS,
   PRIMARY_OBJECTIVE_LABELS,
   SITUATION_LABELS,
   APP_EXPECTATIONS_V2_LABELS,
@@ -29,6 +30,7 @@ import type {
   TrackingSession,
   LastActivity,
   OnboardingAnalytics,
+  AcquisitionMetrics,
   CountSlice,
 } from "./types"
 
@@ -410,6 +412,69 @@ export async function fetchDailySignups(options: {
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
+// Acquisition over the selected window: where signups came from, per day.
+// Answers "How did you hear about Endora?" (registrationData.acquisitionSource,
+// onboarding step U4_SOURCE). Reads only the nested source field + createdAt via
+// select() — no full doc download. Returns the stacked-chart rows (one per day,
+// keyed by human source label), the source totals, and the answered count.
+export async function fetchAcquisitionMetrics(options: {
+  from: string
+  to: string
+}): Promise<AcquisitionMetrics> {
+  const db = getAdminDb()
+  const { fromTs, toTs } = dateRangeTimestamps(options.from, options.to)
+
+  const snapshot = await db
+    .collection("users")
+    .where("createdAt", ">=", fromTs)
+    .where("createdAt", "<=", toTs)
+    .orderBy("createdAt", "asc")
+    .select("createdAt", "registrationData.acquisitionSource")
+    .limit(20000)
+    .get()
+
+  const totals: Counter = {}
+  const byDay = new Map<string, Counter>() // dayKey → source label → count
+
+  for (const doc of snapshot.docs) {
+    const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    const reg = doc.data().registrationData as Record<string, unknown> | undefined
+    const code = typeof reg?.acquisitionSource === "string" ? reg.acquisitionSource.trim() : ""
+    if (!ts || !code) continue
+
+    const label = labelize(ACQUISITION_SOURCE_LABELS, code)
+    totals[label] = (totals[label] || 0) + 1
+
+    const dayKey = ts.toISOString().slice(0, 10)
+    const dayCounter = byDay.get(dayKey) ?? {}
+    dayCounter[label] = (dayCounter[label] || 0) + 1
+    byDay.set(dayKey, dayCounter)
+  }
+
+  const sources = Object.entries(totals)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+
+  const daily = [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, perSource]) => {
+      const row: Record<string, number | string> = { date }
+      let total = 0
+      for (const [label, count] of Object.entries(perSource)) {
+        row[label] = count
+        total += count
+      }
+      row.total = total
+      return row
+    })
+
+  return {
+    daily,
+    sources,
+    answered: sources.reduce((sum, s) => sum + s.count, 0),
+  }
+}
+
 // Monthly count of user signups (users.createdAt) across the whole user base.
 // Fetches only `createdAt` and buckets server-side into "YYYY-MM" keys
 // (Europe/Paris, matching the dashboard's timezone) so the client receives a
@@ -762,6 +827,9 @@ export interface InsightsCorpusMeta {
 }
 
 interface RawInsightMessage {
+  // Firestore message doc id — kept so the "Ask" feature can cite a precise
+  // message and deep-link to it. Optional because classification never needs it.
+  messageId?: string
   role: ChatMessage["role"]
   content: string
   entryPoint?: string
@@ -871,6 +939,7 @@ async function fetchRawInsightMessages(conversationId: string, limitCount: numbe
       const ts = toDate(data.timestamp) || toDate(data.createdAt) || toDate(data.sentAt) || toDate(data.time)
       return {
         sortKey: ts ? ts.getTime() : index,
+        messageId: doc.id,
         role: normalizeMessageRole(data),
         content: extractMessageContent(data),
         entryPoint: typeof data.entryPoint === "string" ? data.entryPoint : undefined,
@@ -942,6 +1011,82 @@ export async function fetchRecentConversationsForInsights(opts?: {
       }
       totalChars += content.length
       messages.push({ role: m.role, content })
+    }
+    if (messages.length > 0) out.push({ conversationId: conv.conversationId, userId: conv.userId, messages })
+  }
+
+  return {
+    conversations: out,
+    meta: { conversationsAnalyzed: out.length, onboardingExcluded, truncated },
+  }
+}
+
+// ============= ASK-CONVERSATIONS CORPUS =============
+//
+// Same recent/non-onboarding corpus as the insights reader, but each kept
+// message carries its real Firestore messageId. The "Ask" feature needs that id
+// to cite a precise message and deep-link to it (/chats/{id}#msg-{messageId}),
+// and to verify — server-side — that every cited id actually exists.
+
+export interface AskConversation {
+  conversationId: string
+  userId: string
+  messages: { messageId: string; role: ChatMessage["role"]; content: string }[]
+}
+
+export async function fetchConversationsForAsk(opts?: {
+  fetchCount?: number
+  keepCount?: number
+}): Promise<{ conversations: AskConversation[]; meta: InsightsCorpusMeta }> {
+  const cfg = { ...INSIGHTS_DEFAULTS, ...opts }
+  const { data: conversations } = await fetchConversations({ limitCount: cfg.fetchCount })
+
+  const kept: { conversationId: string; userId: string; messages: RawInsightMessage[] }[] = []
+  let onboardingExcluded = 0
+
+  for (let i = 0; i < conversations.length && kept.length < cfg.keepCount; i += cfg.concurrency) {
+    const batch = conversations.slice(i, i + cfg.concurrency)
+    const classified = await Promise.all(
+      batch.map(async (conv) => ({
+        conv,
+        result: classifyConversation(await fetchRawInsightMessages(conv.id, cfg.maxMessagesPerConv), conv.title),
+      })),
+    )
+    for (const { conv, result } of classified) {
+      if (kept.length >= cfg.keepCount) break
+      if (result.excluded) {
+        onboardingExcluded++
+        continue
+      }
+      if (result.messages.some(isNonEmptyMessage)) {
+        kept.push({ conversationId: conv.id, userId: conv.userId, messages: result.messages })
+      }
+    }
+  }
+
+  // Cap content (same budget as insights), keeping only messages with a real id.
+  let totalChars = 0
+  let truncated = false
+  const out: AskConversation[] = []
+  for (const conv of kept) {
+    if (totalChars >= cfg.maxTotalChars) {
+      truncated = true
+      break
+    }
+    const messages: { messageId: string; role: ChatMessage["role"]; content: string }[] = []
+    for (const m of conv.messages) {
+      if (!isNonEmptyMessage(m) || !m.messageId) continue
+      let content = m.content.trim()
+      if (content.length > cfg.maxCharsPerMessage) {
+        content = content.slice(0, cfg.maxCharsPerMessage) + "…"
+        truncated = true
+      }
+      if (totalChars + content.length > cfg.maxTotalChars) {
+        truncated = true
+        break
+      }
+      totalChars += content.length
+      messages.push({ messageId: m.messageId, role: m.role, content })
     }
     if (messages.length > 0) out.push({ conversationId: conv.conversationId, userId: conv.userId, messages })
   }

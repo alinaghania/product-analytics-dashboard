@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { getFirebaseAuth } from "@/lib/firebase"
-import { LayoutDashboard, Users, TrendingUp, ClipboardList, Activity } from "lucide-react"
+import { LayoutDashboard, Users, TrendingUp, ClipboardList, Activity, MessageSquareText } from "lucide-react"
 import { useAuth } from "@/components/providers/auth-provider"
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/onboarding", label: "Onboarding", icon: ClipboardList },
   { href: "/users", label: "Users", icon: Users },
   { href: "/app-events-analytics", label: "App Events", icon: Activity },
+  { href: "/ask", label: "Ask Conversations", icon: MessageSquareText },
 ]
 
 export function Sidebar() {

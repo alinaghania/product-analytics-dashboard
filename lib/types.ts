@@ -247,6 +247,19 @@ export interface CountSlice {
 }
 
 /**
+ * Acquisition analytics — where signups came from ("How did you hear about
+ * Endora?", registrationData.acquisitionSource) over a date window.
+ */
+export interface AcquisitionMetrics {
+  // One row per day for the stacked chart: { date, total, [sourceLabel]: count }
+  daily: Array<Record<string, number | string>>
+  // Source totals over the window, ordered by count desc
+  sources: CountSlice[]
+  // Number of users in the window who answered the acquisition question
+  answered: number
+}
+
+/**
  * Pre-aggregated onboarding analytics returned by `/api/metrics/onboarding`.
  * Every selection field is an array of `{ name, count }` ready to chart, with
  * `name` already decoded to a human-readable label (see lib/onboarding-labels).

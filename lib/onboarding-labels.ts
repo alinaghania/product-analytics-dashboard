@@ -14,6 +14,24 @@
  * leaves already-readable text untouched.
  */
 
+/**
+ * U4_SOURCE — acquisitionSource (single select): "How did you hear about Endora?"
+ * Mirrors lotus-mobile/src/locales/onboarding/en.json (U4_SOURCE.options).
+ */
+export const ACQUISITION_SOURCE_LABELS: Record<string, string> = {
+  appstore: "App Store",
+  google: "Google search",
+  friends: "Friends or family",
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  youtube: "YouTube or TV",
+  influencer: "Influencer or celebrity",
+  medical: "Healthcare professional",
+  other: "Other",
+  prefer_not: "Prefer not to say",
+}
+
 // ── V4 intent / preference selections ("what people want") ──────────────────
 
 /** U5 — primaryObjective (single select) */

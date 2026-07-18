@@ -8,14 +8,24 @@ import { AlertCircle, Clock, RefreshCw } from "lucide-react"
 
 interface ChatMessageProps {
   message: ChatMessageType
+  // When true, the message is the deep-link target (#msg-<id>): scroll anchor +
+  // a highlight ring so the admin spots it among many messages.
+  highlighted?: boolean
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, highlighted }: ChatMessageProps) {
   const isUser = message.role === "user"
   const isError = message.status === "error"
 
   return (
-    <div className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
+    <div
+      id={`msg-${message.id}`}
+      className={cn(
+        "flex scroll-mt-24 gap-3 rounded-2xl transition-colors",
+        isUser ? "flex-row-reverse" : "flex-row",
+        highlighted && "bg-primary/5 ring-2 ring-primary/40 ring-offset-2 ring-offset-card-soft",
+      )}
+    >
       {/* Avatar */}
       <div
         className={cn(

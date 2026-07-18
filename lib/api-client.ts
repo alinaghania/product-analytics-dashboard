@@ -1,7 +1,13 @@
 "use client"
 
 import { getFirebaseAuth } from "./firebase"
-import type { ContactChannel, ContactEntry, OnboardingAnalytics, UserContactSummary } from "./types"
+import type {
+  AcquisitionMetrics,
+  ContactChannel,
+  ContactEntry,
+  OnboardingAnalytics,
+  UserContactSummary,
+} from "./types"
 
 async function getAuthToken(): Promise<string> {
   const auth = getFirebaseAuth()
@@ -185,6 +191,32 @@ export async function generateConversationInsights(): Promise<ConversationInsigh
   return result.data
 }
 
+export interface Citation {
+  conversationId: string
+  messageId: string
+  userId: string
+  snippet: string
+  reason: string
+}
+
+export interface AskResult {
+  answer: string
+  // Each citation has been verified server-side against the analyzed corpus, so
+  // its (conversationId, messageId) deep-link always points to a real message.
+  citations: Citation[]
+  meta: {
+    conversationsAnalyzed: number
+    onboardingExcluded: number
+    truncated: boolean
+    hallucinationsFiltered: number
+  }
+}
+
+export async function askConversations(question: string): Promise<AskResult> {
+  const result = await apiPost<{ data: AskResult }>("/api/conversations/ask", { question })
+  return result.data
+}
+
 export async function fetchTotalUserCount(): Promise<number> {
   const result = await apiFetch<{ count: number }>("/api/users/count")
   return result.count
@@ -208,6 +240,17 @@ export async function fetchAvgAge(): Promise<{ avgAge: number; sampleSize: numbe
 
 export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
   const result = await apiFetch<{ data: OnboardingAnalytics }>("/api/metrics/onboarding")
+  return result.data
+}
+
+export async function fetchAcquisitionMetrics(opts: {
+  from: string
+  to: string
+}): Promise<AcquisitionMetrics> {
+  const result = await apiFetch<{ data: AcquisitionMetrics }>("/api/metrics/acquisition", {
+    from: opts.from,
+    to: opts.to,
+  })
   return result.data
 }
 
