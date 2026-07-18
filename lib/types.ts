@@ -37,11 +37,39 @@ export interface User {
     lastName?: string
     username?: string
     phone?: string
+    acquisitionSource?: string
     deviceInfo?: {
       platform?: string
     }
     [key: string]: unknown
   }
+}
+
+// ============= Admin outreach (stored in the dashboard-owned Firestore DB) =============
+
+export type ContactChannel = "email" | "phone"
+
+export const CONTACT_CHANNEL_LABELS: Record<ContactChannel, string> = {
+  email: "Email",
+  phone: "Téléphone",
+}
+
+// One outreach attempt logged by an admin (user_contacts/{userId}/entries/{id}).
+export interface ContactEntry {
+  id: string
+  contactedAt: Date
+  channel: ContactChannel
+  note: string
+  contactedBy: string // admin email, stamped server-side
+  createdAt: Date
+}
+
+// Denormalized latest-contact summary (user_contacts/{userId} doc).
+export interface UserContactSummary {
+  lastContactedAt: Date
+  lastChannel: ContactChannel
+  lastContactedBy: string
+  contactCount: number
 }
 
 export interface TrackingEntry {

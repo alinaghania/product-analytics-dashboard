@@ -1,4 +1,5 @@
 import { getAdminDb } from "./firebase-admin"
+import { fetchContactedUserIdSet } from "./firestore-dashboard-queries"
 import { Timestamp } from "firebase-admin/firestore"
 import { format as formatDate } from "date-fns"
 import {
@@ -165,6 +166,9 @@ export async function fetchUsers(options: {
   to?: string // YYYY-MM-DD inclusive upper bound on createdAt
   platform?: "ios" | "android"
   premium?: boolean
+  contacted?: boolean // has at least one outreach entry (dashboard DB)
+  churned?: boolean // had a RevenueCat subscription event but is no longer premium
+  inactive?: boolean // lastLoginDate older than 1 month (or absent)
 }): Promise<{ data: User[]; hasMore: boolean; lastCreatedAt?: string }> {
   const db = getAdminDb()
   const limitCount = options.limitCount || 50
@@ -195,37 +199,112 @@ export async function fetchUsers(options: {
     ref = ref.startAfter(new Date(options.startAfter))
   }
 
-  // Over-fetch when client-side filters are active so the visible page isn't
-  // mostly empty after we drop non-matching rows. Capped so a slow filter
-  // doesn't pull thousands of docs per request.
-  const hasClientFilters = !!(search || options.platform || options.premium !== undefined)
-  const fetchLimit = hasClientFilters ? Math.min(Math.max(limitCount * 3, 150), 300) : limitCount
-  ref = ref.limit(fetchLimit)
-  const snapshot = await ref.get()
+  const hasClientFilters = !!(
+    search ||
+    options.platform ||
+    options.premium !== undefined ||
+    options.contacted !== undefined ||
+    options.churned ||
+    options.inactive
+  )
 
-  let users: User[] = snapshot.docs.map((doc) => mapUserDoc(doc.id, doc.data()))
+  // The contacted-IDs set lives in the dashboard DB. Fails loudly if that DB
+  // isn't set up — the filter is unusable without it, unlike the passive
+  // "Contacté" column which degrades to "—".
+  const contactedSet =
+    options.contacted !== undefined ? await fetchContactedUserIdSet() : null
 
-  if (search) {
-    const searchLower = search.toLowerCase()
-    users = users.filter(
-      (u) => u.email?.toLowerCase().includes(searchLower) || u.username?.toLowerCase().includes(searchLower),
-    )
-  }
-  if (options.platform) {
-    users = users.filter((u) => u.metadata?.platform?.toLowerCase() === options.platform)
-  }
-  if (options.premium !== undefined) {
-    users = users.filter((u) => Boolean(u.subscriptionStatus?.isPremium) === options.premium)
+  const inactiveCutoff = new Date()
+  inactiveCutoff.setMonth(inactiveCutoff.getMonth() - 1)
+
+  const applyFilters = (batch: User[]): User[] => {
+    if (search) {
+      const searchLower = search.toLowerCase()
+      batch = batch.filter(
+        (u) => u.email?.toLowerCase().includes(searchLower) || u.username?.toLowerCase().includes(searchLower),
+      )
+    }
+    if (options.platform) {
+      batch = batch.filter((u) => u.metadata?.platform?.toLowerCase() === options.platform)
+    }
+    if (options.premium !== undefined) {
+      batch = batch.filter((u) => Boolean(u.subscriptionStatus?.isPremium) === options.premium)
+    }
+    if (contactedSet) {
+      batch = batch.filter((u) => contactedSet.has(u.id) === options.contacted)
+    }
+    if (options.churned) {
+      // Best available churn proxy: subscriptionStatus is only written on
+      // RevenueCat subscription events, so its presence with isPremium=false
+      // means "had a subscription or trial, no longer premium".
+      batch = batch.filter(
+        (u) => u.subscriptionStatus !== undefined && u.subscriptionStatus.isPremium === false,
+      )
+    }
+    if (options.inactive) {
+      // Based on users.metadata.lastLoginDate — NOT the same source as the
+      // list's "Last Login" column (fetchLastLoginsForUsers), so a user with
+      // a stale metadata field can be filtered as inactive while showing a
+      // recent login. Acceptable for outreach; deriving from tracking_sessions
+      // would require scanning that collection for the whole user base.
+      batch = batch.filter((u) => {
+        const lastLogin = u.metadata?.lastLoginDate ?? u.metadata?.lastLoginAt
+        return !lastLogin || lastLogin < inactiveCutoff
+      })
+    }
+    return batch
   }
 
-  // After client-side filtering, trim back to the requested page size.
+  if (!hasClientFilters) {
+    const snapshot = await ref.limit(limitCount).get()
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1]
+    return {
+      data: snapshot.docs.map((doc) => mapUserDoc(doc.id, doc.data())),
+      hasMore: snapshot.docs.length === limitCount,
+      lastCreatedAt: lastDoc?.data()?.createdAt?.toDate?.()?.toISOString(),
+    }
+  }
+
+  // Filtered path: scan forward in batches until the page fills (plus one
+  // extra match to place the cursor) or the scan cap is hit. A single capped
+  // over-fetch isn't enough for sparse filters — e.g. "inactive" can never
+  // match accounts created within the last month, so the newest several
+  // hundred docs in createdAt order contain zero matches.
+  const BATCH_SIZE = 300
+  const MAX_SCANNED = 1500
+  const users: User[] = []
+  let scanned = 0
+  let exhausted = false
+  let lastScannedDoc: FirebaseFirestore.QueryDocumentSnapshot | undefined
+
+  while (users.length <= limitCount && scanned < MAX_SCANNED && !exhausted) {
+    const batchRef = lastScannedDoc ? ref.startAfter(lastScannedDoc) : ref
+    const snapshot = await batchRef.limit(BATCH_SIZE).get()
+    scanned += snapshot.docs.length
+    exhausted = snapshot.docs.length < BATCH_SIZE
+    if (snapshot.docs.length > 0) lastScannedDoc = snapshot.docs[snapshot.docs.length - 1]
+    users.push(...applyFilters(snapshot.docs.map((doc) => mapUserDoc(doc.id, doc.data()))))
+  }
+
   const trimmed = users.slice(0, limitCount)
 
-  const hasMore = snapshot.docs.length === fetchLimit
-  const lastDoc = snapshot.docs[snapshot.docs.length - 1]
-  const lastCreatedAt = lastDoc?.data()?.createdAt?.toDate?.()?.toISOString()
-
-  return { data: trimmed, hasMore, lastCreatedAt }
+  if (users.length > limitCount) {
+    // Matches beyond this page exist: resume from the last returned match so
+    // the surplus isn't skipped by a cursor pointing past it.
+    return {
+      data: trimmed,
+      hasMore: true,
+      lastCreatedAt: trimmed[trimmed.length - 1].createdAt.toISOString(),
+    }
+  }
+  // Page not filled: every match found so far is returned, so resume the scan
+  // from the last doc read (the page may be short or even empty while more
+  // docs remain — same as paging past a sparse stretch).
+  return {
+    data: trimmed,
+    hasMore: !exhausted,
+    lastCreatedAt: lastScannedDoc?.data()?.createdAt?.toDate?.()?.toISOString(),
+  }
 }
 
 export async function fetchUserById(userId: string): Promise<User | null> {

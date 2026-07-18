@@ -111,6 +111,15 @@ app/(dashboard)/
 
 `users`, `tracking_sessions`, `tracking`, `chat_conversations` (subcollection: `messages`), `app_events`, `bubble_events`, `photos`, `routines`
 
+### Dashboard-owned database (`dashboard`)
+
+Besides the mobile app's `(default)` database (read-only for the dashboard), a second **named Firestore database `dashboard`** holds dashboard-owned data. The same service account has write access on it ONLY, via a conditional IAM binding (`roles/datastore.user` with condition `resource.name.startsWith("projects/lotus-9663d/databases/dashboard")`). Access it with `getDashboardDb()` from `lib/firebase-admin.ts`; all queries/writes live in `lib/firestore-dashboard-queries.ts` — the ONLY file allowed to write to Firestore.
+
+- **`user_contacts/{userId}`** — outreach (relance) summary: `lastContactedAt`, `lastChannel: "email"|"phone"`, `lastContactedBy` (admin email), `contactCount`, `updatedAt`
+- **`user_contacts/{userId}/entries/{autoId}`** — one doc per contact attempt: `contactedAt`, `channel`, `note`, `contactedBy`, `createdAt`
+
+Churn proxy used by the users list filter: `subscriptionStatus` is only written on RevenueCat subscription events, so `subscriptionStatus` present + `isPremium === false` ≈ "had a subscription/trial, no longer premium". Note: `users.metadata.lastLoginAt` is empty in practice — `metadata.lastLoginDate` (Timestamp) is the populated field.
+
 ### Collection Schemas
 
 **`users`** — User accounts and profiles

@@ -11,8 +11,10 @@ import { Badge } from "@/components/ui/badge"
 import { ChartCard } from "@/components/dashboard/chart-card"
 import { AreaChart } from "@/components/charts/area-chart"
 import { UserChatsPanel } from "@/components/users/UserChatsPanel"
+import { UserContactHistoryCard } from "@/components/users/UserContactHistoryCard"
 import { formatDateTime, formatDuration } from "@/lib/date-utils"
 import { fetchUserFullProfile } from "@/lib/api-client"
+import { ACQUISITION_SOURCE_LABELS, labelize } from "@/lib/onboarding-labels"
 import {
   UserIcon,
   Activity,
@@ -113,6 +115,12 @@ export default function UserDetailPage() {
   const rawDoc = (data?.raw?.userDoc as Record<string, any>) || {}
   const sections = data?.sections
   const reg = (user?.registrationData as Record<string, any>) || {}
+
+  const acquisitionSourceCode =
+    typeof reg.acquisitionSource === "string" ? reg.acquisitionSource.trim() : ""
+  const acquisitionSourceLabel = acquisitionSourceCode
+    ? labelize(ACQUISITION_SOURCE_LABELS, acquisitionSourceCode)
+    : undefined
 
   const trackingEntries = sections?.trackingEntries.data || []
   const trackingSessions = sections?.trackingSessions.data || []
@@ -320,6 +328,9 @@ export default function UserDetailPage() {
                   <Badge className="bg-success text-success-foreground">Onboarded</Badge>
                 )}
                 {reg.lifeStage && <Badge variant="outline">{String(reg.lifeStage).replace(/_/g, " ")}</Badge>}
+                {acquisitionSourceLabel && (
+                  <Badge variant="outline">Acquisition: {acquisitionSourceLabel}</Badge>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -357,6 +368,10 @@ export default function UserDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Outreach history — kept above the tabs: the re-engagement workflow
+            is "open user → check/log contact", so it must be visible at once. */}
+        <UserContactHistoryCard userId={userId} userLabel={user?.email || displayedName} />
 
         {/* Tabs */}
         <Tabs defaultValue="profile" className="space-y-4">
@@ -507,6 +522,8 @@ export default function UserDetailPage() {
                   <FieldRow label="Platform" value={user?.metadata?.platform} />
                   <FieldRow label="Registration Branch" value={reg.registrationBranch} />
                   <FieldRow label="Onboarding Version" value={reg.onboardingVersion} />
+                  {/* "Not collected" (vs prefer_not) = user predates the acquisition question */}
+                  <FieldRow label="Acquisition Source" value={acquisitionSourceLabel ?? "Not collected"} />
                   <FieldRow
                     label="Onboarded At"
                     value={user?.onboardingCompletedAt ? formatDateTime(user.onboardingCompletedAt) : undefined}
