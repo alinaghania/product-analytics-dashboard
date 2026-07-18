@@ -37,6 +37,7 @@ export interface User {
     lastName?: string
     username?: string
     phone?: string
+    acquisitionSource?: string
     deviceInfo?: {
       platform?: string
     }
