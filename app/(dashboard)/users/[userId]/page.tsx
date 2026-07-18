@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { ChartCard } from "@/components/dashboard/chart-card"
 import { AreaChart } from "@/components/charts/area-chart"
 import { UserChatsPanel } from "@/components/users/UserChatsPanel"
+import { UserContactHistoryCard } from "@/components/users/UserContactHistoryCard"
 import { formatDateTime, formatDuration } from "@/lib/date-utils"
 import { fetchUserFullProfile } from "@/lib/api-client"
 import {
@@ -357,6 +358,10 @@ export default function UserDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Outreach history — kept above the tabs: the re-engagement workflow
+            is "open user → check/log contact", so it must be visible at once. */}
+        <UserContactHistoryCard userId={userId} userLabel={user?.email || displayedName} />
 
         {/* Tabs */}
         <Tabs defaultValue="profile" className="space-y-4">

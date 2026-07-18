@@ -1,7 +1,7 @@
 "use client"
 
 import { getFirebaseAuth } from "./firebase"
-import type { OnboardingAnalytics } from "./types"
+import type { ContactChannel, ContactEntry, OnboardingAnalytics, UserContactSummary } from "./types"
 
 async function getAuthToken(): Promise<string> {
   const auth = getFirebaseAuth()
@@ -53,6 +53,23 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return response.json()
 }
 
+// DELETE twin of apiPost (no body).
+async function apiDelete<T>(path: string): Promise<T> {
+  const token = await getAuthToken()
+
+  const response = await fetch(new URL(path, window.location.origin).toString(), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: response.statusText }))
+    throw new Error(errorBody.error || `API error: ${response.status}`)
+  }
+
+  return response.json()
+}
+
 // ============= Users =============
 
 export async function fetchUsers(options: {
@@ -63,6 +80,9 @@ export async function fetchUsers(options: {
   to?: string
   platform?: "ios" | "android"
   premium?: boolean
+  contacted?: boolean
+  churned?: boolean
+  inactive?: boolean
 }): Promise<{ data: any[]; hasMore: boolean; lastCreatedAt?: string }> {
   const result = await apiFetch<any>("/api/users", {
     limit: options.limitCount?.toString(),
@@ -72,6 +92,9 @@ export async function fetchUsers(options: {
     to: options.to,
     platform: options.platform,
     premium: options.premium === undefined ? undefined : String(options.premium),
+    contacted: options.contacted === undefined ? undefined : String(options.contacted),
+    churned: options.churned ? "true" : undefined,
+    inactive: options.inactive ? "true" : undefined,
   })
   return {
     data: (result.data || []).map((u: any) => ({
@@ -86,6 +109,62 @@ export async function fetchUsers(options: {
 export async function fetchUserById(userId: string) {
   const result = await apiFetch<any>(`/api/users/${userId}`)
   return result.data
+}
+
+// ============= Admin outreach (relances) =============
+
+function reviveSummary(raw: any): UserContactSummary | null {
+  if (!raw) return null
+  return { ...raw, lastContactedAt: new Date(raw.lastContactedAt) }
+}
+
+function reviveEntry(raw: any): ContactEntry {
+  return { ...raw, contactedAt: new Date(raw.contactedAt), createdAt: new Date(raw.createdAt) }
+}
+
+export async function fetchContactsForUsers(
+  userIds: string[],
+): Promise<Record<string, UserContactSummary | null>> {
+  if (userIds.length === 0) return {}
+  const result = await apiFetch<{ data: Record<string, any> }>("/api/users/contacts", {
+    userIds: userIds.join(","),
+  })
+  return Object.fromEntries(
+    Object.entries(result.data || {}).map(([id, raw]) => [id, reviveSummary(raw)]),
+  )
+}
+
+export async function fetchUserContacts(
+  userId: string,
+): Promise<{ data: ContactEntry[]; error: string | null }> {
+  const result = await apiFetch<{ data: any[]; error: string | null }>(
+    `/api/users/${userId}/contacts`,
+  )
+  return { data: (result.data || []).map(reviveEntry), error: result.error ?? null }
+}
+
+export async function addUserContact(
+  userId: string,
+  input: { channel: ContactChannel; note: string; contactedAt?: string },
+): Promise<{ entry: ContactEntry; summary: UserContactSummary }> {
+  const result = await apiPost<{ data: { entry: any; summary: any } }>(
+    `/api/users/${userId}/contacts`,
+    input,
+  )
+  return {
+    entry: reviveEntry(result.data.entry),
+    summary: reviveSummary(result.data.summary)!,
+  }
+}
+
+export async function deleteUserContact(
+  userId: string,
+  entryId: string,
+): Promise<{ summary: UserContactSummary | null }> {
+  const result = await apiDelete<{ data: { summary: any } }>(
+    `/api/users/${userId}/contacts/${entryId}`,
+  )
+  return { summary: reviveSummary(result.data.summary) }
 }
 
 export interface ConversationInsights {

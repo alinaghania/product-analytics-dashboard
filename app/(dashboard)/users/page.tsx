@@ -12,19 +12,24 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserChatsDrawer } from "@/components/users/UserChatsDrawer"
 import { ConversationInsightsPanel } from "@/components/users/ConversationInsightsPanel"
+import { ContactDialog } from "@/components/users/ContactDialog"
 import { formatDateTime } from "@/lib/date-utils"
 import {
   checkUserHasChats,
   fetchUsers,
+  fetchContactsForUsers,
   fetchLastLoginsForUsers,
   fetchLastActivitiesForUsers,
   fetchUserDailySessionTimes,
 } from "@/lib/api-client"
-import type { User } from "@/lib/types"
-import { MessageSquare, Search, X } from "lucide-react"
+import { CONTACT_CHANNEL_LABELS, type User } from "@/lib/types"
+import { Mail, MessageSquare, Phone, Search, UserPlus, X } from "lucide-react"
 
 type PlatformFilter = "all" | "ios" | "android"
 type PremiumFilter = "all" | "premium" | "free"
+type ContactFilter = "all" | "contacted" | "not_contacted"
+type ChurnFilter = "all" | "churned"
+type ActivityFilter = "all" | "inactive"
 
 // Per-row shortcut to read a user's conversations without leaving the list.
 // Only renders for users that actually have chats so the column stays sparse.
@@ -79,31 +84,40 @@ export default function UsersPage() {
   const [toDate, setToDate] = useState("")
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all")
   const [premiumFilter, setPremiumFilter] = useState<PremiumFilter>("all")
+  const [contactFilter, setContactFilter] = useState<ContactFilter>("all")
+  const [churnFilter, setChurnFilter] = useState<ChurnFilter>("all")
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all")
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
   const [pageCursors, setPageCursors] = useState<string[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>()
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
   const [chatDrawerUser, setChatDrawerUser] = useState<{ id: string; email: string } | null>(null)
+  const [contactDialogUser, setContactDialogUser] = useState<{ id: string; email: string } | null>(null)
 
   const filtersActive =
     !!search ||
     !!fromDate ||
     !!toDate ||
     platformFilter !== "all" ||
-    premiumFilter !== "all"
+    premiumFilter !== "all" ||
+    contactFilter !== "all" ||
+    churnFilter !== "all" ||
+    activityFilter !== "all"
 
   // Reset pagination and cursors whenever any filter changes — the cursor
   // stack from the previous filter combination is no longer valid.
   useEffect(() => {
     setPagination({ pageIndex: 0, pageSize: 50 })
     setPageCursors([])
-  }, [debouncedSearch, fromDate, toDate, platformFilter, premiumFilter])
+  }, [debouncedSearch, fromDate, toDate, platformFilter, premiumFilter, contactFilter, churnFilter, activityFilter])
 
   const startAfter = pagination.pageIndex > 0 ? pageCursors[pagination.pageIndex - 1] : undefined
 
   const platformParam = platformFilter === "all" ? undefined : platformFilter
   const premiumParam =
     premiumFilter === "all" ? undefined : premiumFilter === "premium"
+  const contactedParam =
+    contactFilter === "all" ? undefined : contactFilter === "contacted"
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: [
@@ -113,6 +127,9 @@ export default function UsersPage() {
       toDate,
       platformFilter,
       premiumFilter,
+      contactFilter,
+      churnFilter,
+      activityFilter,
       pagination.pageSize,
       pagination.pageIndex,
     ],
@@ -125,6 +142,9 @@ export default function UsersPage() {
         to: toDate || undefined,
         platform: platformParam,
         premium: premiumParam,
+        contacted: contactedParam,
+        churned: churnFilter === "churned" || undefined,
+        inactive: activityFilter === "inactive" || undefined,
       }),
     enabled: pagination.pageIndex === 0 || !!startAfter,
     refetchOnWindowFocus: false,
@@ -137,6 +157,9 @@ export default function UsersPage() {
     setToDate("")
     setPlatformFilter("all")
     setPremiumFilter("all")
+    setContactFilter("all")
+    setChurnFilter("all")
+    setActivityFilter("all")
   }
 
   // Store cursor for the current page when data arrives
@@ -177,6 +200,14 @@ export default function UsersPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const { data: contactSummaries } = useQuery({
+    queryKey: ["contactSummaries", userIds],
+    queryFn: () => fetchContactsForUsers(userIds),
+    enabled: userIds.length > 0,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const handleReload = async () => {
     setPagination({ pageIndex: 0, pageSize: 50 })
     setPageCursors([])
@@ -210,6 +241,7 @@ export default function UsersPage() {
       "Age",
       "Avg Daily Time",
       "Payment",
+      "Last Contact",
     ]
     const csv = [
       headers.map(csvEscape).join(","),
@@ -247,6 +279,13 @@ export default function UsersPage() {
           ? `${sessionTime.avgDailyTimeMinutes} min (${sessionTime.totalSessions} sessions)`
           : "—"
 
+        const contact = contactSummaries?.[user.id]
+        const lastContactStr = contact
+          ? `${CONTACT_CHANNEL_LABELS[contact.lastChannel]} ${formatDateTime(
+              contact.lastContactedAt,
+            )} par ${contact.lastContactedBy} (x${contact.contactCount})`
+          : "—"
+
         return [
           user.email,
           name,
@@ -258,6 +297,7 @@ export default function UsersPage() {
           age,
           avgDailyTimeStr,
           payment,
+          lastContactStr,
         ]
           .map(csvEscape)
           .join(",")
@@ -405,6 +445,48 @@ export default function UsersPage() {
       },
     },
     {
+      id: "contacted",
+      header: "Contacté",
+      cell: ({ row }) => {
+        const summary = contactSummaries?.[row.original.id]
+        return (
+          <div className="flex items-center gap-1">
+            {summary ? (
+              <div className="flex flex-col gap-0.5">
+                <span className="flex items-center gap-1.5 text-sm text-foreground">
+                  {summary.lastChannel === "phone" ? (
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  {formatDateTime(summary.lastContactedAt)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {summary.lastContactedBy.split("@")[0]}
+                  {summary.contactCount > 1 && ` (x${summary.contactCount})`}
+                </span>
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground">—</span>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                // Stop the row's onClick (navigate to user detail) from also firing.
+                e.stopPropagation()
+                setContactDialogUser({ id: row.original.id, email: row.original.email })
+              }}
+            >
+              <UserPlus className="h-4 w-4" />
+              <span className="sr-only">Enregistrer un contact</span>
+            </Button>
+          </div>
+        )
+      },
+    },
+    {
       id: "chats",
       header: "Chats",
       cell: ({ row }) => <UserChatAction user={row.original} onOpen={handleOpenChats} />,
@@ -489,6 +571,58 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Contacté
+              </label>
+              <Select
+                value={contactFilter}
+                onValueChange={(v) => setContactFilter(v as ContactFilter)}
+              >
+                <SelectTrigger className="h-9 w-[150px] bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="contacted">Contactés</SelectItem>
+                  <SelectItem value="not_contacted">Non contactés</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Churn
+              </label>
+              <Select
+                value={churnFilter}
+                onValueChange={(v) => setChurnFilter(v as ChurnFilter)}
+              >
+                <SelectTrigger className="h-9 w-[150px] bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="churned">Churned (ex-premium/essai)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Activité
+              </label>
+              <Select
+                value={activityFilter}
+                onValueChange={(v) => setActivityFilter(v as ActivityFilter)}
+              >
+                <SelectTrigger className="h-9 w-[160px] bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="inactive">Inactifs +1 mois</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {filtersActive && (
               <Button variant="ghost" size="sm" onClick={resetFilters} className="h-9 gap-1.5">
                 <X className="h-3.5 w-3.5" />
@@ -518,6 +652,15 @@ export default function UsersPage() {
         onClose={handleCloseChats}
         userId={chatDrawerUser?.id || ""}
         userEmail={chatDrawerUser?.email || ""}
+      />
+
+      <ContactDialog
+        // Remount per user so form state never leaks from one row to another.
+        key={contactDialogUser?.id || "none"}
+        open={Boolean(contactDialogUser)}
+        onOpenChange={(open) => !open && setContactDialogUser(null)}
+        userId={contactDialogUser?.id || ""}
+        userLabel={contactDialogUser?.email || ""}
       />
     </div>
   )

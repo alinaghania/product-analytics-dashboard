@@ -6,7 +6,13 @@ import * as fs from "fs"
 
 let app: App | undefined
 let db: Firestore | undefined
+let dashboardDb: Firestore | undefined
 let auth: Auth | undefined
+
+// Named Firestore database owned by the dashboard. The service account only
+// has write access on this database (conditional IAM binding) — the mobile
+// app's "(default)" database stays read-only at the infrastructure level.
+const DASHBOARD_DB_ID = "dashboard"
 
 function getServiceAccountCredential() {
   // Option 1: FIREBASE_SERVICE_ACCOUNT env var (Vercel production)
@@ -55,6 +61,14 @@ export function getAdminDb(): Firestore {
     db = getFirestore(adminApp)
   }
   return db
+}
+
+export function getDashboardDb(): Firestore {
+  const adminApp = initAdmin()
+  if (!dashboardDb) {
+    dashboardDb = getFirestore(adminApp, DASHBOARD_DB_ID)
+  }
+  return dashboardDb
 }
 
 export function getAdminAuth(): Auth {

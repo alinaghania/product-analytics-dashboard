@@ -11,6 +11,9 @@ const querySchema = z.object({
   to: z.string().optional(),
   platform: z.enum(["ios", "android"]).optional(),
   premium: z.enum(["true", "false"]).optional(),
+  contacted: z.enum(["true", "false"]).optional(),
+  churned: z.enum(["true"]).optional(),
+  inactive: z.enum(["true"]).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -24,6 +27,9 @@ export async function GET(request: NextRequest) {
       to: searchParams.get("to") || undefined,
       platform: searchParams.get("platform") || undefined,
       premium: searchParams.get("premium") || undefined,
+      contacted: searchParams.get("contacted") || undefined,
+      churned: searchParams.get("churned") || undefined,
+      inactive: searchParams.get("inactive") || undefined,
     })
 
     const result = await fetchUsers({
@@ -34,6 +40,9 @@ export async function GET(request: NextRequest) {
       to: params.to,
       platform: params.platform,
       premium: params.premium === undefined ? undefined : params.premium === "true",
+      contacted: params.contacted === undefined ? undefined : params.contacted === "true",
+      churned: params.churned === "true" || undefined,
+      inactive: params.inactive === "true" || undefined,
     })
 
     return NextResponse.json({
