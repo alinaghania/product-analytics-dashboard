@@ -63,6 +63,27 @@ export function getAdminDb(): Firestore {
   return db
 }
 
+// Pool of Firestore clients on extra named apps, for large chunked scans
+// (100k+ docs). A single client multiplexes everything over one gRPC channel,
+// which caps streaming at ~2k docs/s no matter how many queries run "in
+// parallel"; one channel per client restores real parallelism (~5x measured
+// on the retention activity scan). Lazy — apps are only created on first use.
+const SCAN_POOL_SIZE = 8
+let scanPool: Firestore[] | undefined
+
+export function getAdminDbPool(): Firestore[] {
+  initAdmin() // keep the default app as getApps()[0] before adding named ones
+  if (!scanPool) {
+    const credential = getServiceAccountCredential()
+    scanPool = Array.from({ length: SCAN_POOL_SIZE }, (_, i) => {
+      const name = `scan-pool-${i}`
+      const existing = getApps().find((a) => a.name === name)
+      return getFirestore(existing ?? initializeApp({ credential }, name))
+    })
+  }
+  return scanPool
+}
+
 export function getDashboardDb(): Firestore {
   const adminApp = initAdmin()
   if (!dashboardDb) {

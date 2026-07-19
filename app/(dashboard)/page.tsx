@@ -958,7 +958,7 @@ export default function OverviewPage() {
                 )}
                 <InfoTooltip
                   title="Retention Curve (W1/W4/W8)"
-                  description="Question: 'Parmi celles inscrites à T0, combien reviennent en semaine N?' | Who is counted: ✅ Only new signups from specific cohort ❌ Never existing users ❌ Never signups after T0 | Definition: Cohort = users signed up in the given period. Retention W = % of cohort with ≥1 tracking_session on any day of the 7-day window [signup + W×7 … signup + W×7 + 6]. W0 = signup week"
+                  description="Question: 'Parmi celles inscrites à T0, combien reviennent en semaine N?' | Who is counted: ✅ Only new signups from specific cohort ❌ Never existing users ❌ Never signups after T0 | Definition: Cohort = users signed up in the given period. Retention W = % of cohort active (≥1 tracking session OR app event — chat, meals, photos…) on any day of the 7-day window [signup + W×7 … signup + W×7 + 6]. W0 = signup week"
                   howToRead="Higher line = better retention. W0=signup week. Each point = % of original cohort active at least once that week. The trend usually declines, but rebounds are normal (a user idle in W4 can return in W8). Look for W1, W4, W8 milestones."
                   dataCoverage={
                     retentionMetadata?.error
