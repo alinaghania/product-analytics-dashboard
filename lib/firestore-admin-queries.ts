@@ -154,6 +154,7 @@ function mapUserDoc(id: string, data: FirebaseFirestore.DocumentData): User {
         data.flags?.profileCompletion ?? data.metadata?.profileCompleteness ?? 0,
     },
     subscriptionStatus: data.subscriptionStatus,
+    consents: data.consents ? { marketing: data.consents.marketing === true } : undefined,
     registrationData: data.registrationData,
   }
 }
@@ -242,11 +243,8 @@ export async function fetchUsers(options: {
       )
     }
     if (options.inactive) {
-      // Based on users.metadata.lastLoginDate — NOT the same source as the
-      // list's "Last Login" column (fetchLastLoginsForUsers), so a user with
-      // a stale metadata field can be filtered as inactive while showing a
-      // recent login. Acceptable for outreach; deriving from tracking_sessions
-      // would require scanning that collection for the whole user base.
+      // Based on users.metadata.lastLoginDate — same source as the list's
+      // "Last Login" column, so the filter and the column stay consistent.
       batch = batch.filter((u) => {
         const lastLogin = u.metadata?.lastLoginDate ?? u.metadata?.lastLoginAt
         return !lastLogin || lastLogin < inactiveCutoff
@@ -1609,31 +1607,6 @@ export async function fetchPhotos(options: { from?: string; to?: string }) {
       bloated: data.bloated,
     }
   })
-}
-
-export async function fetchLastLoginsForUsers(userIds: string[]): Promise<Record<string, Date | null>> {
-  if (userIds.length === 0) return {}
-
-  const db = getAdminDb()
-  const lastLogins: Record<string, Date | null> = {}
-
-  const snapshot = await db.collection("tracking_sessions").orderBy("startedAt", "desc").limit(1000).get()
-
-  const userSessionMap: Record<string, Date> = {}
-  snapshot.docs.forEach((doc) => {
-    const data = doc.data()
-    const userId = data.userId
-    const startedAt = toDate(data.startedAt)
-    if (userId && userIds.includes(userId) && startedAt && !userSessionMap[userId]) {
-      userSessionMap[userId] = startedAt
-    }
-  })
-
-  userIds.forEach((userId) => {
-    lastLogins[userId] = userSessionMap[userId] || null
-  })
-
-  return lastLogins
 }
 
 export async function fetchLastActivitiesForUsers(userIds: string[]): Promise<Record<string, LastActivity | null>> {
