@@ -3,6 +3,10 @@ import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
 import { calculateRetentionCurve } from "@/lib/firestore-admin-queries"
 
+// The activity scan reads app_events over up to ~3 months (100k+ docs) — needs
+// more than Vercel's default function timeout.
+export const maxDuration = 60
+
 const querySchema = z.object({
   cohortStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   cohortEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

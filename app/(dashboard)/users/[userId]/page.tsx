@@ -12,6 +12,7 @@ import { ChartCard } from "@/components/dashboard/chart-card"
 import { AreaChart } from "@/components/charts/area-chart"
 import { UserChatsPanel } from "@/components/users/UserChatsPanel"
 import { UserContactHistoryCard } from "@/components/users/UserContactHistoryCard"
+import { PlatformBadge } from "@/components/users/PlatformBadge"
 import { formatDateTime, formatDuration } from "@/lib/date-utils"
 import { fetchUserFullProfile } from "@/lib/api-client"
 import { ACQUISITION_SOURCE_LABELS, labelize } from "@/lib/onboarding-labels"
@@ -250,6 +251,8 @@ export default function UserDetailPage() {
   const fullName = [reg.firstName, reg.lastName].filter(Boolean).join(" ").trim()
   const displayedName = fullName || user?.username || user?.displayName || user?.email || userId
   const age = calculateAge(reg.birthDate || user?.birthDate, reg.age)
+  // lastLoginDate is the populated field; lastLoginAt is empty in practice
+  const lastLogin = user?.metadata?.lastLoginDate || user?.metadata?.lastLoginAt
 
   const totalMessages = conversations.reduce((sum: number, c: any) => sum + (c.messageCount || 0), 0)
 
@@ -315,9 +318,7 @@ export default function UserDetailPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {user?.metadata?.platform && (
-                  <Badge variant="secondary">{user.metadata.platform}</Badge>
-                )}
+                {user?.metadata?.platform && <PlatformBadge platform={user.metadata.platform} />}
                 {user?.metadata?.appVersion && <Badge variant="outline">v{user.metadata.appVersion}</Badge>}
                 {user?.subscriptionStatus?.isPremium ? (
                   <Badge className="bg-success text-success-foreground">Premium</Badge>
@@ -327,6 +328,23 @@ export default function UserDetailPage() {
                 {user?.flags?.onboardingCompleted && (
                   <Badge className="bg-success text-success-foreground">Onboarded</Badge>
                 )}
+                {/* Marketing-email consent (users.consents.marketing) — the same
+                    flag that gates the Relances section below. Legacy accounts
+                    without `consents` (never asked) are treated as refusals. */}
+                {user?.consents?.marketing === true ? (
+                  <Badge className="bg-success text-success-foreground">Emails: acceptés</Badge>
+                ) : user ? (
+                  <Badge
+                    variant="destructive"
+                    title={
+                      user.consents
+                        ? "A refusé de recevoir des e-mails — ne pas relancer"
+                        : "Consentement e-mail jamais recueilli — traité comme un refus, ne pas relancer"
+                    }
+                  >
+                    Emails: refusés
+                  </Badge>
+                ) : null}
                 {reg.lifeStage && <Badge variant="outline">{String(reg.lifeStage).replace(/_/g, " ")}</Badge>}
                 {acquisitionSourceLabel && (
                   <Badge variant="outline">Acquisition: {acquisitionSourceLabel}</Badge>
@@ -345,7 +363,7 @@ export default function UserDetailPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Last Login</p>
                 <p className="text-sm font-medium text-foreground">
-                  {user?.metadata?.lastLoginAt ? formatDateTime(user.metadata.lastLoginAt) : "Never"}
+                  {lastLogin ? formatDateTime(lastLogin) : "Never"}
                 </p>
               </div>
               <div>
@@ -370,8 +388,17 @@ export default function UserDetailPage() {
         </Card>
 
         {/* Outreach history — kept above the tabs: the re-engagement workflow
-            is "open user → check/log contact", so it must be visible at once. */}
-        <UserContactHistoryCard userId={userId} userLabel={user?.email || displayedName} />
+            is "open user → check/log contact", so it must be visible at once.
+            Only shown when the user ticked the marketing-email consent checkbox
+            (users.consents.marketing) — no consent, no relance. */}
+        {user?.consents?.marketing === true ? (
+          <UserContactHistoryCard userId={userId} userLabel={user?.email || displayedName} />
+        ) : user ? (
+          <p className="text-xs text-muted-foreground">
+            Relances masquées — cette utilisatrice n'a pas consenti à recevoir des e-mails
+            (consentement marketing absent ou refusé).
+          </p>
+        ) : null}
 
         {/* Tabs */}
         <Tabs defaultValue="profile" className="space-y-4">

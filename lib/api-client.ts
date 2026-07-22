@@ -106,6 +106,9 @@ export async function fetchUsers(options: {
     data: (result.data || []).map((u: any) => ({
       ...u,
       createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
+      metadata: u.metadata
+        ? reviveDates(u.metadata, ["lastLoginAt", "lastLoginDate", "accountCreatedDate"])
+        : u.metadata,
     })),
     hasMore: result.hasMore,
     lastCreatedAt: result.lastCreatedAt,
@@ -393,27 +396,12 @@ export async function fetchUserFullProfile(userId: string): Promise<UserFullProf
 
 // ============= User activities =============
 
-export async function fetchLastLoginsForUsers(userIds: string[]): Promise<Record<string, Date | null>> {
-  if (userIds.length === 0) return {}
-  const result = await apiFetch<any>("/api/users/activities", {
-    userIds: userIds.join(","),
-    mode: "logins",
-  })
-  // Convert date strings back to Date objects
-  const data: Record<string, Date | null> = {}
-  for (const [key, value] of Object.entries(result.data)) {
-    data[key] = value ? new Date(value as string) : null
-  }
-  return data
-}
-
 export async function fetchLastActivitiesForUsers(
   userIds: string[],
 ): Promise<Record<string, { timestamp: Date; type: string; description: string } | null>> {
   if (userIds.length === 0) return {}
   const result = await apiFetch<any>("/api/users/activities", {
     userIds: userIds.join(","),
-    mode: "activities",
   })
   const data: Record<string, any> = {}
   for (const [key, value] of Object.entries(result.data)) {

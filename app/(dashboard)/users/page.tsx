@@ -13,12 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserChatsDrawer } from "@/components/users/UserChatsDrawer"
 import { ConversationInsightsPanel } from "@/components/users/ConversationInsightsPanel"
 import { ContactDialog } from "@/components/users/ContactDialog"
+import { PlatformBadge } from "@/components/users/PlatformBadge"
 import { formatDateTime } from "@/lib/date-utils"
 import {
   checkUserHasChats,
   fetchUsers,
   fetchContactsForUsers,
-  fetchLastLoginsForUsers,
   fetchLastActivitiesForUsers,
   fetchUserDailySessionTimes,
 } from "@/lib/api-client"
@@ -176,14 +176,6 @@ export default function UsersPage() {
   const users: User[] = data?.data || []
   const userIds = users.map((u) => u.id)
 
-  const { data: lastLoginsMap } = useQuery({
-    queryKey: ["lastLogins", userIds],
-    queryFn: () => fetchLastLoginsForUsers(userIds),
-    enabled: userIds.length > 0,
-    refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000,
-  })
-
   const { data: lastActivitiesMap } = useQuery({
     queryKey: ["lastActivities", userIds],
     queryFn: () => fetchLastActivitiesForUsers(userIds),
@@ -249,7 +241,7 @@ export default function UsersPage() {
         const name = user.username || user.displayName || user.registrationData?.name || "-"
         const phone = user.phone || "—"
         const createdAt = user.createdAt?.toISOString() || ""
-        const lastLogin = lastLoginsMap?.[user.id]
+        const lastLogin = user.metadata?.lastLoginDate
         const lastLoginStr = lastLogin ? formatDateTime(lastLogin) : "—"
 
         const lastActivity = lastActivitiesMap?.[user.id]
@@ -349,6 +341,11 @@ export default function UsersPage() {
 
   const columns: ColumnDef<User>[] = [
     {
+      id: "chats",
+      header: "Chats",
+      cell: ({ row }) => <UserChatAction user={row.original} onOpen={handleOpenChats} />,
+    },
+    {
       accessorKey: "email",
       header: "Email",
       cell: ({ row }) => <span className="font-medium text-foreground">{row.original.email}</span>,
@@ -364,70 +361,27 @@ export default function UsersPage() {
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.phone || "—"}</span>
-      ),
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Created At",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{formatDateTime(row.original.createdAt)}</span>
-      ),
-    },
-    {
-      accessorKey: "lastLogin",
-      header: "Last Login",
-      cell: ({ row }) => {
-        const lastLogin = lastLoginsMap?.[row.original.id]
-        return <span className="text-sm text-muted-foreground">{lastLogin ? formatDateTime(lastLogin) : "—"}</span>
-      },
-    },
-    {
-      accessorKey: "lastActivity",
-      header: "Last Activity",
-      cell: ({ row }) => {
-        const activity = lastActivitiesMap?.[row.original.id]
-        if (!activity) {
-          return <span className="text-sm text-muted-foreground">—</span>
-        }
-        return (
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm text-foreground">{formatDateTime(activity.timestamp)}</span>
-            <span className="text-xs text-muted-foreground italic">"{activity.description}"</span>
-          </div>
-        )
-      },
+      cell: ({ row }) =>
+        row.original.phone ? (
+          <span title={row.original.phone}>
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            <span className="sr-only">{row.original.phone}</span>
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
     },
     {
       accessorKey: "metadata.platform",
       header: "Platform",
       cell: ({ row }) => (
-        <Badge variant="secondary" className="font-normal">
-          {row.original.metadata?.platform || "Unknown"}
-        </Badge>
+        <PlatformBadge platform={row.original.metadata?.platform} className="font-normal" />
       ),
     },
     {
       accessorKey: "age",
       header: "Age",
       cell: ({ row }) => <span className="text-sm text-muted-foreground">{calculateAge(row.original)}</span>,
-    },
-    {
-      accessorKey: "avgDailyTime",
-      header: "Avg Daily Time",
-      cell: ({ row }) => {
-        const sessionTime = userSessionTimes?.[row.original.id]
-        if (!sessionTime || sessionTime.avgDailyTimeMinutes === 0) {
-          return <span className="text-sm text-muted-foreground">—</span>
-        }
-        return (
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm text-foreground">{sessionTime.avgDailyTimeMinutes} min</span>
-            <span className="text-xs text-muted-foreground">{sessionTime.totalSessions} sessions</span>
-          </div>
-        )
-      },
     },
     {
       accessorKey: "subscriptionStatus.isPremium",
@@ -449,6 +403,11 @@ export default function UsersPage() {
       header: "Contacté",
       cell: ({ row }) => {
         const summary = contactSummaries?.[row.original.id]
+        // Only an explicit opt-in (users.consents.marketing === true) allows
+        // logging a contact — same rule as the Relances section on the user
+        // detail page. Legacy accounts without `consents` (never asked) are
+        // treated as refusals.
+        const canContact = row.original.consents?.marketing === true
         return (
           <div className="flex items-center gap-1">
             {summary ? (
@@ -466,30 +425,84 @@ export default function UsersPage() {
                   {summary.contactCount > 1 && ` (x${summary.contactCount})`}
                 </span>
               </div>
+            ) : null}
+            {canContact ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  // Stop the row's onClick (navigate to user detail) from also firing.
+                  e.stopPropagation()
+                  setContactDialogUser({ id: row.original.id, email: row.original.email })
+                }}
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="sr-only">Enregistrer un contact</span>
+              </Button>
             ) : (
-              <span className="text-sm text-muted-foreground">—</span>
+              <Badge
+                variant="destructive"
+                className="whitespace-nowrap"
+                title={
+                  row.original.consents
+                    ? "A refusé de recevoir des e-mails — ne pas relancer"
+                    : "Consentement e-mail jamais recueilli — traité comme un refus, ne pas relancer"
+                }
+              >
+                Emails: refusés
+              </Badge>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={(e) => {
-                // Stop the row's onClick (navigate to user detail) from also firing.
-                e.stopPropagation()
-                setContactDialogUser({ id: row.original.id, email: row.original.email })
-              }}
-            >
-              <UserPlus className="h-4 w-4" />
-              <span className="sr-only">Enregistrer un contact</span>
-            </Button>
           </div>
         )
       },
     },
     {
-      id: "chats",
-      header: "Chats",
-      cell: ({ row }) => <UserChatAction user={row.original} onOpen={handleOpenChats} />,
+      accessorKey: "createdAt",
+      header: "Created At",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">{formatDateTime(row.original.createdAt)}</span>
+      ),
+    },
+    {
+      accessorKey: "lastLogin",
+      header: "Last Login",
+      cell: ({ row }) => {
+        const lastLogin = row.original.metadata?.lastLoginDate
+        return <span className="text-sm text-muted-foreground">{lastLogin ? formatDateTime(lastLogin) : "—"}</span>
+      },
+    },
+    {
+      accessorKey: "lastActivity",
+      header: "Last Activity",
+      cell: ({ row }) => {
+        const activity = lastActivitiesMap?.[row.original.id]
+        if (!activity) {
+          return <span className="text-sm text-muted-foreground">—</span>
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-foreground">{formatDateTime(activity.timestamp)}</span>
+            <span className="text-xs text-muted-foreground italic">"{activity.description}"</span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "avgDailyTime",
+      header: "Avg Daily Time",
+      cell: ({ row }) => {
+        const sessionTime = userSessionTimes?.[row.original.id]
+        if (!sessionTime || sessionTime.avgDailyTimeMinutes === 0) {
+          return <span className="text-sm text-muted-foreground">—</span>
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-foreground">{sessionTime.avgDailyTimeMinutes} min</span>
+            <span className="text-xs text-muted-foreground">{sessionTime.totalSessions} sessions</span>
+          </div>
+        )
+      },
     },
   ]
 

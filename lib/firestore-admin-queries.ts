@@ -1,4 +1,4 @@
-import { getAdminDb } from "./firebase-admin"
+import { getAdminDb, getAdminDbPool } from "./firebase-admin"
 import { fetchContactedUserIdSet } from "./firestore-dashboard-queries"
 import { Timestamp } from "firebase-admin/firestore"
 import { format as formatDate } from "date-fns"
@@ -154,6 +154,7 @@ function mapUserDoc(id: string, data: FirebaseFirestore.DocumentData): User {
         data.flags?.profileCompletion ?? data.metadata?.profileCompleteness ?? 0,
     },
     subscriptionStatus: data.subscriptionStatus,
+    consents: data.consents ? { marketing: data.consents.marketing === true } : undefined,
     registrationData: data.registrationData,
   }
 }
@@ -242,11 +243,8 @@ export async function fetchUsers(options: {
       )
     }
     if (options.inactive) {
-      // Based on users.metadata.lastLoginDate — NOT the same source as the
-      // list's "Last Login" column (fetchLastLoginsForUsers), so a user with
-      // a stale metadata field can be filtered as inactive while showing a
-      // recent login. Acceptable for outreach; deriving from tracking_sessions
-      // would require scanning that collection for the whole user base.
+      // Based on users.metadata.lastLoginDate — same source as the list's
+      // "Last Login" column, so the filter and the column stay consistent.
       batch = batch.filter((u) => {
         const lastLogin = u.metadata?.lastLoginDate ?? u.metadata?.lastLoginAt
         return !lastLogin || lastLogin < inactiveCutoff
@@ -1441,6 +1439,43 @@ export async function fetchChatConversations(_dateRange?: { from?: string; to?: 
   return { conversations, totalMessages }
 }
 
+// Fetches (userId, date) pairs of one activity collection over [from, to].
+// The scan is split into two-week chunks spread over the client pool: one
+// gRPC channel streams only ~2k docs/s, so the ~140k app_events a 3-month
+// window can hold take ~60s on a single client vs ~12s pooled. select()
+// trims each doc to the two fields the caller needs.
+async function fetchActivityDocs(
+  collection: string,
+  dateField: string,
+  from: Date,
+  to: Date,
+): Promise<Array<{ userId?: string; date?: Date }>> {
+  const CHUNK_MS = 14 * 24 * 3600 * 1000
+  const pool = getAdminDbPool()
+  const chunkQueries: Promise<FirebaseFirestore.QuerySnapshot>[] = []
+  for (let start = from.getTime(), i = 0; start <= to.getTime(); start += CHUNK_MS, i++) {
+    // Half-open [start, end) chunks so no doc is double-counted; +1ms on the
+    // final boundary keeps docs stamped exactly at `to` (inclusive like the
+    // rest of this file's range queries).
+    const end = Math.min(start + CHUNK_MS, to.getTime() + 1)
+    chunkQueries.push(
+      pool[i % pool.length]
+        .collection(collection)
+        .where(dateField, ">=", Timestamp.fromMillis(start))
+        .where(dateField, "<", Timestamp.fromMillis(end))
+        .select("userId", dateField)
+        .get(),
+    )
+  }
+  const snapshots = await Promise.all(chunkQueries)
+  return snapshots.flatMap((snap) =>
+    snap.docs.map((doc) => {
+      const data = doc.data()
+      return { userId: data.userId, date: data[dateField]?.toDate?.() }
+    }),
+  )
+}
+
 export async function calculateRetentionCurve(
   cohortStart: string,
   cohortEnd: string,
@@ -1497,24 +1532,23 @@ export async function calculateRetentionCurve(
   maxSessionDate.setUTCDate(maxSessionDate.getUTCDate() + maxWeeks * 7 + 6)
   const sessionEndDate = maxSessionDate < today ? maxSessionDate : today
 
-  const sessionsSnapshot = await db
-    .collection("tracking_sessions")
-    .where("startedAt", ">=", Timestamp.fromDate(new Date(cohortStart + "T00:00:00")))
-    .where("startedAt", "<=", Timestamp.fromDate(sessionEndDate))
-    .orderBy("startedAt", "asc")
-    .get()
+  // "Active" on a given day = at least one tracking session OR one app_event
+  // (chat, meal analysis, photos, missions…). Tracking sessions alone undercount
+  // users who get value from non-tracking features; app_events alone miss
+  // activity from before event instrumentation shipped — so the two are unioned.
+  const [sessionActivity, appEventActivity] = await Promise.all([
+    fetchActivityDocs("tracking_sessions", "startedAt", new Date(cohortStart + "T00:00:00"), sessionEndDate),
+    fetchActivityDocs("app_events", "createdAt", new Date(cohortStart + "T00:00:00"), sessionEndDate),
+  ])
 
   const activeDaysByUser = new Map<string, Set<string>>()
-  sessionsSnapshot.docs.forEach((doc) => {
-    const data = doc.data()
-    const userId = data.userId
-    const sessionDate = data.startedAt?.toDate?.()
-    if (userId && sessionDate) {
-      const dayKey = toDayKey(sessionDate)
+  for (const activity of [sessionActivity, appEventActivity]) {
+    for (const { userId, date } of activity) {
+      if (!userId || !date) continue
       if (!activeDaysByUser.has(userId)) activeDaysByUser.set(userId, new Set())
-      activeDaysByUser.get(userId)!.add(dayKey)
+      activeDaysByUser.get(userId)!.add(toDayKey(date))
     }
-  })
+  }
 
   const curve: { week: number; retentionPct: number; retainedCount: number }[] = []
   const todayKey = toDayKey(today)
@@ -1573,31 +1607,6 @@ export async function fetchPhotos(options: { from?: string; to?: string }) {
       bloated: data.bloated,
     }
   })
-}
-
-export async function fetchLastLoginsForUsers(userIds: string[]): Promise<Record<string, Date | null>> {
-  if (userIds.length === 0) return {}
-
-  const db = getAdminDb()
-  const lastLogins: Record<string, Date | null> = {}
-
-  const snapshot = await db.collection("tracking_sessions").orderBy("startedAt", "desc").limit(1000).get()
-
-  const userSessionMap: Record<string, Date> = {}
-  snapshot.docs.forEach((doc) => {
-    const data = doc.data()
-    const userId = data.userId
-    const startedAt = toDate(data.startedAt)
-    if (userId && userIds.includes(userId) && startedAt && !userSessionMap[userId]) {
-      userSessionMap[userId] = startedAt
-    }
-  })
-
-  userIds.forEach((userId) => {
-    lastLogins[userId] = userSessionMap[userId] || null
-  })
-
-  return lastLogins
 }
 
 export async function fetchLastActivitiesForUsers(userIds: string[]): Promise<Record<string, LastActivity | null>> {

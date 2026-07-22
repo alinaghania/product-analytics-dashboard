@@ -28,6 +28,10 @@ export interface User {
     isPremium?: boolean
     source?: string
   }
+  consents?: {
+    // Onboarding consent checkboxes; `marketing` = accepted to receive offer emails
+    marketing?: boolean
+  }
   registrationData?: {
     age?: string
     birthDate?: string
