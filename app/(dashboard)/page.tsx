@@ -31,7 +31,7 @@ import {
   fetchPhotoCount,
   calculateRetentionCurve,
 } from "@/lib/api-client"
-import { bucketByDay, bucketByHour, uniqueUsersByDay } from "@/lib/analytics"
+import { bucketByDay, bucketByHour, rollingUniqueUsersByDay, uniqueUsersByDay } from "@/lib/analytics"
 import { GOALS, MONTHLY_SIGNUP_GOALS, totalUsersGoalForMonth } from "@/lib/metric-goals"
 
 let globalInitialLoadDone = false
@@ -53,6 +53,13 @@ const ACQUISITION_SOURCE_COLORS: Record<string, string> = {
   "Prefer not to say": "#64748B", // muted slate
 }
 const ACQUISITION_FALLBACK_COLOR = "#6B7694"
+
+const ACTIVITY_CHART_LABELS = {
+  dau: "Daily Active Users (DAU)",
+  wau: "Weekly Active Users (WAU)",
+  sessions: "Sessions per day",
+} as const
+type ActivityChartMetric = keyof typeof ACTIVITY_CHART_LABELS
 
 export default function OverviewPage() {
   const [dateRange, setDateRange] = useState(() => {
@@ -89,7 +96,7 @@ export default function OverviewPage() {
   const retentionCohortStart = customCohort ? customCohortStart : autoCohort.start
   const retentionCohortEnd = customCohort ? customCohortEnd : autoCohort.end
 
-  const [showSessionsChart, setShowSessionsChart] = useState(false)
+  const [chartMetric, setChartMetric] = useState<ActivityChartMetric>("dau")
 
   const {
     data: sessionData,
@@ -423,15 +430,22 @@ export default function OverviewPage() {
     // in if GA4 isn't reachable.
     if (ga4Daily && ga4Daily.length > 0) {
       return ga4Daily
-        .map((row) => ({ day: row.date, dau: row.dau, sessions: row.sessions }))
+        .map((row) => ({ day: row.date, dau: row.dau, wau: row.wau, sessions: row.sessions }))
         .sort((a, b) => a.day.localeCompare(b.day))
     }
-    const dauByDay = sessionData
-      ? uniqueUsersByDay(sessionData.map((s) => ({ userId: s.userId, date: s.startedAt })))
-      : new Map()
+    const userDays = sessionData
+      ? sessionData.map((s) => ({ userId: s.userId, date: s.startedAt }))
+      : []
+    const dauByDay = uniqueUsersByDay(userDays)
+    const wauByDay = rollingUniqueUsersByDay(userDays)
     const sessionsByDay = sessionData ? bucketByDay(sessionData.map((s) => s.startedAt)) : new Map()
     return Array.from(dauByDay.entries())
-      .map(([day, dau]) => ({ day, dau, sessions: sessionsByDay.get(day) || 0 }))
+      .map(([day, dau]) => ({
+        day,
+        dau,
+        wau: wauByDay.get(day) ?? 0,
+        sessions: sessionsByDay.get(day) || 0,
+      }))
       .sort((a, b) => a.day.localeCompare(b.day))
   }, [ga4Daily, sessionData])
 
@@ -835,36 +849,52 @@ export default function OverviewPage() {
           <ChartCard
             title={
               <div className="flex items-center gap-2">
-                <span>{showSessionsChart ? "Sessions per day" : "Daily Active Users (DAU)"}</span>
+                <span>{ACTIVITY_CHART_LABELS[chartMetric]}</span>
                 <InfoTooltip
-                  title={showSessionsChart ? "Sessions per day" : "Daily Active Users"}
+                  title={ACTIVITY_CHART_LABELS[chartMetric]}
                   description={
                     ga4Daily
-                      ? showSessionsChart
-                        ? "Total Firebase Analytics sessions per day"
-                        : "Firebase Analytics activeUsers per day (counts unique users with ≥1 engaged session)"
-                      : showSessionsChart
-                        ? "Total tracking_sessions started each day (fallback — GA4 unavailable)"
-                        : "Unique users with ≥1 tracking_session per day (fallback — GA4 unavailable)"
+                      ? {
+                          dau: "Firebase Analytics activeUsers per day (counts unique users with ≥1 engaged session)",
+                          wau: "Firebase Analytics active7DayUsers per day — unique users active in the rolling 7-day window ending that day",
+                          sessions: "Total Firebase Analytics sessions per day",
+                        }[chartMetric]
+                      : {
+                          dau: "Unique users with ≥1 tracking_session per day (fallback — GA4 unavailable)",
+                          wau: "Unique users with ≥1 tracking_session in the rolling 7-day window ending that day (fallback — GA4 unavailable)",
+                          sessions: "Total tracking_sessions started each day (fallback — GA4 unavailable)",
+                        }[chartMetric]
                   }
                   howToRead="Higher values indicate more active usage"
+                  limitations={
+                    chartMetric === "wau" && !ga4Daily
+                      ? "The first 6 days of the range undercount: only sessions inside the selected range are loaded."
+                      : undefined
+                  }
                   dataCoverage={
                     ga4Daily
                       ? `Firebase Analytics · ${ga4Daily.length} days`
                       : `From ${sessionData?.length || 0} tracking sessions`
                   }
                 />
-                <button
-                  onClick={() => setShowSessionsChart(!showSessionsChart)}
-                  className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Toggle
-                </button>
+                <div className="ml-auto flex items-center gap-1">
+                  {(Object.keys(ACTIVITY_CHART_LABELS) as ActivityChartMetric[]).map((metric) => (
+                    <Button
+                      key={metric}
+                      variant={chartMetric === metric ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setChartMetric(metric)}
+                    >
+                      {metric === "sessions" ? "Sessions" : metric.toUpperCase()}
+                    </Button>
+                  ))}
+                </div>
               </div>
             }
             isLoading={(ga4DailyLoading && !ga4Daily) || (sessionsLoading && !ga4Daily)}
           >
-            <LineChart data={dailyData} xKey="day" lines={[{ key: showSessionsChart ? "sessions" : "dau", color: "#7C3AED" }]} />
+            <LineChart data={dailyData} xKey="day" lines={[{ key: chartMetric, color: "#7C3AED" }]} />
           </ChartCard>
         </div>
 
