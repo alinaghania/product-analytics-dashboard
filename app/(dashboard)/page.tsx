@@ -380,23 +380,13 @@ export default function OverviewPage() {
     [acquisitionData],
   )
 
-  // Most recent day's breakdown, as pie slices + a matching fixed-color array.
-  // A pie is the clearest "snapshot of the latest day" view (few channels).
-  const { lastDaySlices, lastDayColors, lastDayLabel, lastDayTotal } = useMemo(() => {
-    const rows = acquisitionData?.daily ?? []
-    const last = rows[rows.length - 1]
-    if (!last) {
-      return { lastDaySlices: [], lastDayColors: [], lastDayLabel: "", lastDayTotal: 0 }
-    }
-    const slices = Object.entries(last)
-      .filter(([k]) => k !== "date" && k !== "total")
-      .map(([name, count]) => ({ name, count: Number(count) || 0 }))
-      .sort((a, b) => b.count - a.count)
+  // Source totals over the selected range (already ordered by count desc by the
+  // API), as pie slices + a matching fixed-color array.
+  const { sourceSlices, sourceColors } = useMemo(() => {
+    const slices = acquisitionData?.sources ?? []
     return {
-      lastDaySlices: slices,
-      lastDayColors: slices.map((s) => ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR),
-      lastDayLabel: formatDate(new Date(`${last.date}T00:00:00`), "MMM d"),
-      lastDayTotal: Number(last.total) || 0,
+      sourceSlices: slices,
+      sourceColors: slices.map((s) => ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR),
     }
   }, [acquisitionData])
 
@@ -715,10 +705,10 @@ export default function OverviewPage() {
         onReloadAll={handleReloadAll}
       />
 
-      <div className="flex-1 space-y-6 p-6">
+      <div className="flex-1 space-y-6 p-4 md:p-6">
         <DateRangePicker from={dateRange.from} to={dateRange.to} onChange={(from, to) => setDateRange({ from, to })} />
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <KpiCard
             label="DAU"
             value={(ga4Metrics?.active1Day ?? activityMetrics?.avgDau ?? calculatedDau).toLocaleString()}
@@ -777,7 +767,7 @@ export default function OverviewPage() {
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <KpiCard
             label="Total Users"
             value={(totalUserCount ?? allUsers?.data.length ?? 0).toLocaleString()}
@@ -813,7 +803,7 @@ export default function OverviewPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <ChartCard
             title={
               <div className="flex items-center gap-2">
@@ -848,7 +838,7 @@ export default function OverviewPage() {
 
           <ChartCard
             title={
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span>{ACTIVITY_CHART_LABELS[chartMetric]}</span>
                 <InfoTooltip
                   title={ACTIVITY_CHART_LABELS[chartMetric]}
@@ -898,28 +888,28 @@ export default function OverviewPage() {
           </ChartCard>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <ChartCard
             title={
               <div className="flex items-center gap-2">
-                <span>Sources — Latest Day{lastDayLabel ? ` (${lastDayLabel})` : ""}</span>
+                <span>Sources — Total</span>
                 <InfoTooltip
-                  title="Acquisition Sources — Latest Day"
-                  description="Where the most recent day's new users said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
-                  howToRead="Each slice is one channel's share of that day's signups. Hover for exact counts."
-                  limitations="Only users who answered the acquisition question (asked in the new V4 onboarding). Reflects the latest day that has at least one answer."
-                  dataCoverage={lastDayTotal > 0 ? `${lastDayTotal.toLocaleString()} signups that day` : "No data yet"}
+                  title="Acquisition Sources — Total"
+                  description="Where new users in the selected date range said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
+                  howToRead="Each slice is one channel's share of all signups in the selected range. Hover for exact counts."
+                  limitations="Only users who answered the acquisition question (asked in the new V4 onboarding)."
+                  dataCoverage={`${(acquisitionData?.answered ?? 0).toLocaleString()} users answered in the selected range`}
                 />
               </div>
             }
             isLoading={acquisitionLoading && !acquisitionData}
           >
-            {lastDaySlices.length === 0 ? (
+            {sourceSlices.length === 0 ? (
               <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
                 No acquisition answers yet.
               </div>
             ) : (
-              <PieChart data={lastDaySlices} colors={lastDayColors} showLabel={false} />
+              <PieChart data={sourceSlices} colors={sourceColors} showLabel={false} />
             )}
           </ChartCard>
 
@@ -953,7 +943,7 @@ export default function OverviewPage() {
           </ChartCard>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid gap-4 md:grid-cols-3">
           {retentionMilestones.map((m) => (
             <KpiCard
               key={m.label}
@@ -976,10 +966,10 @@ export default function OverviewPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <ChartCard
             title={
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span>{`Retention Curve (W0-W${retentionWeeks})`}</span>
                 {retentionMetadata?.cohortSize != null && (
                   <span className="text-sm font-normal text-muted-foreground">
@@ -1113,7 +1103,7 @@ export default function OverviewPage() {
           </ChartCard>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <ChartCard
             title={
               <div className="flex items-center gap-2">

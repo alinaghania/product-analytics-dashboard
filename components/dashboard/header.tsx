@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { RefreshCcw } from "lucide-react"
 import { useState } from "react"
 import { formatDateTime } from "@/lib/date-utils"
+import { MobileSidebar } from "@/components/dashboard/mobile-sidebar"
 
 interface HeaderProps {
   title: string
@@ -32,14 +33,19 @@ export function Header({ title, description, lastUpdated, onReloadAll }: HeaderP
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <MobileSidebar />
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold text-foreground">{title}</h1>
+          {description && <p className="truncate text-sm text-muted-foreground">{description}</p>}
+        </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-2 md:gap-4">
         {lastUpdated && (
-          <span className="text-xs text-muted-foreground">Last updated: {formatDateTime(lastUpdated)}</span>
+          <span className="hidden text-xs text-muted-foreground md:inline">
+            Last updated: {formatDateTime(lastUpdated)}
+          </span>
         )}
         <Button
           variant="outline"
@@ -49,7 +55,7 @@ export function Header({ title, description, lastUpdated, onReloadAll }: HeaderP
           className="gap-2 bg-transparent"
         >
           <RefreshCcw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-          Reload All
+          <span className="hidden sm:inline">Reload All</span>
         </Button>
       </div>
     </header>
