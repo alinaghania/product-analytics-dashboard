@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo } from "react"
 import { format, parse } from "date-fns"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { ChartLegend } from "./chart-legend"
 import { ISO_DATE_REGEX, REF_DATE, formatDateLabel, resolveTooltipLabel, tooltipContainerStyle, tooltipLabelStyle, tooltipValueStyle } from "./chart-utils"
 import {
   BarChart as RechartsBarChart,
@@ -99,6 +101,9 @@ export function BarChart({
   compareLabel,
 }: BarChartProps) {
   const isVertical = layout === "vertical"
+  const isMobile = useIsMobile()
+  // On phones, forcing every X tick makes date labels collide — let Recharts keep the endpoints.
+  const tickInterval: number | "preserveStartEnd" = isMobile ? "preserveStartEnd" : 0
 
   const chartData = useMemo(() => {
     // The zero-value filter is a feature of the simple vertical bar list only —
@@ -229,7 +234,7 @@ export function BarChart({
               angle={-45}
               textAnchor="end"
               height={60}
-              interval={0}
+              interval={tickInterval}
               tickFormatter={categoryFormatter}
             />
           )}
@@ -275,50 +280,51 @@ export function BarChart({
   }
 
   if (stacks) {
+    // Legend rendered as HTML chips below the chart (an in-chart legend with many
+    // wrapped rows would eat into the plot area) — same display on all screen sizes.
     return (
-      <ResponsiveContainer width="100%" height={200}>
-        <RechartsBarChart
-          data={chartData}
-          margin={{ top: 20, right: 5, left: -20, bottom: 40 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#1F2A44" horizontal vertical={false} />
-          <XAxis
-            dataKey={xKey}
-            tick={{ fill: "#6B7694", fontSize: 11 }}
-            axisLine={{ stroke: "#1F2A44" }}
-            tickLine={false}
-            angle={-45}
-            textAnchor="end"
-            height={60}
-            interval={0}
-            tickFormatter={isAggregated ? undefined : (v: string) => (ISO_DATE_REGEX.test(v) ? formatDateLabel(v) : v)}
-          />
-          <YAxis tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-          <Tooltip content={renderStackedTooltip} cursor={false} />
-          <Legend
-            formatter={(value: string) => stacks.find((s) => s.key === value)?.label || value}
-            wrapperStyle={{ fontSize: 12, color: "#9AA4BF" }}
-          />
-          {stacks.map((stack, i) => (
-            <Bar
-              key={stack.key}
-              dataKey={stack.key}
-              stackId="a"
-              fill={stack.color}
-              radius={i === stacks.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-            >
-              {showLabels && i === stacks.length - 1 && (
-                <LabelList
-                  dataKey={yKey}
-                  position="top"
-                  style={{ fill: "#9AA4BF", fontSize: 11, fontWeight: 500 }}
-                  formatter={(value: number) => (value > 0 ? value : "")}
-                />
-              )}
-            </Bar>
-          ))}
-        </RechartsBarChart>
-      </ResponsiveContainer>
+      <>
+        <ResponsiveContainer width="100%" height={240}>
+          <RechartsBarChart
+            data={chartData}
+            margin={{ top: 20, right: 5, left: -20, bottom: 8 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#1F2A44" horizontal vertical={false} />
+            <XAxis
+              dataKey={xKey}
+              tick={{ fill: "#6B7694", fontSize: 11 }}
+              axisLine={{ stroke: "#1F2A44" }}
+              tickLine={false}
+              angle={-45}
+              textAnchor="end"
+              height={60}
+              interval={tickInterval}
+              tickFormatter={isAggregated ? undefined : (v: string) => (ISO_DATE_REGEX.test(v) ? formatDateLabel(v) : v)}
+            />
+            <YAxis tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip content={renderStackedTooltip} cursor={false} />
+            {stacks.map((stack, i) => (
+              <Bar
+                key={stack.key}
+                dataKey={stack.key}
+                stackId="a"
+                fill={stack.color}
+                radius={i === stacks.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+              >
+                {showLabels && i === stacks.length - 1 && (
+                  <LabelList
+                    dataKey={yKey}
+                    position="top"
+                    style={{ fill: "#9AA4BF", fontSize: 11, fontWeight: 500 }}
+                    formatter={(value: number) => (value > 0 ? value : "")}
+                  />
+                )}
+              </Bar>
+            ))}
+          </RechartsBarChart>
+        </ResponsiveContainer>
+        <ChartLegend items={stacks.map((s) => ({ label: s.label, color: s.color }))} />
+      </>
     )
   }
 
@@ -338,7 +344,7 @@ export function BarChart({
           angle={-45}
           textAnchor="end"
           height={60}
-          interval={0}
+          interval={tickInterval}
           tickFormatter={isAggregated ? undefined : (v: string) => (ISO_DATE_REGEX.test(v) ? formatDateLabel(v) : v)}
         />
         <YAxis tick={{ fill: "#6B7694", fontSize: 11 }} axisLine={false} tickLine={false} />

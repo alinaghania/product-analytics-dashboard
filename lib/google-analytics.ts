@@ -94,11 +94,13 @@ export async function fetchGa4ActivityMetrics(): Promise<Ga4ActivityMetrics> {
 export interface Ga4DailyActivityRow {
   date: string // YYYY-MM-DD
   dau: number
+  // Rolling 7-day active users: unique users active in the 7-day window ending that day
+  wau: number
   sessions: number
   newUsers: number
 }
 
-// Daily DAU + sessions + new users over the given range. One GA4 runReport
+// Daily DAU + rolling WAU + sessions + new users over the given range. One GA4 runReport
 // call returns everything needed for the Overview daily-activity chart and
 // the daily signups chart, so we don't pay 2 round-trips.
 export async function fetchGa4DailyActivity(options: {
@@ -114,6 +116,7 @@ export async function fetchGa4DailyActivity(options: {
     dimensions: [{ name: "date" }],
     metrics: [
       { name: "activeUsers" },
+      { name: "active7DayUsers" },
       { name: "sessions" },
       { name: "newUsers" },
     ],
@@ -129,8 +132,9 @@ export async function fetchGa4DailyActivity(options: {
     const date =
       raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` : raw
     const dau = Number(row.metricValues?.[0]?.value ?? 0)
-    const sessions = Number(row.metricValues?.[1]?.value ?? 0)
-    const newUsers = Number(row.metricValues?.[2]?.value ?? 0)
-    return { date, dau, sessions, newUsers }
+    const wau = Number(row.metricValues?.[1]?.value ?? 0)
+    const sessions = Number(row.metricValues?.[2]?.value ?? 0)
+    const newUsers = Number(row.metricValues?.[3]?.value ?? 0)
+    return { date, dau, wau, sessions, newUsers }
   })
 }

@@ -24,8 +24,8 @@ export function bucketByDay(dates: Date[]): Map<string, number> {
   return map
 }
 
-// Count unique users per day
-export function uniqueUsersByDay(records: { userId: string; date: Date }[]): Map<string, number> {
+// Group records into a Map<dayKey, Set<userId>>
+function userSetsByDay(records: { userId: string; date: Date }[]): Map<string, Set<string>> {
   const dayUserSets = new Map<string, Set<string>>()
   records.forEach(({ userId, date }) => {
     const dayKey = toDayKey(date)
@@ -34,10 +34,37 @@ export function uniqueUsersByDay(records: { userId: string; date: Date }[]): Map
     }
     dayUserSets.get(dayKey)!.add(userId)
   })
+  return dayUserSets
+}
+
+// Count unique users per day
+export function uniqueUsersByDay(records: { userId: string; date: Date }[]): Map<string, number> {
+  const result = new Map<string, number>()
+  userSetsByDay(records).forEach((userSet, dayKey) => {
+    result.set(dayKey, userSet.size)
+  })
+  return result
+}
+
+// Unique users over a rolling N-day window ending on each day present in the
+// records. Days near the start of the dataset undercount: the window can only
+// see days that were fetched.
+export function rollingUniqueUsersByDay(
+  records: { userId: string; date: Date }[],
+  windowDays = 7,
+): Map<string, number> {
+  const dayUserSets = userSetsByDay(records)
 
   const result = new Map<string, number>()
-  dayUserSets.forEach((userSet, dayKey) => {
-    result.set(dayKey, userSet.size)
+  dayUserSets.forEach((_, dayKey) => {
+    const windowUsers = new Set<string>()
+    const dayStart = new Date(`${dayKey}T12:00:00Z`)
+    for (let offset = 0; offset < windowDays; offset++) {
+      const windowDay = new Date(dayStart.getTime() - offset * 24 * 60 * 60 * 1000)
+      const windowKey = windowDay.toISOString().slice(0, 10)
+      dayUserSets.get(windowKey)?.forEach((userId) => windowUsers.add(userId))
+    }
+    result.set(dayKey, windowUsers.size)
   })
   return result
 }

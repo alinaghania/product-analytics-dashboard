@@ -297,6 +297,8 @@ export async function fetchGa4ActivityMetrics(): Promise<Ga4ActivityMetricsRespo
 export interface Ga4DailyActivityRow {
   date: string
   dau: number
+  // Rolling 7-day active users as of that day (GA4 active7DayUsers)
+  wau: number
   sessions: number
   newUsers: number
 }
