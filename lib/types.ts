@@ -265,6 +265,22 @@ export interface AcquisitionMetrics {
 }
 
 /**
+ * Daily unique active users split by app version (app_events.appVersion) over
+ * a date window. A user who updates mid-day counts once per version that day,
+ * so a day's `total` (sum of segments) can slightly exceed true daily uniques.
+ */
+export interface ActiveUsersByVersion {
+  // One row per day for the stacked chart: { date, total, [versionLabel]: uniqueUsers }
+  daily: Array<Record<string, number | string>>
+  // Range-wide unique users per version, count desc; fold bucket "Other" last
+  versions: CountSlice[]
+  // Unique active users over the whole window
+  totalActiveUsers: number
+  // Set instead of data when the requested range is too wide to scan
+  error?: string
+}
+
+/**
  * Pre-aggregated onboarding analytics returned by `/api/metrics/onboarding`.
  * Every selection field is an array of `{ name, count }` ready to chart, with
  * `name` already decoded to a human-readable label (see lib/onboarding-labels).

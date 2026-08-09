@@ -25,6 +25,7 @@ import {
   fetchAvgAge,
   fetchDailySignups,
   fetchAcquisitionMetrics,
+  fetchActiveUsersByVersion,
   fetchMonthlySignups,
   fetchChatConversations,
   fetchPhotos,
@@ -53,6 +54,18 @@ const ACQUISITION_SOURCE_COLORS: Record<string, string> = {
   "Prefer not to say": "#64748B", // muted slate
 }
 const ACQUISITION_FALLBACK_COLOR = "#6B7694"
+
+// App versions are dynamic labels, so their colors come from a fixed-order
+// palette assigned by rank (biggest series first) instead of a name→color map.
+// The order was validated for adjacent-pair distinguishability (CVD + normal
+// vision) against the card surface; the fold buckets stay deliberately neutral.
+// Length must stay >= TOP_VERSIONS in fetchActiveUsersByVersion
+// (lib/firestore-admin-queries.ts) or two top versions would share a color.
+const VERSION_PALETTE = ["#7C3AED", "#2ED47A", "#3B82F6", "#FFB020", "#22D3EE", "#FF5C5C"]
+const VERSION_PINNED_COLORS: Record<string, string> = {
+  Other: "#94A3B8", // slate
+  Unknown: "#64748B", // muted slate
+}
 
 const ACTIVITY_CHART_LABELS = {
   dau: "Daily Active Users (DAU)",
@@ -226,6 +239,21 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  // Active users per day split by app version (app_events.appVersion — the
+  // mobile app stopped writing appVersion on tracking_sessions ~June 2026).
+  // Bucketed server-side, so the payload stays small. Drives the
+  // "Active Users by App Version" stacked chart.
+  const {
+    data: versionData,
+    isLoading: versionLoading,
+    refetch: refetchVersions,
+  } = useQuery({
+    queryKey: ["active-users-by-version", dateRange.from, dateRange.to],
+    queryFn: () => fetchActiveUsersByVersion({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
   // Monthly Firestore signups across the whole user base (users.createdAt),
   // bucketed server-side. Drives the "Monthly Signups vs Goal" chart at the
   // bottom of the page. Cheap: only `createdAt` is read.
@@ -290,6 +318,7 @@ export default function OverviewPage() {
       refetchAvgAge(),
       refetchDailySignups(),
       refetchAcquisition(),
+      refetchVersions(),
       refetchMonthlySignups(),
       refetchSessions(),
       refetchUsers(),
@@ -371,6 +400,19 @@ export default function OverviewPage() {
         color: ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR,
       })),
     [acquisitionData],
+  )
+
+  // Stacked-chart series, one per app version, ordered by unique users desc
+  // (biggest segment at the stack bottom, same order in the legend). Colors
+  // assigned by rank from the fixed palette; fold buckets keep pinned slates.
+  const versionStacks = useMemo(
+    () =>
+      (versionData?.versions ?? []).map((v, i) => ({
+        key: v.name,
+        label: v.name,
+        color: VERSION_PINNED_COLORS[v.name] ?? VERSION_PALETTE[i % VERSION_PALETTE.length],
+      })),
+    [versionData],
   )
 
   // Last 7 days with data — kept short on purpose so the stacked bars stay wide
@@ -887,6 +929,36 @@ export default function OverviewPage() {
             <LineChart data={dailyData} xKey="day" lines={[{ key: chartMetric, color: "#7C3AED" }]} />
           </ChartCard>
         </div>
+
+        <ChartCard
+          title={
+            <div className="flex items-center gap-2">
+              <span>Active Users by App Version</span>
+              <InfoTooltip
+                title="Active Users by App Version"
+                description="Unique users active each day (≥1 app event), split by the OTA bundle version they were on (app_events.appVersion)."
+                howToRead="Each bar is one day; each segment is unique users on one version. The number on top is the day's total. A new version's color taking over the bars = healthy update adoption."
+                limitations="OTA versions don't sort like store releases (1.0.0 predates 0.1.1) — segments are ordered by user count. A user who updates mid-day counts once per version that day. Events without a version show as Unknown. Top 6 versions shown; the rest grouped in Other. On ranges over 30 days, bars aggregate multi-day buckets."
+                dataCoverage={`${(versionData?.totalActiveUsers ?? 0).toLocaleString()} unique active users · ${versionData?.daily.length ?? 0} days`}
+              />
+            </div>
+          }
+          isLoading={versionLoading && !versionData}
+        >
+          {!versionData || versionData.daily.length === 0 ? (
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+              {versionData?.error ?? "No app events in the selected range."}
+            </div>
+          ) : (
+            <BarChart
+              data={versionData.daily}
+              xKey="date"
+              yKey="total"
+              maxBars={30}
+              stacks={versionStacks}
+            />
+          )}
+        </ChartCard>
 
         <div className="grid gap-6 md:grid-cols-2">
           <ChartCard
