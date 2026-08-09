@@ -31,6 +31,7 @@ import type {
   LastActivity,
   OnboardingAnalytics,
   AcquisitionMetrics,
+  ActiveUsersByVersion,
   CountSlice,
 } from "./types"
 
@@ -1439,17 +1440,19 @@ export async function fetchChatConversations(_dateRange?: { from?: string; to?: 
   return { conversations, totalMessages }
 }
 
-// Fetches (userId, date) pairs of one activity collection over [from, to].
+// Fetches (userId, date) pairs of one activity collection over [from, to],
+// plus any `extraFields` the caller needs (returned under `extra`).
 // The scan is split into two-week chunks spread over the client pool: one
 // gRPC channel streams only ~2k docs/s, so the ~140k app_events a 3-month
 // window can hold take ~60s on a single client vs ~12s pooled. select()
-// trims each doc to the two fields the caller needs.
+// trims each doc to just the requested fields.
 async function fetchActivityDocs(
   collection: string,
   dateField: string,
   from: Date,
   to: Date,
-): Promise<Array<{ userId?: string; date?: Date }>> {
+  extraFields: string[] = [],
+): Promise<Array<{ userId?: string; date?: Date; extra: Record<string, unknown> }>> {
   const CHUNK_MS = 14 * 24 * 3600 * 1000
   const pool = getAdminDbPool()
   const chunkQueries: Promise<FirebaseFirestore.QuerySnapshot>[] = []
@@ -1463,7 +1466,7 @@ async function fetchActivityDocs(
         .collection(collection)
         .where(dateField, ">=", Timestamp.fromMillis(start))
         .where(dateField, "<", Timestamp.fromMillis(end))
-        .select("userId", dateField)
+        .select("userId", dateField, ...extraFields)
         .get(),
     )
   }
@@ -1471,9 +1474,99 @@ async function fetchActivityDocs(
   return snapshots.flatMap((snap) =>
     snap.docs.map((doc) => {
       const data = doc.data()
-      return { userId: data.userId, date: data[dateField]?.toDate?.() }
+      const extra: Record<string, unknown> = {}
+      for (const field of extraFields) extra[field] = data[field]
+      return { userId: data.userId, date: data[dateField]?.toDate?.(), extra }
     }),
   )
+}
+
+// Daily unique active users split by app version, for the Overview stacked
+// chart. `app_events` is the version source: the mobile app stopped writing
+// appVersion on tracking_sessions (~June 2026) while every recent app_event
+// still carries it (an OTA bundle version — "1.0.0" predates "0.1.1", so
+// versions are never sorted semantically). A user is "active" on a day if
+// they emitted ≥1 app_event; one who updates mid-day counts once per version
+// that day, so a day's `total` can slightly exceed true daily uniques.
+export async function fetchActiveUsersByVersion(options: {
+  from: string
+  to: string
+}): Promise<ActiveUsersByVersion> {
+  // Must stay <= VERSION_PALETTE length in app/(dashboard)/page.tsx so every
+  // kept version gets a distinct color.
+  const TOP_VERSIONS = 6
+  const MAX_RANGE_DAYS = 185
+
+  if (getDaysDiff(options.from, options.to) > MAX_RANGE_DAYS) {
+    return {
+      daily: [],
+      versions: [],
+      totalActiveUsers: 0,
+      error: `Narrow date range to compute version activity (max ${MAX_RANGE_DAYS} days)`,
+    }
+  }
+
+  const docs = await fetchActivityDocs(
+    "app_events",
+    "createdAt",
+    new Date(options.from + "T00:00:00"),
+    new Date(options.to + "T23:59:59"),
+    ["appVersion"],
+  )
+
+  const seen = new Set<string>() // "day|version|userId" — one count per user, version and day
+  const byDay = new Map<string, Counter>() // dayKey → version → unique users
+  const versionUsers = new Map<string, Set<string>>() // version → unique users over the range
+  const allUsers = new Set<string>()
+
+  for (const { userId, date, extra } of docs) {
+    if (!userId || !date) continue
+    const raw = typeof extra.appVersion === "string" ? extra.appVersion.trim() : ""
+    const version = raw || "Unknown"
+    const day = toDayKey(date)
+    const dedupKey = `${day}|${version}|${userId}`
+    if (seen.has(dedupKey)) continue
+    seen.add(dedupKey)
+
+    const dayCounter = byDay.get(day) ?? {}
+    dayCounter[version] = (dayCounter[version] || 0) + 1
+    byDay.set(day, dayCounter)
+
+    if (!versionUsers.has(version)) versionUsers.set(version, new Set())
+    versionUsers.get(version)!.add(userId)
+    allUsers.add(userId)
+  }
+
+  // Keep the top versions by range-wide unique users; fold the rest into
+  // "Other" so the stack and its legend stay readable. "Other" always last.
+  const totalsDesc = [...versionUsers.entries()]
+    .map(([name, users]) => ({ name, count: users.size }))
+    .sort((a, b) => b.count - a.count)
+  const keptVersions = new Set(totalsDesc.slice(0, TOP_VERSIONS).map((v) => v.name))
+
+  const versions: CountSlice[] = totalsDesc.filter((v) => keptVersions.has(v.name))
+  const otherUsers = new Set<string>()
+  for (const [name, users] of versionUsers) {
+    if (keptVersions.has(name)) continue
+    for (const userId of users) otherUsers.add(userId)
+  }
+  if (otherUsers.size > 0) versions.push({ name: "Other", count: otherUsers.size })
+
+  const daily = [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, perVersion]) => {
+      const row: Record<string, number | string> = { date }
+      let total = 0
+      for (const [version, count] of Object.entries(perVersion)) {
+        const label = keptVersions.has(version) ? version : "Other"
+        row[label] = ((row[label] as number) || 0) + count
+        total += count
+      }
+      row.total = total
+      return row
+    })
+
+  return { daily, versions, totalActiveUsers: allUsers.size }
 }
 
 export async function calculateRetentionCurve(

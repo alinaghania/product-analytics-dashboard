@@ -3,6 +3,7 @@
 import { getFirebaseAuth } from "./firebase"
 import type {
   AcquisitionMetrics,
+  ActiveUsersByVersion,
   ContactChannel,
   ContactEntry,
   OnboardingAnalytics,
@@ -254,6 +255,17 @@ export async function fetchAcquisitionMetrics(opts: {
     from: opts.from,
     to: opts.to,
   })
+  return result.data
+}
+
+export async function fetchActiveUsersByVersion(opts: {
+  from: string
+  to: string
+}): Promise<ActiveUsersByVersion> {
+  const result = await apiFetch<{ data: ActiveUsersByVersion }>(
+    "/api/metrics/active-users-by-version",
+    { from: opts.from, to: opts.to },
+  )
   return result.data
 }
 
