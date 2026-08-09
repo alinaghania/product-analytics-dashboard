@@ -31,6 +31,7 @@ import type {
   LastActivity,
   OnboardingAnalytics,
   AcquisitionMetrics,
+  PremiumAcquisitionMetrics,
   ActiveUsersByVersion,
   CountSlice,
 } from "./types"
@@ -471,6 +472,42 @@ export async function fetchAcquisitionMetrics(options: {
     daily,
     sources,
     answered: sources.reduce((sum, s) => sum + s.count, 0),
+  }
+}
+
+// Acquisition sources of current premium users — all of them, no date filter:
+// premium accounts are few and the acquisition question only exists since the
+// V4 onboarding, so crossing with a date range would leave the chart empty
+// (and an equality-only query avoids a composite index the read-only service
+// account couldn't create). Cheap: reads only the nested source field.
+export async function fetchPremiumAcquisitionMetrics(): Promise<PremiumAcquisitionMetrics> {
+  const db = getAdminDb()
+
+  const snapshot = await db
+    .collection("users")
+    .where("subscriptionStatus.isPremium", "==", true)
+    .select("registrationData.acquisitionSource")
+    .limit(20000)
+    .get()
+
+  const totals: Counter = {}
+  for (const doc of snapshot.docs) {
+    const reg = doc.data().registrationData as Record<string, unknown> | undefined
+    const code = typeof reg?.acquisitionSource === "string" ? reg.acquisitionSource.trim() : ""
+    if (!code) continue
+
+    const label = labelize(ACQUISITION_SOURCE_LABELS, code)
+    totals[label] = (totals[label] || 0) + 1
+  }
+
+  const sources = Object.entries(totals)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+
+  return {
+    sources,
+    answered: sources.reduce((sum, s) => sum + s.count, 0),
+    premiumTotal: snapshot.size,
   }
 }
 
