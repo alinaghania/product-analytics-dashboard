@@ -7,6 +7,7 @@ import type {
   ContactChannel,
   ContactEntry,
   OnboardingAnalytics,
+  PremiumAcquisitionMetrics,
   UserContactSummary,
 } from "./types"
 
@@ -255,6 +256,13 @@ export async function fetchAcquisitionMetrics(opts: {
     from: opts.from,
     to: opts.to,
   })
+  return result.data
+}
+
+export async function fetchPremiumAcquisitionMetrics(): Promise<PremiumAcquisitionMetrics> {
+  const result = await apiFetch<{ data: PremiumAcquisitionMetrics }>(
+    "/api/metrics/acquisition-premium",
+  )
   return result.data
 }
 

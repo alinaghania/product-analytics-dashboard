@@ -265,6 +265,19 @@ export interface AcquisitionMetrics {
 }
 
 /**
+ * Acquisition sources of current premium users (subscriptionStatus.isPremium),
+ * regardless of signup date — the premium view of the Overview "Sources" pie.
+ */
+export interface PremiumAcquisitionMetrics {
+  // Source totals, ordered by count desc
+  sources: CountSlice[]
+  // Premium users who answered the acquisition question
+  answered: number
+  // All current premium users (answered or not)
+  premiumTotal: number
+}
+
+/**
  * Daily unique active users split by app version (app_events.appVersion) over
  * a date window. A user who updates mid-day counts once per version that day,
  * so a day's `total` (sum of segments) can slightly exceed true daily uniques.

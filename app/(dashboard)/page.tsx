@@ -25,6 +25,7 @@ import {
   fetchAvgAge,
   fetchDailySignups,
   fetchAcquisitionMetrics,
+  fetchPremiumAcquisitionMetrics,
   fetchActiveUsersByVersion,
   fetchMonthlySignups,
   fetchChatConversations,
@@ -110,6 +111,9 @@ export default function OverviewPage() {
   const retentionCohortEnd = customCohort ? customCohortEnd : autoCohort.end
 
   const [chartMetric, setChartMetric] = useState<ActivityChartMetric>("dau")
+
+  // Sources pie: all signups in the date range, or current premium users only.
+  const [sourcesView, setSourcesView] = useState<"all" | "premium">("all")
 
   const {
     data: sessionData,
@@ -239,6 +243,19 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  // Premium view of the Sources pie: acquisition sources of all current premium
+  // users, independent of the page date range (no dateRange in the queryKey).
+  const {
+    data: premiumAcquisitionData,
+    isLoading: premiumAcquisitionLoading,
+    refetch: refetchPremiumAcquisition,
+  } = useQuery({
+    queryKey: ["acquisition-premium"],
+    queryFn: () => fetchPremiumAcquisitionMetrics(),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
   // Active users per day split by app version (app_events.appVersion — the
   // mobile app stopped writing appVersion on tracking_sessions ~June 2026).
   // Bucketed server-side, so the payload stays small. Drives the
@@ -318,6 +335,7 @@ export default function OverviewPage() {
       refetchAvgAge(),
       refetchDailySignups(),
       refetchAcquisition(),
+      refetchPremiumAcquisition(),
       refetchVersions(),
       refetchMonthlySignups(),
       refetchSessions(),
@@ -431,6 +449,32 @@ export default function OverviewPage() {
       sourceColors: slices.map((s) => ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR),
     }
   }, [acquisitionData])
+
+  const { premiumSourceSlices, premiumSourceColors } = useMemo(() => {
+    const slices = premiumAcquisitionData?.sources ?? []
+    return {
+      premiumSourceSlices: slices,
+      premiumSourceColors: slices.map(
+        (s) => ACQUISITION_SOURCE_COLORS[s.name] ?? ACQUISITION_FALLBACK_COLOR,
+      ),
+    }
+  }, [premiumAcquisitionData])
+
+  // The dataset the Sources pie renders, swapped by its All/Premium toggle.
+  const sourcePie =
+    sourcesView === "premium"
+      ? {
+          slices: premiumSourceSlices,
+          colors: premiumSourceColors,
+          isLoading: premiumAcquisitionLoading && !premiumAcquisitionData,
+          emptyText: "No acquisition answers from premium users yet.",
+        }
+      : {
+          slices: sourceSlices,
+          colors: sourceColors,
+          isLoading: acquisitionLoading && !acquisitionData,
+          emptyText: "No acquisition answers yet.",
+        }
 
   const monthlySignupsData = useMemo(() => {
     // One row per month: actual signups + the team's acquisition goal (when set).
@@ -963,25 +1007,48 @@ export default function OverviewPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <ChartCard
             title={
-              <div className="flex items-center gap-2">
-                <span>Sources — Total</span>
-                <InfoTooltip
-                  title="Acquisition Sources — Total"
-                  description="Where new users in the selected date range said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
-                  howToRead="Each slice is one channel's share of all signups in the selected range. Hover for exact counts."
-                  limitations="Only users who answered the acquisition question (asked in the new V4 onboarding)."
-                  dataCoverage={`${(acquisitionData?.answered ?? 0).toLocaleString()} users answered in the selected range`}
-                />
+              <div className="flex flex-wrap items-center gap-2">
+                <span>{sourcesView === "premium" ? "Sources — Premium" : "Sources — Total"}</span>
+                {sourcesView === "premium" ? (
+                  <InfoTooltip
+                    title="Acquisition Sources — Premium"
+                    description="Where current premium users (subscriptionStatus.isPremium) said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
+                    howToRead="Each slice is one channel's share of the premium users who answered. Hover for exact counts."
+                    limitations="All current premium accounts regardless of signup date — the page date filter does not apply. Only users who answered the acquisition question (asked in the new V4 onboarding)."
+                    dataCoverage={`${(premiumAcquisitionData?.answered ?? 0).toLocaleString()} of ${(premiumAcquisitionData?.premiumTotal ?? 0).toLocaleString()} premium users answered`}
+                  />
+                ) : (
+                  <InfoTooltip
+                    title="Acquisition Sources — Total"
+                    description="Where new users in the selected date range said they discovered Endora — onboarding question 'How did you hear about Endora?' (registrationData.acquisitionSource)."
+                    howToRead="Each slice is one channel's share of all signups in the selected range. Hover for exact counts."
+                    limitations="Only users who answered the acquisition question (asked in the new V4 onboarding)."
+                    dataCoverage={`${(acquisitionData?.answered ?? 0).toLocaleString()} users answered in the selected range`}
+                  />
+                )}
+                <div className="ml-auto flex items-center gap-1">
+                  {(["all", "premium"] as const).map((view) => (
+                    <Button
+                      key={view}
+                      variant={sourcesView === view ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setSourcesView(view)}
+                    >
+                      {view === "all" ? "All" : "Premium"}
+                    </Button>
+                  ))}
+                </div>
               </div>
             }
-            isLoading={acquisitionLoading && !acquisitionData}
+            isLoading={sourcePie.isLoading}
           >
-            {sourceSlices.length === 0 ? (
+            {sourcePie.slices.length === 0 ? (
               <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-                No acquisition answers yet.
+                {sourcePie.emptyText}
               </div>
             ) : (
-              <PieChart data={sourceSlices} colors={sourceColors} showLabel={false} />
+              <PieChart data={sourcePie.slices} colors={sourcePie.colors} showLabel={false} />
             )}
           </ChartCard>
 
