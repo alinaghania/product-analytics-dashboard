@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -166,7 +167,7 @@ function RateField({
 
 interface ThresholdRowProps {
   label: string
-  tooltip: { title: string; description: string }
+  tooltip: { title: string; formula?: string; description: string }
   value: string
   status?: boolean | null
   caption?: string
@@ -177,7 +178,7 @@ function ThresholdRow({ label, tooltip, value, status, caption }: ThresholdRowPr
     <div className="flex items-start justify-between gap-4 py-3">
       <FieldLabel>
         {label}
-        <InfoTooltip title={tooltip.title} description={tooltip.description} />
+        <InfoTooltip title={tooltip.title} formula={tooltip.formula} description={tooltip.description} />
       </FieldLabel>
       <div className="text-right">
         <p className="text-sm font-semibold text-foreground">{value}</p>
@@ -279,12 +280,15 @@ export default function CampagneInfluenceurPage() {
                 </div>
                 <div className="space-y-1">
                   <FieldLabel>Plateforme</FieldLabel>
-                  <Input
-                    value={form.platform}
-                    onChange={(e) => set("platform", e.target.value)}
-                    placeholder="TikTok, Instagram…"
-                    className="h-9 bg-card"
-                  />
+                  <Select value={form.platform} onValueChange={(v) => set("platform", v)}>
+                    <SelectTrigger className="h-9 bg-card">
+                      <SelectValue placeholder="Choisir…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TikTok">TikTok</SelectItem>
+                      <SelectItem value="Instagram">Instagram</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <FieldLabel>Nb de vidéos</FieldLabel>
@@ -542,8 +546,8 @@ export default function CampagneInfluenceurPage() {
                 label="ROAS"
                 value={formatMultiplier(results.roas)}
                 variant={verdict ? verdict.variant : "default"}
-                tooltipTitle="ROAS"
-                tooltipDescription="Revenus générés / coût de la campagne. Rentable à partir de 1."
+                tooltipTitle="ROAS (Return on Ad Spend)"
+                tooltipDescription="Le retour sur dépense publicitaire = revenus générés / coût de la campagne. Il indique combien d'euros de revenu rapporte chaque euro investi (ex. 1,5 = 1,50 € gagné pour 1 € dépensé). Rentable à partir de 1."
               />
             </div>
 
@@ -567,7 +571,11 @@ export default function CampagneInfluenceurPage() {
                 <div className="flex flex-col">
                   <ThresholdRow
                     label="CPI (coût par installation)"
-                    tooltip={{ title: "CPI", description: "Coût de la campagne / nombre d'installations." }}
+                    tooltip={{
+                      title: "CPI",
+                      formula: "Coût de la campagne / nombre d'installations.",
+                      description: "Combien coûte, en moyenne, une seule installation générée par la campagne.",
+                    }}
                     value={formatCurrency(results.cpi, 2)}
                     status={results.cpiIsProfitable}
                     caption={
@@ -583,7 +591,9 @@ export default function CampagneInfluenceurPage() {
                     label="CAC payant"
                     tooltip={{
                       title: "CAC payant",
-                      description: "Coût de la campagne / nombre d'utilisatrices payantes.",
+                      formula: "Coût de la campagne / nombre d'utilisatrices payantes.",
+                      description:
+                        "Combien coûte l'acquisition d'une utilisatrice qui paie réellement, pas seulement une installation gratuite.",
                     }}
                     value={formatCurrency(results.cacPaying, 2)}
                   />
@@ -592,8 +602,9 @@ export default function CampagneInfluenceurPage() {
                     label="Valeur max d'une installation"
                     tooltip={{
                       title: "Valeur maximale d'une installation",
+                      formula: "Taux installation → payante × ARPU net.",
                       description:
-                        "Taux payant × ARPU net. Le CPI doit être inférieur ou égal à cette valeur pour atteindre le seuil de rentabilité.",
+                        "Le revenu moyen qu'une installation finit par rapporter : c'est le prix maximum à payer par installation (CPI) pour rester rentable.",
                     }}
                     value={formatCurrency(results.breakevenCpi, 2)}
                   />
@@ -602,7 +613,9 @@ export default function CampagneInfluenceurPage() {
                     label="CPM max rentable"
                     tooltip={{
                       title: "CPM maximal rentable",
-                      description: "1000 × taux vue → installation × taux payant × ARPU net.",
+                      formula: "1000 × taux vue → installation × taux payant × ARPU net.",
+                      description:
+                        "Le prix des 1000 vues à ne pas dépasser pour rester rentable : ta limite de négociation avec l'influenceur.",
                     }}
                     value={formatCurrency(results.maxProfitableCpm, 2)}
                     status={
@@ -619,8 +632,9 @@ export default function CampagneInfluenceurPage() {
                     label="Taux vue → install. nécessaire"
                     tooltip={{
                       title: "Taux vue → installation nécessaire",
+                      formula: "CPM effectif / (1000 × taux payant × ARPU net).",
                       description:
-                        "CPM / (1000 × taux payant × ARPU net) : taux minimal pour que la campagne soit rentable.",
+                        "Le taux de conversion minimum à atteindre pour rentabiliser le prix négocié.",
                     }}
                     value={formatPercent(results.requiredViewToInstallPct)}
                     status={
@@ -639,7 +653,9 @@ export default function CampagneInfluenceurPage() {
                     label="Installations nécessaires"
                     tooltip={{
                       title: "Installations nécessaires",
-                      description: "Vues × taux vue → installation nécessaire pour atteindre la rentabilité.",
+                      formula: "Vues × taux vue → installation nécessaire.",
+                      description:
+                        "Le nombre d'installations à atteindre, au minimum, pour que la campagne soit rentable.",
                     }}
                     value={formatNumber(results.requiredInstalls)}
                   />
@@ -648,7 +664,7 @@ export default function CampagneInfluenceurPage() {
 
               <ChartCard
                 title="Revenus vs coût par scénario"
-                description="La campagne est rentable quand la barre des revenus dépasse celle du coût"
+                description="Montants en euros (€) — la campagne est rentable quand la barre des revenus dépasse celle du coût"
               >
                 <BarChart
                   data={chartData}
@@ -741,7 +757,16 @@ export default function CampagneInfluenceurPage() {
                     ))}
                   </TableRow>
                   <TableRow>
-                    <TableCell className="text-muted-foreground">ROAS</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        ROAS
+                        <InfoTooltip
+                          title="ROAS (Return on Ad Spend)"
+                          formula="Revenus générés / coût de la campagne."
+                          description="Le retour sur dépense publicitaire : combien d'euros de revenu rapporte chaque euro investi. Ex. 1,5 = 1,50 € gagné pour 1 € dépensé. Rentable à partir de 1."
+                        />
+                      </span>
+                    </TableCell>
                     {scenarios.map((s) => {
                       const v = roasVerdict(s.results.roas)
                       return (
