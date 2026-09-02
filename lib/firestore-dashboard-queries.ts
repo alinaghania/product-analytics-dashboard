@@ -6,12 +6,30 @@
 // Data model:
 //   user_contacts/{userId}                 summary of the latest outreach
 //   user_contacts/{userId}/entries/{id}    one doc per outreach attempt
+//   ask_history/{id}                        one saved "Ask conversations" run
+//   campaign_history/{id}                   one saved campaign simulation
 
 import { FieldValue, Timestamp } from "firebase-admin/firestore"
 import { getDashboardDb } from "./firebase-admin"
-import type { ContactChannel, ContactEntry, UserContactSummary } from "./types"
+import type {
+  AskCitation,
+  AskHistoryEntry,
+  AskMeta,
+  CampaignHistoryEntry,
+  CampaignHistoryInputs,
+  CampaignHistoryResults,
+  ContactChannel,
+  ContactEntry,
+  UserContactSummary,
+} from "./types"
 
 const CONTACTS_COLLECTION = "user_contacts"
+const ASK_HISTORY_COLLECTION = "ask_history"
+const CAMPAIGN_HISTORY_COLLECTION = "campaign_history"
+
+// Newest-first history is capped so the panel stays light — older runs age out
+// of the view (they remain in Firestore).
+const HISTORY_LIMIT = 50
 
 // True while the GCP setup is missing (database not created, or the IAM
 // binding not granted/propagated). Read routes degrade gracefully on these
@@ -179,4 +197,111 @@ export async function fetchContactSummariesForUsers(
 export async function fetchContactedUserIdSet(): Promise<Set<string>> {
   const snapshot = await contactsRef().select().get()
   return new Set(snapshot.docs.map((doc) => doc.id))
+}
+
+// ── Ask history ─────────────────────────────────────────────────────────────
+
+function askHistoryRef() {
+  return getDashboardDb().collection(ASK_HISTORY_COLLECTION)
+}
+
+const EMPTY_ASK_META: AskMeta = {
+  conversationsAnalyzed: 0,
+  onboardingExcluded: 0,
+  truncated: false,
+  hallucinationsFiltered: 0,
+}
+
+function mapAskHistoryDoc(id: string, data: FirebaseFirestore.DocumentData): AskHistoryEntry {
+  return {
+    id,
+    question: data.question ?? "",
+    answer: data.answer ?? "",
+    citations: Array.isArray(data.citations) ? (data.citations as AskCitation[]) : [],
+    meta: data.meta ? { ...EMPTY_ASK_META, ...data.meta } : EMPTY_ASK_META,
+    createdBy: data.createdBy ?? "",
+    createdAt: toDate(data.createdAt),
+  }
+}
+
+export async function addAskHistory(
+  input: { question: string; answer: string; citations: AskCitation[]; meta: AskMeta },
+  createdBy: string,
+): Promise<AskHistoryEntry> {
+  const ref = await askHistoryRef().add({
+    question: input.question,
+    answer: input.answer,
+    citations: input.citations,
+    meta: input.meta,
+    createdBy,
+    createdAt: new Date(),
+  })
+  const snap = await ref.get()
+  return mapAskHistoryDoc(snap.id, snap.data()!)
+}
+
+export async function fetchAskHistory(): Promise<AskHistoryEntry[]> {
+  const snapshot = await askHistoryRef().orderBy("createdAt", "desc").limit(HISTORY_LIMIT).get()
+  return snapshot.docs.map((doc) => mapAskHistoryDoc(doc.id, doc.data()))
+}
+
+export async function deleteAskHistory(id: string): Promise<boolean> {
+  const ref = askHistoryRef().doc(id)
+  if (!(await ref.get()).exists) return false
+  await ref.delete()
+  return true
+}
+
+// ── Campaign history ────────────────────────────────────────────────────────
+
+function campaignHistoryRef() {
+  return getDashboardDb().collection(CAMPAIGN_HISTORY_COLLECTION)
+}
+
+function mapCampaignHistoryDoc(
+  id: string,
+  data: FirebaseFirestore.DocumentData,
+): CampaignHistoryEntry {
+  return {
+    id,
+    influencerName: data.influencerName ?? "",
+    platform: data.platform ?? "",
+    inputs: data.inputs as CampaignHistoryInputs,
+    results: data.results as CampaignHistoryResults,
+    createdBy: data.createdBy ?? "",
+    createdAt: toDate(data.createdAt),
+  }
+}
+
+export async function addCampaignHistory(
+  input: {
+    influencerName: string
+    platform: string
+    inputs: CampaignHistoryInputs
+    results: CampaignHistoryResults
+  },
+  createdBy: string,
+): Promise<CampaignHistoryEntry> {
+  const ref = await campaignHistoryRef().add({
+    influencerName: input.influencerName,
+    platform: input.platform,
+    inputs: input.inputs,
+    results: input.results,
+    createdBy,
+    createdAt: new Date(),
+  })
+  const snap = await ref.get()
+  return mapCampaignHistoryDoc(snap.id, snap.data()!)
+}
+
+export async function fetchCampaignHistory(): Promise<CampaignHistoryEntry[]> {
+  const snapshot = await campaignHistoryRef().orderBy("createdAt", "desc").limit(HISTORY_LIMIT).get()
+  return snapshot.docs.map((doc) => mapCampaignHistoryDoc(doc.id, doc.data()))
+}
+
+export async function deleteCampaignHistory(id: string): Promise<boolean> {
+  const ref = campaignHistoryRef().doc(id)
+  if (!(await ref.get()).exists) return false
+  await ref.delete()
+  return true
 }

@@ -76,6 +76,67 @@ export interface UserContactSummary {
   contactCount: number
 }
 
+// ── Saved history (dashboard-owned DB) ──────────────────────────────────────
+// Both the Ask page and the campaign simulator persist each run so it can be
+// found again later. Stored in the "dashboard" database (see CLAUDE.md).
+
+// A single cited message backing an Ask answer (mirrors the LLM output shape).
+export interface AskCitation {
+  conversationId: string
+  messageId: string
+  userId: string
+  snippet: string
+  reason: string
+}
+
+export interface AskMeta {
+  conversationsAnalyzed: number
+  onboardingExcluded: number
+  truncated: boolean
+  hallucinationsFiltered: number
+}
+
+// One saved Ask run (ask_history/{id}).
+export interface AskHistoryEntry {
+  id: string
+  question: string
+  answer: string
+  citations: AskCitation[]
+  meta: AskMeta
+  createdBy: string // admin email, stamped server-side
+  createdAt: Date
+}
+
+// Numeric inputs of a campaign simulation, replayable into the form.
+export interface CampaignHistoryInputs {
+  views: number
+  costMode: "cpm" | "fixed"
+  cpm: number
+  fixedPrice: number
+  viewToInstallPct: number
+  installToPaidPct: number
+  arpu: number
+}
+
+// Headline results kept alongside the inputs for at-a-glance history rows.
+export interface CampaignHistoryResults {
+  cost: number
+  revenue: number
+  profit: number
+  roas: number | null
+}
+
+// One saved campaign simulation (campaign_history/{id}).
+export interface CampaignHistoryEntry {
+  id: string
+  influencerName: string
+  platform: string
+  inputs: CampaignHistoryInputs
+  results: CampaignHistoryResults
+  createdBy: string // admin email, stamped server-side
+  createdAt: Date
+}
+
 export interface TrackingEntry {
   id: string
   userId: string

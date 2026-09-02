@@ -4,6 +4,12 @@ import { getFirebaseAuth } from "./firebase"
 import type {
   AcquisitionMetrics,
   ActiveUsersByVersion,
+  AskCitation,
+  AskHistoryEntry,
+  AskMeta,
+  CampaignHistoryEntry,
+  CampaignHistoryInputs,
+  CampaignHistoryResults,
   ContactChannel,
   ContactEntry,
   OnboardingAnalytics,
@@ -221,6 +227,57 @@ export interface AskResult {
 export async function askConversations(question: string): Promise<AskResult> {
   const result = await apiPost<{ data: AskResult }>("/api/conversations/ask", { question })
   return result.data
+}
+
+// ── Saved history (Ask + campaign simulator) ────────────────────────────────
+
+function reviveAskHistory(raw: any): AskHistoryEntry {
+  return { ...raw, createdAt: new Date(raw.createdAt) }
+}
+
+export async function fetchAskHistory(): Promise<{ data: AskHistoryEntry[]; error: string | null }> {
+  const result = await apiFetch<{ data: any[]; error: string | null }>("/api/history/ask")
+  return { data: (result.data || []).map(reviveAskHistory), error: result.error ?? null }
+}
+
+export async function addAskHistory(input: {
+  question: string
+  answer: string
+  citations: AskCitation[]
+  meta: AskMeta
+}): Promise<AskHistoryEntry> {
+  const result = await apiPost<{ data: any }>("/api/history/ask", input)
+  return reviveAskHistory(result.data)
+}
+
+export async function deleteAskHistory(id: string): Promise<void> {
+  await apiDelete<{ data: { id: string } }>(`/api/history/ask/${id}`)
+}
+
+function reviveCampaignHistory(raw: any): CampaignHistoryEntry {
+  return { ...raw, createdAt: new Date(raw.createdAt) }
+}
+
+export async function fetchCampaignHistory(): Promise<{
+  data: CampaignHistoryEntry[]
+  error: string | null
+}> {
+  const result = await apiFetch<{ data: any[]; error: string | null }>("/api/history/campaign")
+  return { data: (result.data || []).map(reviveCampaignHistory), error: result.error ?? null }
+}
+
+export async function addCampaignHistory(input: {
+  influencerName: string
+  platform: string
+  inputs: CampaignHistoryInputs
+  results: CampaignHistoryResults
+}): Promise<CampaignHistoryEntry> {
+  const result = await apiPost<{ data: any }>("/api/history/campaign", input)
+  return reviveCampaignHistory(result.data)
+}
+
+export async function deleteCampaignHistory(id: string): Promise<void> {
+  await apiDelete<{ data: { id: string } }>(`/api/history/campaign/${id}`)
 }
 
 export async function fetchTotalUserCount(): Promise<number> {

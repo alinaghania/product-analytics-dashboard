@@ -1,10 +1,12 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format as formatDate } from "date-fns"
 import { fr } from "date-fns/locale"
+import { toast } from "sonner"
 import { Header } from "@/components/dashboard/header"
+import { HistoryPanel, type HistoryRow } from "@/components/dashboard/history-panel"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { ChartCard } from "@/components/dashboard/chart-card"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
@@ -13,12 +15,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Calculator, CheckCircle2, Download, XCircle } from "lucide-react"
-import { fetchRevenueCatMetrics } from "@/lib/api-client"
+import { Calculator, CheckCircle2, Download, RotateCcw, XCircle } from "lucide-react"
+import {
+  addCampaignHistory,
+  deleteCampaignHistory,
+  fetchCampaignHistory,
+  fetchRevenueCatMetrics,
+} from "@/lib/api-client"
 import { computeCampaign, roasVerdict, SCENARIOS, type CampaignInputs } from "@/lib/campaign-calculator"
 import { formatCurrency, formatMultiplier, formatNumber, formatPercent, parseLocaleNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -69,6 +77,32 @@ function parseForm(form: FormState): CampaignInputs {
   }
 }
 
+/** Number → form-input string (comma decimals, no thousands separator). */
+function numToInput(n: number): string {
+  return String(n).replace(".", ",")
+}
+
+/** Rebuilds the form from a saved simulation so history entries are replayable. */
+function formFromHistory(entry: {
+  influencerName: string
+  platform: string
+  inputs: CampaignInputs
+}): FormState {
+  const { inputs } = entry
+  return {
+    influencerName: entry.influencerName,
+    platform: entry.platform,
+    videoCount: "", // not part of the calculation, so not persisted
+    views: numToInput(inputs.views),
+    costMode: inputs.costMode,
+    cpm: numToInput(inputs.cpm),
+    fixedPrice: numToInput(inputs.fixedPrice),
+    viewToInstallPct: numToInput(inputs.viewToInstallPct),
+    installToPaidPct: numToInput(inputs.installToPaidPct),
+    arpu: numToInput(inputs.arpu),
+  }
+}
+
 /** € with adaptive precision: cents matter below 100 €, not above. */
 function euros(value: number | null | undefined): string {
   return formatCurrency(value, value != null && Math.abs(value) >= 100 ? 0 : 2)
@@ -103,6 +137,8 @@ const VERDICT_BADGE_CLASS = {
   warning: "border-warning/40 bg-warning/15 text-warning",
   success: "border-success/40 bg-success/15 text-success",
 } as const
+
+const CAMPAIGN_HISTORY_KEY = ["campaign-history"]
 
 // A <span>, not a <label>: callers nest InfoTooltip's <button> inside, which
 // is invalid inside a <label>, and none of these labels are input-associated.
@@ -166,7 +202,7 @@ function RateField({
 
 interface ThresholdRowProps {
   label: string
-  tooltip: { title: string; description: string }
+  tooltip: { title: string; formula?: string; description: string }
   value: string
   status?: boolean | null
   caption?: string
@@ -177,7 +213,7 @@ function ThresholdRow({ label, tooltip, value, status, caption }: ThresholdRowPr
     <div className="flex items-start justify-between gap-4 py-3">
       <FieldLabel>
         {label}
-        <InfoTooltip title={tooltip.title} description={tooltip.description} />
+        <InfoTooltip title={tooltip.title} formula={tooltip.formula} description={tooltip.description} />
       </FieldLabel>
       <div className="text-right">
         <p className="text-sm font-semibold text-foreground">{value}</p>
@@ -256,11 +292,86 @@ export default function CampagneInfluenceurPage() {
     [scenarios],
   )
 
+  // ── History (dashboard-owned DB) ──────────────────────────────────────────
+  const queryClient = useQueryClient()
+
+  const historyQuery = useQuery({
+    queryKey: CAMPAIGN_HISTORY_KEY,
+    queryFn: fetchCampaignHistory,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // A save failure must not disrupt the results already on screen.
+  const saveMutation = useMutation({
+    mutationFn: addCampaignHistory,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CAMPAIGN_HISTORY_KEY }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteCampaignHistory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CAMPAIGN_HISTORY_KEY })
+      toast.success("Simulation supprimée de l'historique")
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Échec de la suppression"),
+  })
+
+  const validate = () => {
+    // Skip persistence when the snapshot is unchanged (« Recalculer » on
+    // untouched inputs) to avoid stacking identical history rows.
+    const unchanged = submitted !== null && JSON.stringify(currentInputs) === JSON.stringify(submitted)
+    setSubmitted(currentInputs)
+    if (unchanged) return
+
+    const r = computeCampaign(currentInputs)
+    saveMutation.mutate({
+      influencerName: form.influencerName.trim(),
+      platform: form.platform,
+      inputs: currentInputs,
+      results: { cost: r.cost, revenue: r.revenue, profit: r.profit, roas: r.roas },
+    })
+  }
+
+  // Clears the current result to reveal the history and start fresh.
+  const newSimulation = () => {
+    setForm(DEFAULTS)
+    setScenarioRates(SCENARIOS.map((s) => s.defaultRatePct))
+    setSubmitted(null)
+  }
+
+  const restore = (id: string) => {
+    const entry = historyQuery.data?.data.find((e) => e.id === id)
+    if (!entry) return
+    const restored = formFromHistory(entry)
+    setForm(restored)
+    // Snapshot from the rebuilt form (not entry.inputs) so it matches what
+    // `currentInputs` parses to — otherwise the isStale comparison would fire
+    // spuriously (Firestore may reorder the stored map's keys).
+    setSubmitted(parseForm(restored))
+  }
+
+  // History sits at the bottom and hides once a simulation is validated —
+  // « Nouvelle simulation » brings it back.
+  const showHistory = submitted === null
+
+  const historyRows: HistoryRow[] = useMemo(
+    () =>
+      (historyQuery.data?.data ?? []).map((e) => ({
+        id: e.id,
+        createdAt: e.createdAt,
+        createdBy: e.createdBy,
+        primary: [e.influencerName || "Sans nom", e.platform].filter(Boolean).join(" · "),
+        secondary: `ROAS ${formatMultiplier(e.results.roas)} · profit ${euros(e.results.profit)} · ${formatNumber(e.inputs.views)} vues`,
+      })),
+    [historyQuery.data],
+  )
+
   return (
     <div className="flex flex-col">
       <Header
         title="Rentabilité campagne influenceur"
-        description="Simulateur — calculs 100 % locaux, rien n'est enregistré"
+        description="Simulateur — chaque simulation validée est enregistrée dans l'historique"
       />
       <div className="flex-1 space-y-6 p-6">
         {/* Inputs */}
@@ -279,12 +390,15 @@ export default function CampagneInfluenceurPage() {
                 </div>
                 <div className="space-y-1">
                   <FieldLabel>Plateforme</FieldLabel>
-                  <Input
-                    value={form.platform}
-                    onChange={(e) => set("platform", e.target.value)}
-                    placeholder="TikTok, Instagram…"
-                    className="h-9 bg-card"
-                  />
+                  <Select value={form.platform} onValueChange={(v) => set("platform", v)}>
+                    <SelectTrigger className="h-9 bg-card">
+                      <SelectValue placeholder="Choisir…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TikTok">TikTok</SelectItem>
+                      <SelectItem value="Instagram">Instagram</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <FieldLabel>Nb de vidéos</FieldLabel>
@@ -475,14 +589,16 @@ export default function CampagneInfluenceurPage() {
 
         {/* Validate */}
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            size="lg"
-            onClick={() => setSubmitted(currentInputs)}
-            disabled={arpu === null || arpu < 0}
-          >
+          <Button size="lg" onClick={validate} disabled={arpu === null || arpu < 0}>
             <Calculator className="mr-2 h-4 w-4" />
             {submitted ? "Recalculer" : "Valider"}
           </Button>
+          {submitted !== null && (
+            <Button size="lg" variant="outline" onClick={newSimulation}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Nouvelle simulation
+            </Button>
+          )}
           {arpu === null || arpu < 0 ? (
             <p className="text-sm text-destructive">
               Renseignez un ARPU net par utilisatrice payante valide pour lancer le calcul.
@@ -542,8 +658,8 @@ export default function CampagneInfluenceurPage() {
                 label="ROAS"
                 value={formatMultiplier(results.roas)}
                 variant={verdict ? verdict.variant : "default"}
-                tooltipTitle="ROAS"
-                tooltipDescription="Revenus générés / coût de la campagne. Rentable à partir de 1."
+                tooltipTitle="ROAS (Return on Ad Spend)"
+                tooltipDescription="Le retour sur dépense publicitaire = revenus générés / coût de la campagne. Il indique combien d'euros de revenu rapporte chaque euro investi (ex. 1,5 = 1,50 € gagné pour 1 € dépensé). Rentable à partir de 1."
               />
             </div>
 
@@ -567,7 +683,11 @@ export default function CampagneInfluenceurPage() {
                 <div className="flex flex-col">
                   <ThresholdRow
                     label="CPI (coût par installation)"
-                    tooltip={{ title: "CPI", description: "Coût de la campagne / nombre d'installations." }}
+                    tooltip={{
+                      title: "CPI",
+                      formula: "Coût de la campagne / nombre d'installations.",
+                      description: "Combien coûte, en moyenne, une seule installation générée par la campagne.",
+                    }}
                     value={formatCurrency(results.cpi, 2)}
                     status={results.cpiIsProfitable}
                     caption={
@@ -583,7 +703,9 @@ export default function CampagneInfluenceurPage() {
                     label="CAC payant"
                     tooltip={{
                       title: "CAC payant",
-                      description: "Coût de la campagne / nombre d'utilisatrices payantes.",
+                      formula: "Coût de la campagne / nombre d'utilisatrices payantes.",
+                      description:
+                        "Combien coûte l'acquisition d'une utilisatrice qui paie réellement, pas seulement une installation gratuite.",
                     }}
                     value={formatCurrency(results.cacPaying, 2)}
                   />
@@ -592,8 +714,9 @@ export default function CampagneInfluenceurPage() {
                     label="Valeur max d'une installation"
                     tooltip={{
                       title: "Valeur maximale d'une installation",
+                      formula: "Taux installation → payante × ARPU net.",
                       description:
-                        "Taux payant × ARPU net. Le CPI doit être inférieur ou égal à cette valeur pour atteindre le seuil de rentabilité.",
+                        "Le revenu moyen qu'une installation finit par rapporter : c'est le prix maximum à payer par installation (CPI) pour rester rentable.",
                     }}
                     value={formatCurrency(results.breakevenCpi, 2)}
                   />
@@ -602,7 +725,9 @@ export default function CampagneInfluenceurPage() {
                     label="CPM max rentable"
                     tooltip={{
                       title: "CPM maximal rentable",
-                      description: "1000 × taux vue → installation × taux payant × ARPU net.",
+                      formula: "1000 × taux vue → installation × taux payant × ARPU net.",
+                      description:
+                        "Le prix des 1000 vues à ne pas dépasser pour rester rentable : ta limite de négociation avec l'influenceur.",
                     }}
                     value={formatCurrency(results.maxProfitableCpm, 2)}
                     status={
@@ -619,8 +744,9 @@ export default function CampagneInfluenceurPage() {
                     label="Taux vue → install. nécessaire"
                     tooltip={{
                       title: "Taux vue → installation nécessaire",
+                      formula: "CPM effectif / (1000 × taux payant × ARPU net).",
                       description:
-                        "CPM / (1000 × taux payant × ARPU net) : taux minimal pour que la campagne soit rentable.",
+                        "Le taux de conversion minimum à atteindre pour rentabiliser le prix négocié.",
                     }}
                     value={formatPercent(results.requiredViewToInstallPct)}
                     status={
@@ -639,7 +765,9 @@ export default function CampagneInfluenceurPage() {
                     label="Installations nécessaires"
                     tooltip={{
                       title: "Installations nécessaires",
-                      description: "Vues × taux vue → installation nécessaire pour atteindre la rentabilité.",
+                      formula: "Vues × taux vue → installation nécessaire.",
+                      description:
+                        "Le nombre d'installations à atteindre, au minimum, pour que la campagne soit rentable.",
                     }}
                     value={formatNumber(results.requiredInstalls)}
                   />
@@ -648,7 +776,7 @@ export default function CampagneInfluenceurPage() {
 
               <ChartCard
                 title="Revenus vs coût par scénario"
-                description="La campagne est rentable quand la barre des revenus dépasse celle du coût"
+                description="Montants en euros (€) — la campagne est rentable quand la barre des revenus dépasse celle du coût"
               >
                 <BarChart
                   data={chartData}
@@ -741,7 +869,16 @@ export default function CampagneInfluenceurPage() {
                     ))}
                   </TableRow>
                   <TableRow>
-                    <TableCell className="text-muted-foreground">ROAS</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        ROAS
+                        <InfoTooltip
+                          title="ROAS (Return on Ad Spend)"
+                          formula="Revenus générés / coût de la campagne."
+                          description="Le retour sur dépense publicitaire : combien d'euros de revenu rapporte chaque euro investi. Ex. 1,5 = 1,50 € gagné pour 1 € dépensé. Rentable à partir de 1."
+                        />
+                      </span>
+                    </TableCell>
                     {scenarios.map((s) => {
                       const v = roasVerdict(s.results.roas)
                       return (
@@ -763,6 +900,20 @@ export default function CampagneInfluenceurPage() {
               </Table>
             </ChartCard>
           </div>
+        )}
+
+        {showHistory && (
+          <HistoryPanel
+            title="Historique des simulations"
+            description="Clique sur une simulation pour la recharger dans le formulaire."
+            rows={historyRows}
+            isLoading={historyQuery.isLoading}
+            unavailable={Boolean(historyQuery.data?.error)}
+            emptyLabel="Aucune simulation enregistrée pour l'instant."
+            onSelect={restore}
+            onDelete={(id) => deleteMutation.mutate(id)}
+            deletingId={deleteMutation.isPending ? deleteMutation.variables : null}
+          />
         )}
       </div>
     </div>
