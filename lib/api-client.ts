@@ -8,6 +8,7 @@ import type {
   ContactEntry,
   OnboardingAnalytics,
   PremiumAcquisitionMetrics,
+  RevenueCatMetricsSummary,
   UserContactSummary,
 } from "./types"
 
@@ -753,4 +754,8 @@ export async function fetchRoutines(from: string, to: string) {
     createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
     lastUsed: r.lastUsed ? new Date(r.lastUsed) : undefined,
   }))
+}
+
+export async function fetchRevenueCatMetrics(month?: string): Promise<RevenueCatMetricsSummary> {
+  return apiFetch<RevenueCatMetricsSummary>("/api/revenuecat/metrics", { month })
 }

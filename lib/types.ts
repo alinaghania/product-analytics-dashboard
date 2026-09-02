@@ -354,3 +354,34 @@ export interface TrackingMetrics {
   dailyEntries: Array<{ date: string; count: number }>
 }
 
+
+export interface RevenueCatMetricsSummary {
+  /** Inclusive period, YYYY-MM-DD (one full calendar month). */
+  startDate: string
+  endDate: string
+  currency: string
+  /** Proceeds: revenue net of taxes and store commission. */
+  netRevenue: number
+  /**
+   * ARPPU net: realized LTV per paying customer (RevenueCat chart, gross)
+   * scaled by the observed proceeds/gross ratio. Complete cohorts only.
+   */
+  arppu: number | null
+  /** Same figure before the net scaling (as returned by RevenueCat, EUR). */
+  arppuGross: number | null
+  /** Paying customers in the complete cohorts used for the ARPPU. */
+  arppuPayingCustomers: number | null
+  /** Realized-LTV window, e.g. "3_months". */
+  arppuLifetime: string
+  /** Observed proceeds / gross revenue ratio; null when unavailable. */
+  netRatio: number | null
+  /** New customers first seen during the period (~ installs). */
+  newCustomers: number | null
+  /** New customers who made a paid purchase within the conversion window. */
+  payingCustomers: number | null
+  /** Conversion new -> paying in percent points (e.g. 4.43); null when unavailable. */
+  installToPaidPct: number | null
+  /** Conversion window used, e.g. "30_days". */
+  conversionTimeframe: string
+  warning?: string
+}
