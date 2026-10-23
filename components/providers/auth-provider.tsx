@@ -7,9 +7,9 @@ import {
   signInWithGoogle,
   signOut,
   onAuthChange,
-  isAdminEmail,
   type User,
 } from "@/lib/firebase"
+import { fetchAdminSession } from "@/lib/api-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, Chrome } from "lucide-react"
@@ -121,13 +121,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // Guards against a stale admin check resolving after the user changed.
+    let latestUid: string | null = null
+
     const unsubscribe = onAuthChange(async (user) => {
+      latestUid = user?.uid ?? null
+      let adminStatus = false
       if (user) {
-        const adminStatus = isAdminEmail(user.email)
-        setIsAdminUser(adminStatus)
-      } else {
-        setIsAdminUser(false)
+        setIsLoading(true)
+        adminStatus = await fetchAdminSession().then(
+          () => true,
+          () => false,
+        )
+        if (latestUid !== user.uid) return
       }
+      setIsAdminUser(adminStatus)
       setUser(user)
       setIsLoading(false)
     })

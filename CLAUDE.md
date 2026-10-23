@@ -13,13 +13,13 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 1. Place a Firebase service account key at `secrets/lotus-9663d-ceb58f42049b.json`
 2. Set `SERVICE_ACCOUNT_PATH=secrets/lotus-9663d-ceb58f42049b.json` in `.env`
-3. Set `NEXT_PUBLIC_ADMIN_EMAILS=your@email.com` in `.env`
+3. Set `ADMIN_EMAILS=your@email.com` in `.env` (server-only — never `NEXT_PUBLIC_`)
 4. Run `npm install && npm run dev`
 
 ### Production (Vercel)
 
 - Set `FIREBASE_SERVICE_ACCOUNT` env var with the full JSON content of the service account key
-- Set `NEXT_PUBLIC_ADMIN_EMAILS` with comma-separated admin emails
+- Set `ADMIN_EMAILS` with comma-separated admin emails (server-only env var)
 
 ## Architecture
 
@@ -64,10 +64,10 @@ The dashboard is **completely decoupled** from the mobile app's Firestore securi
 
 ### Auth
 
-Google Sign-In via Firebase Auth. Admin access is email-based: the user's email must be in the `NEXT_PUBLIC_ADMIN_EMAILS` env var (comma-separated). No custom claims or UID allowlists needed.
+Google Sign-In via Firebase Auth. Admin access is email-based: the user's email must be in the server-only `ADMIN_EMAILS` env var (comma-separated). No custom claims or UID allowlists needed.
 
-- Client side: `AuthProvider` checks `isAdminEmail(user.email)` from `lib/firebase.ts`
-- Server side: API routes verify the Firebase ID token and check email via `verifyAuth()` from `lib/firebase-admin.ts`
+- Server side (the real gate): `verifyAuth()` in `lib/firebase-admin.ts` verifies the ID token, requires `sign_in_provider === "google.com"` AND `email_verified === true`, then checks the email against `ADMIN_EMAILS`. Never trust the `email` claim alone — anyone can create an unverified email/password account with an admin's address.
+- Client side (UX only): `AuthProvider` calls `GET /api/auth/me` (`fetchAdminSession()`) — 200 = admin, otherwise the access-denied screen. The allowlist is never shipped to the browser.
 
 ### React Query
 
@@ -78,7 +78,7 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 
 ## Key Files
 
-- `lib/firebase.ts` - Client-side Firebase init, auth helpers, `ADMIN_EMAILS`, `isAdminEmail()`
+- `lib/firebase.ts` - Client-side Firebase init, auth helpers
 - `lib/firebase-admin.ts` - Server-side Admin SDK init, `verifyAuth()`, `getAdminDb()`
 - `lib/firestore-admin-queries.ts` - All Firestore data fetching functions (server-side, Admin SDK)
 - `lib/api-client.ts` - Client-side fetch wrappers for API routes (attaches auth token)

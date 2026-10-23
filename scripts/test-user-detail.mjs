@@ -24,10 +24,10 @@ dotenv.config({ path: path.join(root, ".env") })
 
 const SERVER = process.env.SERVER_URL || "http://localhost:3000"
 const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
-const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "").split(",")[0].trim()
+const ADMIN_EMAIL = (process.env.ADMIN_EMAILS || "").split(",")[0].trim()
 
 if (!API_KEY) throw new Error("NEXT_PUBLIC_FIREBASE_API_KEY required")
-if (!ADMIN_EMAIL) throw new Error("NEXT_PUBLIC_ADMIN_EMAILS required (first one used)")
+if (!ADMIN_EMAIL) throw new Error("ADMIN_EMAILS required (first one used)")
 
 const serviceAccountPath = path.resolve(root, process.env.SERVICE_ACCOUNT_PATH || "secrets/lotus-9663d-ceb58f42049b.json")
 const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf-8"))

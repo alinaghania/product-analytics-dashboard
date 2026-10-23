@@ -14,12 +14,6 @@ import {
   type Firestore,
 } from "firebase/firestore"
 
-// Admin email allowlist - users who can access the dashboard
-export const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((s) => s.trim().toLowerCase())
-  .filter(Boolean)
-
 // Map from EXPO_PUBLIC_* to NEXT_PUBLIC_* for compatibility
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -85,12 +79,6 @@ export function getFirebaseDb(): Firestore {
     db = getFirestore(firebaseApp)
   }
   return db
-}
-
-// Check if user email is in admin list
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false
-  return ADMIN_EMAILS.includes(email.toLowerCase())
 }
 
 // Google Sign-In with popup and retry logic
