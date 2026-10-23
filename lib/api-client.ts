@@ -85,6 +85,13 @@ async function apiDelete<T>(path: string): Promise<T> {
   return response.json()
 }
 
+// ============= Auth =============
+
+// Resolves if the signed-in user is a dashboard admin (checked server-side), throws otherwise.
+export async function fetchAdminSession(): Promise<{ email: string }> {
+  return apiFetch("/api/auth/me")
+}
+
 // ============= Users =============
 
 export async function fetchUsers(options: {

@@ -100,18 +100,23 @@ export function getAdminAuth(): Auth {
   return auth
 }
 
-// Admin emails allowed to access the dashboard
-export const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
+// Admin emails allowed to access the dashboard. Server-only env var (no
+// NEXT_PUBLIC_ prefix) so the allowlist is never shipped in the client bundle.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
-  .map((s) => s.trim())
+  .map((s) => s.trim().toLowerCase())
   .filter(Boolean)
 
-export function isAdminEmail(email: string | null | undefined): boolean {
+function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false
   return ADMIN_EMAILS.includes(email.toLowerCase())
 }
 
-// Verify Firebase ID token and check admin email
+// Verify Firebase ID token and check admin email.
+// The email claim alone is not proof of ownership: anyone can create an
+// email/password Firebase account with an admin's address. We therefore only
+// accept tokens issued by Google Sign-In (the dashboard's only login method)
+// whose email Google has verified.
 export async function verifyAuth(request: Request): Promise<{ uid: string; email: string }> {
   const authHeader = request.headers.get("Authorization")
   if (!authHeader?.startsWith("Bearer ")) {
@@ -124,6 +129,10 @@ export async function verifyAuth(request: Request): Promise<{ uid: string; email
   try {
     const decoded = await adminAuth.verifyIdToken(token)
     const email = decoded.email
+
+    if (decoded.firebase.sign_in_provider !== "google.com" || decoded.email_verified !== true) {
+      throw new AuthError("Access denied: a verified Google account is required", 403)
+    }
 
     if (!isAdminEmail(email)) {
       throw new AuthError("Access denied: email not in admin list", 403)
