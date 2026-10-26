@@ -9,8 +9,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AgentAnswer } from "@/components/revenue-agent/agent-answer"
 import { AgentChart } from "@/components/revenue-agent/agent-chart"
-import { askRevenueAgent, type RevenueAgentResult } from "@/lib/api-client"
-import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, Send } from "lucide-react"
+import { DeepProgressView, DeepReportView } from "@/components/revenue-agent/deep-report"
+import {
+  askRevenueAgent,
+  runDeepAnalysis,
+  type DeepProgress,
+  type DeepReport,
+  type RevenueAgentResult,
+} from "@/lib/api-client"
+import { AlertTriangle, CheckCircle2, Loader2, Microscope, RotateCcw, Send } from "lucide-react"
 
 const EXAMPLES = [
   "Résume-moi la semaine dernière.",
@@ -20,7 +27,10 @@ const EXAMPLES = [
   "Pourquoi le revenu d'octobre est différent de septembre ?",
 ]
 
-type Turn = { role: "user"; content: string } | { role: "assistant"; content: string; result: RevenueAgentResult }
+type Turn =
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string; result: RevenueAgentResult }
+  | { role: "deep"; content: string; report: DeepReport }
 
 export default function RevenueAgentPage() {
   const [question, setQuestion] = useState("")
@@ -31,7 +41,17 @@ export default function RevenueAgentPage() {
     mutationFn: askRevenueAgent,
     onSuccess: (result) => setTurns((t) => [...t, { role: "assistant", content: result.answer, result }]),
   })
-  const { isPending, error } = askMutation
+  // Deep analysis: 5 code-built dossiers → 5 analysts → synthesis (~2-3 min).
+  const [deepProgress, setDeepProgress] = useState<DeepProgress[]>([])
+  const deepMutation = useMutation({
+    mutationFn: (q: string | null) => {
+      setDeepProgress([])
+      return runDeepAnalysis(q, (p) => setDeepProgress((list) => [...list, p]))
+    },
+    onSuccess: (report) => setTurns((t) => [...t, { role: "deep", content: report.synthese?.en_bref.join(" ") ?? "", report }]),
+  })
+  const isPending = askMutation.isPending || deepMutation.isPending
+  const error = askMutation.error ?? deepMutation.error
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -44,12 +64,25 @@ export default function RevenueAgentPage() {
     const next: Turn[] = [...turns, { role: "user", content: q }]
     setTurns(next)
     setQuestion("")
-    askMutation.mutate(next.slice(-10).map(({ role, content }) => ({ role, content })))
+    askMutation.mutate(
+      next
+        .slice(-10)
+        .map(({ role, content }) => ({ role: role === "deep" ? ("assistant" as const) : role, content })),
+    )
+  }
+
+  const deep = () => {
+    if (isPending) return
+    const q = question.trim()
+    setTurns((t) => [...t, { role: "user", content: q ? `🔬 Analyse approfondie : ${q}` : "🔬 Analyse approfondie" }])
+    setQuestion("")
+    deepMutation.mutate(q || null)
   }
 
   const reset = () => {
     setTurns([])
     askMutation.reset()
+    deepMutation.reset()
     setQuestion("")
   }
 
@@ -61,6 +94,22 @@ export default function RevenueAgentPage() {
       />
 
       <div className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-6">
+        {turns.length === 0 && (
+          <button
+            type="button"
+            onClick={deep}
+            className="w-full rounded-xl border border-primary/40 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
+          >
+            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Microscope className="h-4 w-4 text-primary" /> Analyse approfondie (≈ 2-3 min)
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              5 analystes (offres & prix, rétention, conversion, acquisition, produit) + un bilan stratégique avec recos. Tu
+              peux taper une question avant pour orienter l'analyse.
+            </p>
+          </button>
+        )}
+
         {turns.length === 0 && (
           <div className="flex flex-wrap gap-2">
             {EXAMPLES.map((ex) => (
@@ -81,6 +130,12 @@ export default function RevenueAgentPage() {
             <p key={i} className="ml-auto w-fit max-w-[85%] rounded-2xl bg-primary/15 px-4 py-2 text-sm text-foreground">
               {turn.content}
             </p>
+          ) : turn.role === "deep" ? (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <DeepReportView report={turn.report} />
+              </CardContent>
+            </Card>
           ) : (
             <Card key={i}>
               <CardContent className="space-y-4 pt-6">
@@ -114,7 +169,18 @@ export default function RevenueAgentPage() {
           ),
         )}
 
-        {isPending && (
+        {deepMutation.isPending && (
+          <Card>
+            <CardContent className="space-y-3 pt-6">
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Analyse approfondie en cours (≈ 2-3 min)…
+              </p>
+              <DeepProgressView events={deepProgress} />
+            </CardContent>
+          </Card>
+        )}
+
+        {askMutation.isPending && (
           <Card>
             <CardContent className="space-y-3 pt-6">
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -156,6 +222,9 @@ export default function RevenueAgentPage() {
                 <RotateCcw className="mr-2 h-4 w-4" /> Nouvelle conversation
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={deep} disabled={isPending}>
+              <Microscope className="mr-2 h-4 w-4" /> Analyse approfondie
+            </Button>
             <Button size="sm" onClick={() => ask()} disabled={isPending || !question.trim()}>
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Demander

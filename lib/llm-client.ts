@@ -76,6 +76,9 @@ interface CallJsonArgs<T> {
   user: string
   schema: z.ZodType<T>
   maxTokens?: number
+  /** Overrides ANTHROPIC_FOUNDRY_DEPLOYMENT / LLM_MODEL (e.g. the revenue agent). */
+  deployment?: string
+  model?: string
 }
 
 // Extract only assistant text (skip thinking blocks) from a message response.
@@ -113,9 +116,9 @@ function parseJson<T>(raw: string, schema: z.ZodType<T>): T | null {
 //      process.
 //   2. JSON validity — if the text isn't valid JSON for the schema, retry once
 //      with a stricter "JSON only" instruction.
-export async function callJson<T>({ system, user, schema, maxTokens = 8192 }: CallJsonArgs<T>): Promise<T> {
-  const client = getLlmClient()
-  const model = getLlmModel()
+export async function callJson<T>({ system, user, schema, maxTokens = 8192, deployment, model: modelOverride }: CallJsonArgs<T>): Promise<T> {
+  const client = getLlmClient(deployment)
+  const model = modelOverride || getLlmModel()
 
   const buildPayload = (instruction: string, bare: boolean): Anthropic.MessageStreamParams => {
     const systemBlocks: Anthropic.TextBlockParam[] = system.map((block) => {

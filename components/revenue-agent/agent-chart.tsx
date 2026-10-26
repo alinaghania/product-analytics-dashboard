@@ -34,7 +34,13 @@ function formatValue(value: number | null, unit: ChartSpec["unit"]): string {
   return n
 }
 
-const formatX = (x: string) => (ISO_DATE_REGEX.test(x) ? format(parseISO(x), "d MMM", { locale: fr }) : x)
+const MONTH_REGEX = /^\d{4}-\d{2}$/
+const formatX = (x: string) =>
+  ISO_DATE_REGEX.test(x)
+    ? format(parseISO(x), "d MMM", { locale: fr })
+    : MONTH_REGEX.test(x)
+      ? format(parseISO(`${x}-01`), "MMM yy", { locale: fr })
+      : x
 
 // Events rarely fall exactly on a plotted point (weekly/monthly series): snap
 // each annotation to the last x label on or before its date.
@@ -45,7 +51,15 @@ function snapToAxis(date: string, xs: string[]): string | null {
   return before.length ? before[before.length - 1] : null
 }
 
-export function AgentChart({ spec }: { spec: ChartSpec }) {
+/** Drops leading points where every series is empty or zero (pre-launch months). */
+function trimLeadingEmpty(spec: ChartSpec): ChartSpec {
+  const first = spec.x.findIndex((_, i) => spec.series.some((s) => (s.values[i] ?? 0) !== 0))
+  if (first <= 0) return spec
+  return { ...spec, x: spec.x.slice(first), series: spec.series.map((s) => ({ ...s, values: s.values.slice(first) })) }
+}
+
+export function AgentChart({ spec: rawSpec }: { spec: ChartSpec }) {
+  const spec = trimLeadingEmpty(rawSpec)
   const data = spec.x.map((x, i) => {
     const row: Record<string, string | number | null> = { x }
     spec.series.forEach((s) => (row[s.name] = s.values[i]))

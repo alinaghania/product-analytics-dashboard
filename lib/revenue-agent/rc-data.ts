@@ -31,6 +31,7 @@ export const CHARTS = [
   "paywall_conversion",
   "paywall_encounter",
   "ltv_per_paying_customer",
+  "subscription_status",
 ] as const
 
 export const SEGMENTS = [
@@ -75,19 +76,42 @@ export interface RcChart {
 const cache = new Map<string, { data: unknown; expiresAt: number }>()
 const CACHE_TTL_MS = 10 * 60 * 1000
 
-export async function cachedRc<T>(path: string, params: Record<string, string>): Promise<T> {
-  const key = path + JSON.stringify(params)
-  const hit = cache.get(key)
-  if (hit && hit.expiresAt > Date.now()) return hit.data as T
-  let data: T
+// RevenueCat allows ~25 chart requests/min per key. Parallel analyses would
+// burst past it, so every uncached request goes through one queue spaced
+// RC_MIN_GAP_MS apart (≈ 24/min). Identical in-flight requests are shared.
+const RC_MIN_GAP_MS = 2_500
+let rcQueue: Promise<void> = Promise.resolve()
+const inFlight = new Map<string, Promise<unknown>>()
+
+function throttled<T>(run: () => Promise<T>): Promise<T> {
+  const turn = rcQueue.then(run)
+  rcQueue = turn.then(
+    () => new Promise((r) => setTimeout(r, RC_MIN_GAP_MS)),
+    () => new Promise((r) => setTimeout(r, RC_MIN_GAP_MS)),
+  )
+  return turn
+}
+
+async function fetchWithRetry<T>(path: string, params: Record<string, string>): Promise<T> {
   try {
-    data = await rcFetch<T>(path, params)
+    return await throttled(() => rcFetch<T>(path, params))
   } catch (error) {
     // One retry after the rate-limit window when RevenueCat says 429.
     if (!(error instanceof Error && error.message.includes("→ 429"))) throw error
     await new Promise((r) => setTimeout(r, 15_000))
-    data = await rcFetch<T>(path, params)
+    return throttled(() => rcFetch<T>(path, params))
   }
+}
+
+export async function cachedRc<T>(path: string, params: Record<string, string>): Promise<T> {
+  const key = path + JSON.stringify(params)
+  const hit = cache.get(key)
+  if (hit && hit.expiresAt > Date.now()) return hit.data as T
+  const pending = inFlight.get(key)
+  if (pending) return pending as Promise<T>
+  const request = fetchWithRetry<T>(path, params).finally(() => inFlight.delete(key))
+  inFlight.set(key, request)
+  const data = await request
   // Evict stale entries so the module-level cache can't grow unbounded on a
   // long-lived server.
   for (const [k, entry] of cache) if (entry.expiresAt <= Date.now()) cache.delete(k)

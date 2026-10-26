@@ -128,3 +128,57 @@ export function decomposeProduct(f1a: number, f2a: number, f1b: number, f2b: num
 export function variationPct(before: number, after: number): number | null {
   return before ? round(((after - before) / before) * 100, 1) : null
 }
+
+// ── Value of a subscriber over 12 months, per plan ──────────────────────────
+
+export interface SubscriberValue {
+  /** Months paid on average over the first 12 months (1 = only the first). */
+  mois_payes_moyens_12m: number
+  /** Gross value over 12 months (price × months paid × (1 − refunds)). */
+  valeur_12m: number
+  /** How much of the 12 months is observed vs projected. */
+  mois_observes: number
+  hypothese: string
+}
+
+/**
+ * Monthly plan: 12-month value from the observed survival curve S1..Sk
+ * (share still paying at month k, as RevenueCat reports it). Months beyond
+ * the data are projected with the last observed month-to-month keep rate —
+ * stated as an assumption, never hidden.
+ */
+export function monthlySubscriberValue(price: number, survival: number[], refundRate: number): SubscriberValue {
+  // Survival can't go up: small cohorts make RevenueCat's per-month rates noisy.
+  const curve = [1]
+  for (const s of survival.slice(0, 11)) curve.push(Math.min(s, curve[curve.length - 1]))
+  const observed = curve.length - 1
+  // Average month-to-month keep rate from month 1 to the last observed month
+  // (geometric mean), more stable than the last step alone.
+  const keep =
+    observed >= 2 && curve[1] > 0
+      ? Math.pow(curve[observed] / curve[1], 1 / (observed - 1))
+      : observed === 1
+        ? curve[1]
+        : 0
+  while (curve.length < 12) curve.push(curve[curve.length - 1] * keep)
+  const months = curve.reduce((a, b) => a + b, 0)
+  return {
+    mois_payes_moyens_12m: round(months, 2),
+    valeur_12m: round(price * months * (1 - refundRate)),
+    mois_observes: observed,
+    hypothese:
+      observed >= 11
+        ? "12 mois observés."
+        : `Mois 1 à ${observed} observés ; mois ${observed + 1} à 11 projetés en gardant ${round(keep * 100, 1)} % des abonnées d'un mois sur l'autre (moyenne observée).`,
+  }
+}
+
+/** Annual plan: one payment per year, minus refunds; year-2 renewal is shown apart. */
+export function annualSubscriberValue(price: number, refundRate: number, setToRenewShare: number) {
+  return {
+    valeur_12m: round(price * (1 - refundRate)),
+    renouvellement_annee_2_attendu: round(price * setToRenewShare),
+    hypothese:
+      "Année 1 = paiement unique (moins remboursements). Année 2 = prix × part des annuelles qui ont laissé le renouvellement automatique ACTIVÉ aujourd'hui (elles peuvent encore changer d'avis).",
+  }
+}

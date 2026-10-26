@@ -95,7 +95,7 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-async function comparePeriods(input: {
+export async function comparePeriods(input: {
   chart: (typeof CHARTS)[number]
   pivot_date: string
   window_days: number
@@ -194,7 +194,7 @@ async function comparePeriods(input: {
 
 // ── Acquisition × subscription (Firestore) ──────────────────────────────────
 
-async function acquisition(input: { start_date: string; end_date: string; by_week?: boolean }) {
+export async function acquisition(input: { start_date: string; end_date: string; by_week?: boolean }) {
   const { rows, noSourceSignups } = await fetchAcquisitionConversion({ from: input.start_date, to: input.end_date })
   const bySource = new Map<string, { signups: number; premiumNow: number }>()
   for (const r of rows) {
@@ -229,7 +229,7 @@ async function acquisition(input: { start_date: string; end_date: string; by_wee
 
 // ── Usage & reviews ─────────────────────────────────────────────────────────
 
-async function usage(input: { start_date: string; end_date: string }) {
+export async function usage(input: { start_date: string; end_date: string }) {
   const rows = await fetchWeeklyUsage({ from: input.start_date, to: input.end_date })
   return {
     definition:
@@ -244,7 +244,7 @@ async function usage(input: { start_date: string; end_date: string }) {
   }
 }
 
-async function reviews(input: { start_date: string; end_date: string }) {
+export async function reviews(input: { start_date: string; end_date: string }) {
   const all = (await fetchAscReviews()).filter((r) => r.date >= input.start_date && r.date <= input.end_date)
   const byMonth = new Map<string, { n: number; sum: number; low: number }>()
   for (const r of all) {
@@ -303,6 +303,7 @@ const inputSchemas = {
     reference: z.string().optional(),
     conversion_days: z.number().int().min(1).max(30).optional(),
   }),
+  dossier: z.object({ id: z.enum(["offres", "retention", "conversion", "acquisition", "produit"]) }),
   timeline: z.object({ start_date: dateSchema, end_date: dateSchema }),
   acquisition: z.object({ start_date: dateSchema, end_date: dateSchema, by_week: z.boolean().optional() }),
   usage: z.object({ start_date: dateSchema, end_date: dateSchema }),
@@ -390,6 +391,16 @@ export const TOOL_DEFS: Anthropic.Tool[] = [
         conversion_days: { type: "integer" },
       },
       required: ["chart", "start_date", "end_date", "segment"],
+    },
+  },
+  {
+    name: "dossier",
+    description:
+      "Dossier complet calculé par le code sur un thème, depuis le début : offres (mensuel vs annuel : MRR, mix, test de prix), retention (valeur d'une abonnée sur 12 mois par offre, rétention du mensuel, renouvellement automatique coupé, remboursements par offre), conversion (entonnoir par mois, payantes par offre via essai ou achat direct, effets prix/essai avec verdicts), acquisition (nouvelles clientes par mois, sources), produit (chronologie, usage, avis). Le plus riche pour les questions de fond (« quelle offre privilégier ? »). Renvoie aussi des graphiques prêts (graphiques_prets) à passer tels quels à render_chart.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string", enum: ["offres", "retention", "conversion", "acquisition", "produit"] } },
+      required: ["id"],
     },
   },
   {
@@ -525,6 +536,15 @@ export async function executeTool(
         const input = inputAs("compare_groups")
         data = await compareGroups(input)
         ctx.sources.push(`Comparaison calculée · ${input.chart} par ${input.segment} · ${input.start_date} → ${input.end_date}`)
+        break
+      }
+      case "dossier": {
+        const input = inputAs("dossier")
+        // Dynamic import: dossiers.ts itself imports helpers from this file.
+        const { DOSSIER_BUILDERS } = await import("./dossiers")
+        const d = await DOSSIER_BUILDERS[input.id]()
+        data = { titre: d.titre, donnees: d.donnees, avertissements: d.warnings, graphiques_prets: d.graphiques }
+        ctx.sources.push(`Dossier calculé « ${d.titre} » (RevenueCat, App Store Connect, Firestore)`)
         break
       }
       case "timeline": {

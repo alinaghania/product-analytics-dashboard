@@ -4,6 +4,7 @@ import { getFirebaseAuth } from "./firebase"
 // Type-only import: erased at build time, so the "server-only" guard inside
 // agent.ts is never evaluated in the browser bundle.
 import type { AgentResult as RevenueAgentResult } from "./revenue-agent/agent"
+import type { DeepProgress, DeepReport } from "./revenue-agent/deep-analysis"
 import type {
   AcquisitionMetrics,
   ActiveUsersByVersion,
@@ -246,6 +247,39 @@ export async function askRevenueAgent(
 ): Promise<RevenueAgentResult> {
   const result = await apiPost<{ data: RevenueAgentResult }>("/api/revenue-agent", { messages })
   return result.data
+}
+
+export type { DeepProgress, DeepReport }
+
+/** Deep analysis: reads the NDJSON stream, reporting progress until the report arrives. */
+export async function runDeepAnalysis(question: string | null, onProgress: (p: DeepProgress) => void): Promise<DeepReport> {
+  const token = await getAuthToken()
+  const response = await fetch(new URL("/api/revenue-agent/deep", window.location.origin).toString(), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(question ? { question } : {}),
+  })
+  if (!response.ok || !response.body) {
+    const errorBody = await response.json().catch(() => ({ error: response.statusText }))
+    throw new Error(errorBody.error || `API error: ${response.status}`)
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ""
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    const lines = buffer.split("\n")
+    buffer = lines.pop() ?? ""
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const event = JSON.parse(line)
+      if (event.type === "progress") onProgress(event as DeepProgress)
+      else if (event.type === "result") return event.data as DeepReport
+      else if (event.type === "error") throw new Error(event.error)
+    }
+  }
+  throw new Error("Analyse interrompue avant la fin.")
 }
 
 // ── Saved history (Ask + campaign simulator) ────────────────────────────────

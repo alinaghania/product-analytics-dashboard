@@ -71,3 +71,14 @@ export async function productTimeline(input: { start_date: string; end_date: str
     warnings,
   }
 }
+
+/** Current customer price of a product in a territory (App Store Connect, cached). */
+export async function currentAscPrice(productId: string, territory: string): Promise<number | null> {
+  const [, pricing] = await ascData()
+  if (pricing.status !== "fulfilled") return null
+  const today = new Date().toISOString().slice(0, 10)
+  const applicable = pricing.value.prices
+    .filter((p) => p.productId === productId && p.territory === territory && (!p.startDate || p.startDate <= today))
+    .sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))
+  return applicable.length ? applicable[applicable.length - 1].price : null
+}
