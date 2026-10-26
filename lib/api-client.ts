@@ -1,6 +1,9 @@
 "use client"
 
 import { getFirebaseAuth } from "./firebase"
+// Type-only import: erased at build time, so the "server-only" guard inside
+// agent.ts is never evaluated in the browser bundle.
+import type { AgentResult as RevenueAgentResult } from "./revenue-agent/agent"
 import type {
   AcquisitionMetrics,
   ActiveUsersByVersion,
@@ -233,6 +236,15 @@ export interface AskResult {
 
 export async function askConversations(question: string): Promise<AskResult> {
   const result = await apiPost<{ data: AskResult }>("/api/conversations/ask", { question })
+  return result.data
+}
+
+export type { RevenueAgentResult }
+
+export async function askRevenueAgent(
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<RevenueAgentResult> {
+  const result = await apiPost<{ data: RevenueAgentResult }>("/api/revenue-agent", { messages })
   return result.data
 }
 

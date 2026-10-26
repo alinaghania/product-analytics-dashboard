@@ -27,7 +27,7 @@ const ARPPU_COHORT_MONTHS = 6
  */
 export class RevenueCatConfigError extends Error {}
 
-async function rcFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
+export async function rcFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
   const apiKey = process.env.REVENUECAT_API_KEY
   if (!apiKey) throw new Error("REVENUECAT_API_KEY is not set")
 
@@ -62,7 +62,7 @@ async function rcFetch<T>(path: string, params?: Record<string, string>): Promis
 
 let cachedProjectId: string | null = null
 
-async function getProjectId(): Promise<string> {
+export async function getProjectId(): Promise<string> {
   const fromEnv = process.env.REVENUECAT_PROJECT_ID
   if (fromEnv) return fromEnv
   if (cachedProjectId) return cachedProjectId

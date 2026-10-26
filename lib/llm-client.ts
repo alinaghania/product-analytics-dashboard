@@ -25,11 +25,13 @@ export function assertLlmConfigured(): void {
   }
 }
 
-export function getLlmClient(): Anthropic {
-  assertLlmConfigured() // guarantees the three vars below are defined
+// `deployment` overrides ANTHROPIC_FOUNDRY_DEPLOYMENT (e.g. the revenue agent
+// runs on its own deployment without touching /ask).
+export function getLlmClient(deployment?: string): Anthropic {
+  assertLlmConfigured() // guarantees the env vars below are defined
   const baseURL = process.env.ANTHROPIC_FOUNDRY_BASE_URL!
   const apiKey = process.env.ANTHROPIC_FOUNDRY_API_KEY!
-  const deployment = process.env.ANTHROPIC_FOUNDRY_DEPLOYMENT!
+  const resolvedDeployment = deployment || process.env.ANTHROPIC_FOUNDRY_DEPLOYMENT!
 
   const headers: Record<string, string> = { "api-key": apiKey } // Azure Cognitive Services auth
   // Optional beta features (comma-separated), e.g. the 1M context window on a
@@ -41,7 +43,7 @@ export function getLlmClient(): Anthropic {
     baseURL, // .../anthropic → SDK appends /v1/messages
     apiKey, // satisfies the SDK constructor; x-api-key header is ignored by Azure
     defaultHeaders: headers,
-    defaultQuery: { "api-deployment": deployment }, // routes to the deployment
+    defaultQuery: { "api-deployment": resolvedDeployment }, // routes to the deployment
   })
 }
 

@@ -475,6 +475,139 @@ export async function fetchAcquisitionMetrics(options: {
   }
 }
 
+/** Monday (YYYY-MM-DD, UTC) of the week containing `date`. */
+function mondayOfWeek(date: Date): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+  return d.toISOString().slice(0, 10)
+}
+
+// Signups per week × acquisition source, crossed with `subscriptionStatus.isPremium`
+// (premium today, trials included). Note: the mere presence of
+// `subscriptionStatus` does NOT mean "subscribed" — the app writes it for ~1/3
+// of signups vs ~6 % who start a trial (measured 26/10/2026, Sept cohort).
+export interface AcquisitionConversionRow {
+  week: string // Monday (YYYY-MM-DD)
+  source: string
+  signups: number
+  premiumNow: number
+}
+
+export async function fetchAcquisitionConversion(options: {
+  from: string
+  to: string
+}): Promise<{ rows: AcquisitionConversionRow[]; noSourceSignups: number }> {
+  const db = getAdminDb()
+  const { fromTs, toTs } = dateRangeTimestamps(options.from, options.to)
+
+  const snapshot = await db
+    .collection("users")
+    .where("createdAt", ">=", fromTs)
+    .where("createdAt", "<=", toTs)
+    .select("createdAt", "registrationData.acquisitionSource", "subscriptionStatus.isPremium")
+    .limit(20000)
+    .get()
+
+  const byKey = new Map<string, AcquisitionConversionRow>()
+  let noSourceSignups = 0
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data()
+    const ts: Date | undefined = data.createdAt?.toDate?.()
+    if (!ts) continue
+    const code = data.registrationData?.acquisitionSource
+    if (typeof code !== "string" || !code.trim()) {
+      noSourceSignups++
+      continue
+    }
+    const week = mondayOfWeek(ts)
+    const source = labelize(ACQUISITION_SOURCE_LABELS, code.trim())
+    const key = `${week}|${source}`
+    const row = byKey.get(key) ?? { week, source, signups: 0, premiumNow: 0 }
+    row.signups++
+    if (data.subscriptionStatus?.isPremium === true) row.premiumNow++
+    byKey.set(key, row)
+  }
+
+  const rows = [...byKey.values()].sort((a, b) => a.week.localeCompare(b.week) || b.signups - a.signups)
+  return { rows, noSourceSignups }
+}
+
+// Weekly product usage for the revenue agent: signups (users), active trackers + sessions (tracking_sessions), chat conversations.
+// Weeks start on Monday (UTC). The agent's tool description asks for ≤ ~16 weeks;
+// the .limit() caps below are the hard backstop that keeps the scan small.
+// (No onboarding-completion metric: `flags.onboardingCompleted` is never
+// written, and the top-level `onboardingCompleted` is ~99 % — the account is
+// created at the end of onboarding, so drop-off isn't visible here.)
+export interface WeeklyUsageRow {
+  week: string
+  signups: number
+  activeUsers: number
+  sessions: number
+  chatConversations: number
+}
+
+export async function fetchWeeklyUsage(options: { from: string; to: string }): Promise<WeeklyUsageRow[]> {
+  const db = getAdminDb()
+  const { fromTs, toTs } = dateRangeTimestamps(options.from, options.to)
+
+  const [users, sessions, chats] = await Promise.all([
+    db
+      .collection("users")
+      .where("createdAt", ">=", fromTs)
+      .where("createdAt", "<=", toTs)
+      .select("createdAt")
+      .limit(20000)
+      .get(),
+    db
+      .collection("tracking_sessions")
+      .where("startedAt", ">=", fromTs)
+      .where("startedAt", "<=", toTs)
+      .select("userId", "startedAt")
+      .limit(60000)
+      .get(),
+    db
+      .collection("chat_conversations")
+      .where("createdAt", ">=", fromTs)
+      .where("createdAt", "<=", toTs)
+      .select("createdAt")
+      .limit(20000)
+      .get(),
+  ])
+
+  const weeks = new Map<string, WeeklyUsageRow & { users: Set<string> }>()
+  const row = (week: string) => {
+    let r = weeks.get(week)
+    if (!r) {
+      r = { week, signups: 0, activeUsers: 0, sessions: 0, chatConversations: 0, users: new Set() }
+      weeks.set(week, r)
+    }
+    return r
+  }
+
+  for (const doc of users.docs) {
+    const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    if (!ts) continue
+    row(mondayOfWeek(ts)).signups++
+  }
+  for (const doc of sessions.docs) {
+    const data = doc.data()
+    const ts: Date | undefined = data.startedAt?.toDate?.()
+    if (!ts) continue
+    const r = row(mondayOfWeek(ts))
+    r.sessions++
+    if (data.userId) r.users.add(data.userId)
+  }
+  for (const doc of chats.docs) {
+    const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    if (ts) row(mondayOfWeek(ts)).chatConversations++
+  }
+
+  return [...weeks.values()]
+    .map(({ users: set, ...r }) => ({ ...r, activeUsers: set.size }))
+    .sort((a, b) => a.week.localeCompare(b.week))
+}
+
 // Acquisition sources of current premium users — all of them, no date filter:
 // premium accounts are few and the acquisition question only exists since the
 // V4 onboarding, so crossing with a date range would leave the chart empty
