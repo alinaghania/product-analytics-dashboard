@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { AgentAnswer } from "@/components/revenue-agent/agent-answer"
 import { AgentChart } from "@/components/revenue-agent/agent-chart"
 import { askRevenueAgent, type RevenueAgentResult } from "@/lib/api-client"
-import { Loader2, RotateCcw, Send } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, Send } from "lucide-react"
 
 const EXAMPLES = [
   "Résume-moi la semaine dernière.",
@@ -88,6 +88,17 @@ export default function RevenueAgentPage() {
                 {turn.result.charts.map((spec, j) => (
                   <AgentChart key={j} spec={spec} />
                 ))}
+                {turn.result.unverifiedNumbers.length === 0 ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Chiffres vérifiés : tous viennent des données (calculés par le code, pas par l'IA)
+                  </p>
+                ) : (
+                  <p className="flex items-center gap-1.5 text-xs text-amber-500">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Non vérifiés, ne pas s'y fier : {turn.result.unverifiedNumbers.join(", ")}
+                  </p>
+                )}
                 {turn.result.sources.length > 0 && (
                   <details className="text-xs text-muted-foreground">
                     <summary className="cursor-pointer select-none">Sources ({turn.result.sources.length})</summary>

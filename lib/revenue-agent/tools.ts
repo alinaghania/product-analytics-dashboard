@@ -4,130 +4,29 @@
 import "server-only"
 import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
-import { getProjectId, rcFetch } from "@/lib/revenuecat"
-import { fetchAscPricing, fetchAscReviews, fetchAscVersions } from "@/lib/app-store-connect"
+import { getProjectId } from "@/lib/revenuecat"
+import { fetchAscReviews } from "@/lib/app-store-connect"
 import { fetchAcquisitionConversion, fetchWeeklyUsage } from "@/lib/firestore-admin-queries"
-import { TIMELINE_SEED, type TimelineEvent } from "./timeline-seed"
+import { productTimeline } from "./timeline"
+import { explainChange, compareGroups } from "./analyses"
 import { chartSpecSchema, type ChartSpec } from "./chart-spec"
+import { compareProportions, type ProportionComparison } from "./stats"
+import {
+  cachedRc,
+  CHARTS,
+  errorMessage,
+  fetchChart,
+  isoDay,
+  MAX_SEGMENTS,
+  MIN_N,
+  round,
+  SEGMENTS,
+  STOCK_CHARTS,
+  type ChartQuery,
+  type RcChart,
+} from "./rc-data"
 
-/** Below this many people a comparison is noise — the tools say so. */
-export const MIN_N = 20
-
-const RESOLUTION = { day: "0", week: "1", month: "2" } as const
-type Resolution = keyof typeof RESOLUTION
-
-// Charts whose value is a level at a point in time (averaged over a window),
-// as opposed to flows (summed over a window).
-const STOCK_CHARTS = new Set<(typeof CHARTS)[number]>(["mrr", "actives", "trials"])
-
-const CHARTS = [
-  "mrr",
-  "revenue",
-  "actives",
-  "actives_new",
-  "churn",
-  "customers_new",
-  "trials",
-  "trials_new",
-  "trial_conversion",
-  "conversion_to_paying",
-  "initial_conversion",
-  "refund_rate",
-  "subscription_retention",
-  "paywall_conversion",
-  "paywall_encounter",
-  "ltv_per_paying_customer",
-] as const
-
-const SEGMENTS = [
-  "first_country",
-  "offering_identifier",
-  "product_id",
-  "product_duration",
-  "first_app_version",
-  "install_month",
-  "store",
-  "placement_id",
-] as const
-
-const MAX_SEGMENTS = 6
-
-// ── RevenueCat chart fetch + normalization ──────────────────────────────────
-
-interface RcMeasure {
-  display_name: string
-  unit?: string
-}
-interface RcChart {
-  display_name: string
-  display_type: "default" | "cohort"
-  measures: RcMeasure[] | null
-  periods: { display_name: string }[] | null
-  segments: { display_name: string; is_total?: boolean }[] | null
-  values: Array<{
-    cohort: number | string
-    measure?: number
-    segment?: number
-    period?: number
-    value: number
-    incomplete?: boolean
-  }>
-  yaxis_currency?: string
-  user_selectors?: Record<string, string> | null
-}
-
-// Per-instance cache: RevenueCat allows ~25 chart requests/min, and the agent
-// often re-asks the same series across turns.
-const cache = new Map<string, { data: unknown; expiresAt: number }>()
-const CACHE_TTL_MS = 10 * 60 * 1000
-
-async function cachedRc<T>(path: string, params: Record<string, string>): Promise<T> {
-  const key = path + JSON.stringify(params)
-  const hit = cache.get(key)
-  if (hit && hit.expiresAt > Date.now()) return hit.data as T
-  let data: T
-  try {
-    data = await rcFetch<T>(path, params)
-  } catch (error) {
-    // One retry after the rate-limit window when RevenueCat says 429.
-    if (!(error instanceof Error && error.message.includes("→ 429"))) throw error
-    await new Promise((r) => setTimeout(r, 15_000))
-    data = await rcFetch<T>(path, params)
-  }
-  // Evict stale entries so the module-level cache can't grow unbounded on a
-  // long-lived server.
-  for (const [k, entry] of cache) if (entry.expiresAt <= Date.now()) cache.delete(k)
-  cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS })
-  return data
-}
-
-const isoDay = (unixSeconds: number) => new Date(unixSeconds * 1000).toISOString().slice(0, 10)
-const round = (v: number, digits = 2) => Math.round(v * 10 ** digits) / 10 ** digits
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e))
-
-interface ChartQuery {
-  chart: (typeof CHARTS)[number]
-  start_date: string
-  end_date: string
-  resolution: Resolution
-  segment?: (typeof SEGMENTS)[number]
-  filter?: { dimension: (typeof SEGMENTS)[number]; values: string[] }
-  conversion_days?: number
-}
-
-async function fetchChart(q: ChartQuery): Promise<RcChart> {
-  const projectId = await getProjectId()
-  const params: Record<string, string> = {
-    start_date: q.start_date,
-    end_date: q.end_date,
-    resolution: RESOLUTION[q.resolution],
-    currency: "EUR",
-  }
-  if (q.segment) params.segment = q.segment
-  if (q.filter) params.filters = JSON.stringify([{ name: q.filter.dimension, values: q.filter.values }])
-  if (q.conversion_days) params.selectors = JSON.stringify({ conversion_timeframe: `${q.conversion_days}_days` })
-  return cachedRc<RcChart>(`/projects/${projectId}/charts/${q.chart}`, params)
-}
+export { MIN_N }
 
 /** Series chart → compact rows `{date, segment?, <measure>: value}`. */
 function normalizeSeries(chart: RcChart) {
@@ -266,7 +165,8 @@ async function comparePeriods(input: {
   if (!ratios?.length && measures.length >= 3 && measures[2].unit === "%" && measures[0].unit === "#") {
     ratios = [{ numerator: measures[1].display_name, denominator: measures[0].display_name }]
   }
-  const taux: Record<string, { avant_pct: number | null; apres_pct: number | null; n_avant: number; n_apres: number }> = {}
+  // Rates are recomputed from counts and tested (Fisher / z-test) in code.
+  const taux: Record<string, ProportionComparison> = {}
   for (const r of ratios ?? []) {
     const num = metrics[r.numerator]
     const den = metrics[r.denominator]
@@ -274,15 +174,7 @@ async function comparePeriods(input: {
       warnings.push(`Ratio ${r.numerator}/${r.denominator} impossible : mesure inconnue.`)
       continue
     }
-    taux[`${r.numerator} / ${r.denominator}`] = {
-      avant_pct: den.avant ? round((num.avant / den.avant) * 100, 1) : null,
-      apres_pct: den.apres ? round((num.apres / den.apres) * 100, 1) : null,
-      n_avant: Math.round(den.avant),
-      n_apres: Math.round(den.apres),
-    }
-    if (den.avant < MIN_N || den.apres < MIN_N) {
-      warnings.push(`Moins de ${MIN_N} personnes dans une fenêtre (${r.denominator}) : pas assez pour conclure.`)
-    }
+    taux[`${r.numerator} / ${r.denominator}`] = compareProportions(num.avant, den.avant, num.apres, den.apres)
   }
   if (aggAfter.some((a) => a.incomplete)) {
     warnings.push("Fenêtre « après » encore incomplète côté RevenueCat (cohortes pas mûres) : chiffre provisoire.")
@@ -300,59 +192,6 @@ async function comparePeriods(input: {
   }
 }
 
-// ── Timeline: hand-curated + App Store Connect (releases, prices, trials) ───
-
-async function timeline(input: { start_date: string; end_date: string }) {
-  const events: TimelineEvent[] = [...TIMELINE_SEED]
-  const warnings: string[] = []
-  const [versions, pricing] = await Promise.allSettled([fetchAscVersions(), fetchAscPricing()])
-
-  if (versions.status === "fulfilled") {
-    for (const v of versions.value) {
-      events.push({ date: v.createdDate, type: "release", label: `Version ${v.version} (${v.state})`, source: "App Store Connect" })
-    }
-  } else warnings.push(`Releases App Store indisponibles : ${errorMessage(versions.reason)}`)
-
-  let currentPrices: Record<string, string> | undefined
-  if (pricing.status === "fulfilled") {
-    currentPrices = {}
-    const sorted = [...pricing.value.prices].sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))
-    const previous = new Map<string, number>()
-    for (const p of sorted) {
-      const key = `${p.productId} ${p.territory}`
-      const currency = p.territory === "USA" ? "$" : "€"
-      if (p.startDate) {
-        const before = previous.get(key)
-        events.push({
-          date: p.startDate,
-          type: "price",
-          label: `${p.productId} ${p.territory} : ${before ?? "?"} → ${p.price} ${currency}`,
-          source: "App Store Connect",
-        })
-      }
-      previous.set(key, p.price)
-      if (!p.startDate || p.startDate <= new Date().toISOString().slice(0, 10)) {
-        currentPrices[key] = `${p.price} ${currency}`
-      }
-    }
-    const intro = new Set<string>()
-    for (const o of pricing.value.introOffers) {
-      if (!o.startDate || intro.has(o.startDate + o.duration)) continue
-      intro.add(o.startDate + o.duration)
-      events.push({ date: o.startDate, type: "paywall", label: `Offre d'intro ${o.mode} ${o.duration}`, source: "App Store Connect" })
-    }
-  } else warnings.push(`Prix App Store indisponibles : ${errorMessage(pricing.reason)}`)
-
-  return {
-    events: events
-      .filter((e) => e.date >= input.start_date && e.date <= input.end_date)
-      .sort((a, b) => a.date.localeCompare(b.date)),
-    currentPrices,
-    note: "Date de release = création de la version dans App Store Connect (≈ soumission, mise en ligne 1-3 j après).",
-    warnings,
-  }
-}
-
 // ── Acquisition × subscription (Firestore) ──────────────────────────────────
 
 async function acquisition(input: { start_date: string; end_date: string; by_week?: boolean }) {
@@ -365,18 +204,22 @@ async function acquisition(input: { start_date: string; end_date: string; by_wee
     bySource.set(r.source, s)
   }
   const pct = (a: number, b: number) => (b ? round((a / b) * 100, 1) : null)
+  const ranked = [...bySource.entries()].map(([source, s]) => ({ source, ...s })).sort((a, b) => b.signups - a.signups)
   return {
     definition:
       "inscrites = comptes créés (Firestore) ayant répondu « où nous as-tu connues ? » ; premium_aujourdhui = premium à date (essais en cours inclus, désabonnées exclues). Ce n'est PAS « a déjà payé » : cohortes récentes gonflées par les essais, anciennes réduites par le churn. Comparer les sources sur la MÊME période seulement.",
-    par_source: [...bySource.entries()]
-      .map(([source, s]) => ({
-        source,
-        inscrites: s.signups,
-        premium_aujourdhui: s.premiumNow,
-        premium_pct: pct(s.premiumNow, s.signups),
-        ...(s.signups < MIN_N ? { attention: `moins de ${MIN_N} inscrites` } : {}),
-      }))
-      .sort((a, b) => b.inscrites - a.inscrites),
+    par_source: ranked.map(({ source, signups, premiumNow }) => ({
+      source,
+      inscrites: signups,
+      premium_aujourdhui: premiumNow,
+      premium_pct: pct(premiumNow, signups),
+    })),
+    // Each source vs the biggest one (a = référence, b = source) — verdict calculé.
+    comparaisons_vs_reference: ranked.slice(1, 6).map((s) => ({
+      source: s.source,
+      reference: ranked[0].source,
+      ...compareProportions(ranked[0].premiumNow, ranked[0].signups, s.premiumNow, s.signups),
+    })),
     ...(input.by_week
       ? { par_semaine: rows.map((r) => ({ semaine: r.week, source: r.source, inscrites: r.signups, premium_aujourdhui: r.premiumNow })) }
       : {}),
@@ -447,6 +290,19 @@ const inputSchemas = {
     ratios: z.array(z.object({ numerator: z.string(), denominator: z.string() })).max(3).optional(),
     conversion_days: z.number().int().min(1).max(30).optional(),
   }),
+  explain_change: z.object({
+    period_a: z.object({ start: dateSchema, end: dateSchema }),
+    period_b: z.object({ start: dateSchema, end: dateSchema }),
+  }),
+  compare_groups: z.object({
+    chart: z.enum(["paywall_conversion", "conversion_to_paying", "trial_conversion"]),
+    start_date: dateSchema,
+    end_date: dateSchema,
+    segment: z.enum(SEGMENTS),
+    filter: filterSchema.optional(),
+    reference: z.string().optional(),
+    conversion_days: z.number().int().min(1).max(30).optional(),
+  }),
   timeline: z.object({ start_date: dateSchema, end_date: dateSchema }),
   acquisition: z.object({ start_date: dateSchema, end_date: dateSchema, by_week: z.boolean().optional() }),
   usage: z.object({ start_date: dateSchema, end_date: dateSchema }),
@@ -506,6 +362,34 @@ export const TOOL_DEFS: Anthropic.Tool[] = [
         conversion_days: { type: "integer" },
       },
       required: ["chart", "pivot_date", "window_days"],
+    },
+  },
+  {
+    name: "explain_change",
+    description:
+      "POURQUOI un chiffre a bougé entre 2 périodes (ex. septembre vs octobre). Le code fait tout : périodes ramenées à la même durée, revenu découpé EXACTEMENT en effet_nombre_achats + effet_panier_moyen, nouvelles payantes en effet_nombre_inscrites + effet_conversion, taux testés (verdict), facteurs_classes du plus au moins changé, sources d'acquisition qui ont bougé, événements produit des 2 périodes. Outil n°1 pour toute question « pourquoi ».",
+    input_schema: {
+      type: "object",
+      properties: { period_a: { type: "object", properties: { start: { type: "string" }, end: { type: "string" } }, required: ["start", "end"] }, period_b: { type: "object", properties: { start: { type: "string" }, end: { type: "string" } }, required: ["start", "end"] } },
+      required: ["period_a", "period_b"],
+    },
+  },
+  {
+    name: "compare_groups",
+    description:
+      "Le groupe X fait-il mieux que Y ? Taux par segment sur une période (test de prix/paywall = offering_identifier, pays = first_country, release = first_app_version…) + verdict calculé contre la référence (plus gros groupe sauf si reference) et nombre de personnes nécessaires pour trancher. paywall_conversion = achats/vues du paywall ; conversion_to_paying = payantes/nouvelles clientes ; trial_conversion = essais convertis/démarrés. Si le segment n'est pas supporté par le chart, l'erreur liste ceux qui le sont.",
+    input_schema: {
+      type: "object",
+      properties: {
+        chart: { type: "string", enum: ["paywall_conversion", "conversion_to_paying", "trial_conversion"] },
+        start_date: { type: "string" },
+        end_date: { type: "string" },
+        segment: { type: "string", enum: [...SEGMENTS] },
+        filter: FILTER_PARAM,
+        reference: { type: "string", description: "Nom du groupe de référence (ex. default)" },
+        conversion_days: { type: "integer" },
+      },
+      required: ["chart", "start_date", "end_date", "segment"],
     },
   },
   {
@@ -631,9 +515,21 @@ export async function executeTool(
         ctx.sources.push(`RevenueCat · ${input.chart} avant/après ${input.pivot_date} (${input.window_days} j)`)
         break
       }
+      case "explain_change": {
+        const input = inputAs("explain_change")
+        data = await explainChange(input)
+        ctx.sources.push(`Analyse calculée · ${input.period_a.start}→${input.period_a.end} vs ${input.period_b.start}→${input.period_b.end} (RevenueCat, Firestore, App Store Connect)`)
+        break
+      }
+      case "compare_groups": {
+        const input = inputAs("compare_groups")
+        data = await compareGroups(input)
+        ctx.sources.push(`Comparaison calculée · ${input.chart} par ${input.segment} · ${input.start_date} → ${input.end_date}`)
+        break
+      }
       case "timeline": {
         const input = inputAs("timeline")
-        data = await timeline(input)
+        data = await productTimeline(input)
         ctx.sources.push(`Chronologie produit + App Store Connect · ${input.start_date} → ${input.end_date}`)
         break
       }
