@@ -19,6 +19,7 @@ import type {
   OnboardingAnalytics,
   PremiumAcquisitionMetrics,
   RevenueCatMetricsSummary,
+  ActiveSubscriptionsByPlan,
   UserContactSummary,
 } from "./types"
 
@@ -868,4 +869,8 @@ export async function fetchRoutines(from: string, to: string) {
 
 export async function fetchRevenueCatMetrics(month?: string): Promise<RevenueCatMetricsSummary> {
   return apiFetch<RevenueCatMetricsSummary>("/api/revenuecat/metrics", { month })
+}
+
+export async function fetchActiveSubscriptionsByPlan(): Promise<ActiveSubscriptionsByPlan> {
+  return apiFetch<ActiveSubscriptionsByPlan>("/api/revenuecat/subscriptions")
 }

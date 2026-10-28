@@ -446,3 +446,17 @@ export interface RevenueCatMetricsSummary {
   conversionTimeframe: string
   warning?: string
 }
+
+// Overview KPIs — today's active subscriptions per plan (GET /api/revenuecat/subscriptions).
+export interface PlanSubscriptions {
+  active: number
+  /** Still active, but auto-renew is off: won't be charged again. */
+  setToCancel: number
+}
+
+export interface ActiveSubscriptionsByPlan {
+  total: number
+  monthly: PlanSubscriptions
+  annual: PlanSubscriptions
+  activeTrials: number
+}

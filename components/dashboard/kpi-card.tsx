@@ -12,6 +12,8 @@ interface KpiCardProps {
   value: string | number
   change?: number
   changeLabel?: string
+  /** Small muted line under the value (context, split, share…). */
+  caption?: string
   isLoading?: boolean
   onReload?: () => void
   variant?: "default" | "success" | "warning" | "danger" | "info"
@@ -53,6 +55,7 @@ export function KpiCard({
   value,
   change,
   changeLabel,
+  caption,
   isLoading,
   onReload,
   variant = "default",
@@ -128,6 +131,7 @@ export function KpiCard({
       <div className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
         <p className={cn("text-3xl font-bold", getValueColor())}>{isLoading ? "..." : value}</p>
+        {caption && !isLoading && <p className="text-xs text-muted-foreground">{caption}</p>}
         {change !== undefined && (
           <div className={cn("flex items-center gap-1 text-xs", getTrendColor())}>
             {getTrendIcon()}

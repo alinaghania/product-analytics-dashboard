@@ -32,6 +32,7 @@ import {
   fetchPhotos,
   fetchPhotoCount,
   calculateRetentionCurve,
+  fetchActiveSubscriptionsByPlan,
 } from "@/lib/api-client"
 import { bucketByDay, bucketByHour, rollingUniqueUsersByDay, uniqueUsersByDay } from "@/lib/analytics"
 import { GOALS, MONTHLY_SIGNUP_GOALS, totalUsersGoalForMonth } from "@/lib/metric-goals"
@@ -145,6 +146,19 @@ export default function OverviewPage() {
   } = useQuery({
     queryKey: ["users-count"],
     queryFn: () => fetchTotalUserCount(),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Active subscriptions today, monthly vs annual (RevenueCat). Not date-range bound.
+  const {
+    data: subscriptions,
+    isLoading: subscriptionsLoading,
+    error: subscriptionsError,
+    refetch: refetchSubscriptions,
+  } = useQuery({
+    queryKey: ["revenuecat-subscriptions"],
+    queryFn: () => fetchActiveSubscriptionsByPlan(),
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
   })
@@ -328,6 +342,7 @@ export default function OverviewPage() {
     console.log("[v0] 🔄 Reload All clicked - forcing fresh data fetch...")
     await Promise.all([
       refetchTotalUserCount(),
+      refetchSubscriptions(),
       refetchTotalPhotoCount(),
       refetchActivityMetrics(),
       refetchGa4Metrics(),
@@ -850,6 +865,52 @@ export default function OverviewPage() {
                 ? "GA4 stickiness can be slightly noisy on small audiences."
                 : "Based on tracking sessions only — doesn't count passive app opens."
             }
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <KpiCard
+            label="Active subscriptions"
+            value={subscriptionsError ? "N/A" : (subscriptions?.total ?? 0).toLocaleString()}
+            caption={subscriptions ? `${subscriptions.monthly.active} monthly · ${subscriptions.annual.active} annual` : undefined}
+            isLoading={subscriptionsLoading}
+            onReload={() => refetchSubscriptions()}
+            tooltipTitle="Active paid subscriptions (today)"
+            tooltipDescription="Source: RevenueCat. Every paying subscription active today, all products (price tests included). Trials not included."
+            tooltipLimitations={subscriptionsError instanceof Error ? subscriptionsError.message : undefined}
+          />
+          <KpiCard
+            label="Monthly"
+            value={subscriptions?.monthly.active.toLocaleString() ?? "N/A"}
+            caption={
+              subscriptions
+                ? `${subscriptions.monthly.setToCancel} with auto-renew off${subscriptions.monthly.active ? ` (${Math.round((subscriptions.monthly.setToCancel / subscriptions.monthly.active) * 100)}%)` : ""}`
+                : undefined
+            }
+            isLoading={subscriptionsLoading}
+            tooltipTitle="Monthly subscriptions"
+            tooltipDescription="Source: RevenueCat (subscription status by duration, P1M). Active monthly subscriptions today."
+            tooltipHowToRead="Auto-renew off = still active until the end of the paid month, but won't be charged again."
+          />
+          <KpiCard
+            label="Annual"
+            value={subscriptions?.annual.active.toLocaleString() ?? "N/A"}
+            caption={
+              subscriptions
+                ? `${subscriptions.annual.setToCancel} with auto-renew off${subscriptions.annual.active ? ` (${Math.round((subscriptions.annual.setToCancel / subscriptions.annual.active) * 100)}%)` : ""}`
+                : undefined
+            }
+            isLoading={subscriptionsLoading}
+            tooltipTitle="Annual subscriptions"
+            tooltipDescription="Source: RevenueCat (subscription status by duration, P1Y). Active annual subscriptions today."
+            tooltipHowToRead="Auto-renew off = still active until the end of the paid year, but won't be charged again."
+          />
+          <KpiCard
+            label="Trials in progress"
+            value={subscriptions?.activeTrials.toLocaleString() ?? "N/A"}
+            isLoading={subscriptionsLoading}
+            tooltipTitle="Free trials in progress"
+            tooltipDescription="Source: RevenueCat overview. 7-day free trials currently running (not counted in subscriptions yet)."
           />
         </div>
 

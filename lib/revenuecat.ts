@@ -5,7 +5,7 @@
 
 import "server-only"
 import { format, subMonths } from "date-fns"
-import type { RevenueCatMetricsSummary } from "./types"
+import type { ActiveSubscriptionsByPlan, PlanSubscriptions, RevenueCatMetricsSummary } from "./types"
 
 const BASE_URL = "https://api.revenuecat.com/v2"
 
@@ -278,5 +278,51 @@ export async function fetchRevenueCatMetrics(
     ...conversion,
     conversionTimeframe: CONVERSION_TIMEFRAME,
     warning: warnings.length > 0 ? warnings.join(" · ") : undefined,
+  }
+}
+
+/**
+ * Today's active paid subscriptions split monthly / annual (all products,
+ * price tests included), from the subscription-status chart, plus trials in
+ * progress from the overview.
+ */
+export async function fetchActiveSubscriptionsByPlan(): Promise<ActiveSubscriptionsByPlan> {
+  const projectId = await getProjectId()
+  const day = (offset: number) => format(new Date(Date.now() - offset * 86_400_000), "yyyy-MM-dd")
+
+  const [status, overview] = await Promise.all([
+    rcFetch<{
+      measures?: Array<{ display_name: string }>
+      segments?: Array<{ display_name: string }>
+      values?: Array<{ measure?: number; segment?: number; value: number }>
+    }>(`/projects/${projectId}/charts/subscription_status`, {
+      start_date: day(2),
+      end_date: day(1),
+      resolution: "0",
+      segment: "product_duration",
+    }),
+    rcFetch<{ metrics?: Array<{ id: string; value: number }> }>(`/projects/${projectId}/metrics/overview`),
+  ])
+
+  const measures = (status.measures ?? []).map((m) => m.display_name)
+  const segments = (status.segments ?? []).map((s) => s.display_name)
+  const plans: Record<string, PlanSubscriptions> = {
+    P1M: { active: 0, setToCancel: 0 },
+    P1Y: { active: 0, setToCancel: 0 },
+  }
+  for (const v of status.values ?? []) {
+    const plan = plans[segments[v.segment ?? -1]]
+    const measure = measures[v.measure ?? -1]
+    if (!plan) continue
+    if (measure === "Total Active Subscriptions") plan.active = v.value
+    if (measure === "Active Subscriptions Set to Cancel") plan.setToCancel = v.value
+  }
+  const metric = (id: string) => overview.metrics?.find((m) => m.id === id)?.value ?? 0
+
+  return {
+    total: metric("active_subscriptions") || plans.P1M.active + plans.P1Y.active,
+    monthly: plans.P1M,
+    annual: plans.P1Y,
+    activeTrials: metric("active_trials"),
   }
 }
