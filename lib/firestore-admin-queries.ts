@@ -33,6 +33,7 @@ import type {
   AcquisitionMetrics,
   PremiumAcquisitionMetrics,
   ActiveUsersByVersion,
+  ChatFeedbackMetrics,
   CountSlice,
 } from "./types"
 
@@ -1737,6 +1738,69 @@ export async function fetchActiveUsersByVersion(options: {
     })
 
   return { daily, versions, totalActiveUsers: allUsers.size }
+}
+
+// 👍/👎 on Endora chat replies, from the `endora_message_feedback` app_event
+// (params: { message_id, thumb: "up" | "down" | "cleared" }). The app also
+// writes `feedback` on the message doc, but a collection-group query on
+// messages.feedback has no index, so the events are the queryable source.
+// Re-tapping a thumb toggles it: only each message's latest event counts, so a
+// vote taken back drops out and a changed vote counts once, on the day of its
+// final tap. The name-only filter reads every feedback event ever (a
+// name + createdAt range needs a composite index that doesn't exist) — cheap at
+// this volume (feature live since 2026-10-19), and it resolves each message's
+// final vote even when it was changed outside the window.
+export async function fetchChatFeedback(options: { from: string; to: string }): Promise<ChatFeedbackMetrics> {
+  const snapshot = await getAdminDb()
+    .collection("app_events")
+    .where("name", "==", "endora_message_feedback")
+    .select("userId", "params", "createdAt")
+    .get()
+
+  const latestByMessage = new Map<string, { thumb: string; userId?: string; at: Date }>()
+  let firstVoteAt: Date | undefined
+  for (const doc of snapshot.docs) {
+    const data = doc.data()
+    const at: Date | undefined = data.createdAt?.toDate?.()
+    const messageId = data.params?.message_id
+    const thumb = data.params?.thumb
+    if (!at || typeof messageId !== "string" || typeof thumb !== "string") continue
+    if (!firstVoteAt || at < firstVoteAt) firstVoteAt = at
+    const previous = latestByMessage.get(messageId)
+    if (!previous || at > previous.at) latestByMessage.set(messageId, { thumb, userId: data.userId, at })
+  }
+
+  const byDay = new Map<string, { up: number; down: number }>()
+  const totals = { up: 0, down: 0 }
+  const voters = new Set<string>()
+  for (const { thumb, userId, at } of latestByMessage.values()) {
+    if (thumb !== "up" && thumb !== "down") continue // "cleared" = vote taken back
+    const day = toDayKey(at)
+    if (day < options.from || day > options.to) continue
+    const counts = byDay.get(day) ?? { up: 0, down: 0 }
+    counts[thumb]++
+    byDay.set(day, counts)
+    totals[thumb]++
+    if (userId) voters.add(userId)
+  }
+
+  // Zero-fill so quiet days show as gaps: from the first vote ever (or `from`,
+  // if later), so there's no run of empty days from before the feature existed,
+  // through `to` capped at today. The cap also bounds the loop: past year 9999
+  // toDayKey yields "+010000-…", which sorts below any "YYYY" `to`.
+  const firstVoteDate = firstVoteAt ? toDayKey(firstVoteAt) : null
+  const daily: ChatFeedbackMetrics["daily"] = []
+  if (firstVoteDate) {
+    const todayKey = toDayKey(new Date())
+    const start = firstVoteDate > options.from ? firstVoteDate : options.from
+    const end = options.to < todayKey ? options.to : todayKey
+    for (let day = start; day <= end; day = addDaysToDateString(day, 1)) {
+      const { up, down } = byDay.get(day) ?? { up: 0, down: 0 }
+      daily.push({ date: day, up, down, total: up + down })
+    }
+  }
+
+  return { daily, totalUp: totals.up, totalDown: totals.down, voters: voters.size, firstVoteDate }
 }
 
 export async function calculateRetentionCurve(

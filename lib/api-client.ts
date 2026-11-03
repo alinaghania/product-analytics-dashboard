@@ -14,6 +14,7 @@ import type {
   CampaignHistoryEntry,
   CampaignHistoryInputs,
   CampaignHistoryResults,
+  ChatFeedbackMetrics,
   ContactChannel,
   ContactEntry,
   OnboardingAnalytics,
@@ -386,6 +387,14 @@ export async function fetchActiveUsersByVersion(opts: {
     "/api/metrics/active-users-by-version",
     { from: opts.from, to: opts.to },
   )
+  return result.data
+}
+
+export async function fetchChatFeedback(opts: { from: string; to: string }): Promise<ChatFeedbackMetrics> {
+  const result = await apiFetch<{ data: ChatFeedbackMetrics }>("/api/metrics/chat-feedback", {
+    from: opts.from,
+    to: opts.to,
+  })
   return result.data
 }
 

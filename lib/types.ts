@@ -355,6 +355,23 @@ export interface ActiveUsersByVersion {
 }
 
 /**
+ * 👍/👎 votes on Endora chat replies over a date window. Each rated message
+ * counts once, with its latest vote, on the day of that vote (a vote changed
+ * or taken back later only keeps its final state).
+ */
+export interface ChatFeedbackMetrics {
+  // One row per day, zero-filled from the first vote (or `from`, if later)
+  // through `to` capped at today
+  daily: Array<{ date: string; up: number; down: number; total: number }>
+  totalUp: number
+  totalDown: number
+  // Distinct users who left ≥1 vote counted in the window
+  voters: number
+  // Day of the first vote ever recorded (feature launch), null if none yet
+  firstVoteDate: string | null
+}
+
+/**
  * Pre-aggregated onboarding analytics returned by `/api/metrics/onboarding`.
  * Every selection field is an array of `{ name, count }` ready to chart, with
  * `name` already decoded to a human-readable label (see lib/onboarding-labels).

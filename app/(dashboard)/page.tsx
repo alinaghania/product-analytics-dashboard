@@ -29,6 +29,7 @@ import {
   fetchActiveUsersByVersion,
   fetchMonthlySignups,
   fetchChatConversations,
+  fetchChatFeedback,
   fetchPhotos,
   fetchPhotoCount,
   calculateRetentionCurve,
@@ -68,6 +69,13 @@ const VERSION_PINNED_COLORS: Record<string, string> = {
   Other: "#94A3B8", // slate
   Unknown: "#64748B", // muted slate
 }
+
+// Blue/red rather than green/red: green/red fails deuteranopia separation on
+// the card surface, this pair passes every CVD check.
+const CHAT_FEEDBACK_STACKS = [
+  { key: "up", color: "#3B82F6", label: "👍 Thumbs up" },
+  { key: "down", color: "#EF4444", label: "👎 Thumbs down" },
+]
 
 const ACTIVITY_CHART_LABELS = {
   dau: "Daily Active Users (DAU)",
@@ -318,6 +326,19 @@ export default function OverviewPage() {
     enabled: false,
   })
 
+  // 👍/👎 on Endora chat replies (app_events `endora_message_feedback`, latest
+  // vote per message). Cheap — a few dozen events — so it auto-fetches.
+  const {
+    data: chatFeedback,
+    isLoading: chatFeedbackLoading,
+    refetch: refetchChatFeedback,
+  } = useQuery({
+    queryKey: ["chat-feedback", dateRange.from, dateRange.to],
+    queryFn: () => fetchChatFeedback({ from: dateRange.from, to: dateRange.to }),
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const {
     data: photosData,
     isLoading: photosLoading,
@@ -357,6 +378,7 @@ export default function OverviewPage() {
       refetchUsers(),
       refetchRetention(),
       refetchChats(),
+      refetchChatFeedback(),
       refetchPhotos(),
     ])
     globalInitialLoadDone = true
@@ -742,6 +764,8 @@ export default function OverviewPage() {
       avgMessagesPerConv: avgMsg,
     }
   }, [chatsData])
+
+  const chatFeedbackVotes = chatFeedback ? chatFeedback.totalUp + chatFeedback.totalDown : 0
 
   const { avgDailyTimePerActiveUser, avgSessionDuration } = useMemo(() => {
     if (!sessionData || sessionData.length === 0) {
@@ -1384,6 +1408,46 @@ export default function OverviewPage() {
             tooltipDataCoverage={`From ${sessionData?.length || 0} sessions`}
           />
         </div>
+
+        <ChartCard
+          title={
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Endora Chat — 👍 / 👎</span>
+              {chatFeedback && chatFeedbackVotes > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  · {chatFeedback.totalUp} 👍 · {chatFeedback.totalDown} 👎 ·{" "}
+                  {Math.round((chatFeedback.totalUp / chatFeedbackVotes) * 100)}% positive
+                </span>
+              )}
+              <InfoTooltip
+                title="Endora Chat — Thumbs up / down"
+                description="Votes left on Endora's chat replies (app_events 'endora_message_feedback'). Each rated message counts once, with its latest vote, on the day of that vote."
+                howToRead="Each bar is one day: blue = thumbs up, red = thumbs down; the number on top is the day's total. A growing red share = replies users find unhelpful — open the conversations to see why."
+                limitations="A vote taken back (re-tapping the same thumb) no longer counts; a vote changed later counts on the day of the change. Daily-engagement card votes are not included. Bars start at the first recorded vote (feature launch). On ranges over 30 days, bars aggregate multi-day buckets."
+                dataCoverage={
+                  chatFeedback?.firstVoteDate
+                    ? `${chatFeedbackVotes} rated messages by ${chatFeedback.voters} users · first vote ${chatFeedback.firstVoteDate}`
+                    : "No votes recorded yet"
+                }
+              />
+            </div>
+          }
+          isLoading={chatFeedbackLoading && !chatFeedback}
+        >
+          {!chatFeedback || chatFeedbackVotes === 0 ? (
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+              No votes in the selected range.
+            </div>
+          ) : (
+            <BarChart
+              data={chatFeedback.daily}
+              xKey="date"
+              yKey="total"
+              maxBars={30}
+              stacks={CHAT_FEEDBACK_STACKS}
+            />
+          )}
+        </ChartCard>
 
         <div className="grid grid-cols-1 gap-6">
           <ChartCard
