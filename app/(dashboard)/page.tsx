@@ -57,6 +57,14 @@ const ACQUISITION_SOURCE_COLORS: Record<string, string> = {
 }
 const ACQUISITION_FALLBACK_COLOR = "#6B7694"
 
+// Countries are dynamic labels: rank-based palette (biggest first), fold buckets
+// pinned to slates. Length must stay >= TOP_COUNTRIES in fetchAcquisitionMetrics.
+const COUNTRY_PALETTE = ["#7C3AED", "#2ED47A", "#3B82F6", "#FFB020", "#22D3EE", "#FF5C5C", "#E1306C", "#F97316"]
+const COUNTRY_PINNED_COLORS: Record<string, string> = {
+  Other: "#94A3B8",
+  Unknown: "#64748B",
+}
+
 // App versions are dynamic labels, so their colors come from a fixed-order
 // palette assigned by rank (biggest series first) instead of a name→color map.
 // The order was validated for adjacent-pair distinguishability (CVD + normal
@@ -446,6 +454,21 @@ export default function OverviewPage() {
         color: VERSION_PINNED_COLORS[v.name] ?? VERSION_PALETTE[i % VERSION_PALETTE.length],
       })),
     [versionData],
+  )
+
+  // Stacked-chart series, one per country (rank colors, fold buckets pinned).
+  const countryStacks = useMemo(() => {
+    let rank = 0
+    return (acquisitionData?.countries ?? []).map((c) => ({
+      key: c.name,
+      label: c.name,
+      color: COUNTRY_PINNED_COLORS[c.name] ?? COUNTRY_PALETTE[rank++ % COUNTRY_PALETTE.length],
+    }))
+  }, [acquisitionData])
+
+  const countryLast7 = useMemo(
+    () => (acquisitionData?.countryDaily ?? []).slice(-7),
+    [acquisitionData],
   )
 
   // Last 7 days with data — kept short on purpose so the stacked bars stay wide
@@ -1142,6 +1165,30 @@ export default function OverviewPage() {
             )}
           </ChartCard>
         </div>
+
+        <ChartCard
+          title={
+            <div className="flex items-center gap-2">
+              <span>Signups by Country — Last 7 Days</span>
+              <InfoTooltip
+                title="Signups by Country — Last 7 Days"
+                description="New users per day over the last 7 days with signups, stacked by country. The country is derived from the phone's time zone (users.deviceTimeZone, e.g. Europe/Paris → France)."
+                howToRead="Each bar is one day; each colored segment is signups from that country. The number on top is the day's total. Hover for the full per-country breakdown."
+                limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country. Top 8 countries shown; the rest grouped in Other. Users without a time zone show as Unknown. Days are UTC, like the source chart."
+                dataCoverage={`${(acquisitionData?.signups ?? 0).toLocaleString()} signups in the selected range`}
+              />
+            </div>
+          }
+          isLoading={acquisitionLoading && !acquisitionData}
+        >
+          {countryLast7.length === 0 ? (
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+              No signups in the selected range.
+            </div>
+          ) : (
+            <BarChart data={countryLast7} xKey="date" yKey="total" stacks={countryStacks} />
+          )}
+        </ChartCard>
 
         <div className="grid gap-4 md:grid-cols-3">
           {retentionMilestones.map((m) => (

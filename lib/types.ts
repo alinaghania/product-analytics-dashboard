@@ -323,6 +323,13 @@ export interface AcquisitionMetrics {
   sources: CountSlice[]
   // Number of users in the window who answered the acquisition question
   answered: number
+  // Signups per day by country (derived from users.deviceTimeZone), all users:
+  // { date, total, [countryLabel]: count }. Countries beyond the top ones fold into "Other".
+  countryDaily: Array<Record<string, number | string>>
+  // Country totals over the window, ordered by count desc ("Other"/"Unknown" last)
+  countries: CountSlice[]
+  // Signups in the window (with or without a known time zone)
+  signups: number
 }
 
 /**

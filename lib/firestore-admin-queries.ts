@@ -2,6 +2,7 @@ import { getAdminDb, getAdminDbPool } from "./firebase-admin"
 import { fetchContactedUserIdSet } from "./firestore-dashboard-queries"
 import { Timestamp } from "firebase-admin/firestore"
 import { format as formatDate } from "date-fns"
+import { TIMEZONE_TO_COUNTRY } from "./timezone-country"
 import {
   labelize,
   ACQUISITION_SOURCE_LABELS,
@@ -429,15 +430,26 @@ export async function fetchAcquisitionMetrics(options: {
     .where("createdAt", ">=", fromTs)
     .where("createdAt", "<=", toTs)
     .orderBy("createdAt", "asc")
-    .select("createdAt", "registrationData.acquisitionSource")
+    .select("createdAt", "registrationData.acquisitionSource", "deviceTimeZone")
     .limit(20000)
     .get()
 
   const totals: Counter = {}
   const byDay = new Map<string, Counter>() // dayKey → source label → count
+  const countryTotals: Counter = {}
+  const countryByDay = new Map<string, Counter>() // dayKey → country code → count
 
   for (const doc of snapshot.docs) {
     const ts: Date | undefined = doc.data().createdAt?.toDate?.()
+    if (ts) {
+      const tz = doc.data().deviceTimeZone
+      const country = (typeof tz === "string" && TIMEZONE_TO_COUNTRY[tz]) || UNKNOWN_COUNTRY
+      countryTotals[country] = (countryTotals[country] || 0) + 1
+      const dayKey = ts.toISOString().slice(0, 10)
+      const c = countryByDay.get(dayKey) ?? {}
+      c[country] = (c[country] || 0) + 1
+      countryByDay.set(dayKey, c)
+    }
     const reg = doc.data().registrationData as Record<string, unknown> | undefined
     const code = typeof reg?.acquisitionSource === "string" ? reg.acquisitionSource.trim() : ""
     if (!ts || !code) continue
@@ -468,10 +480,57 @@ export async function fetchAcquisitionMetrics(options: {
       return row
     })
 
+  // Keep the biggest countries as their own series; fold the long tail into "Other".
+  const ranked = Object.entries(countryTotals)
+    .filter(([code]) => code !== UNKNOWN_COUNTRY)
+    .sort((a, b) => b[1] - a[1])
+  const kept = new Set(ranked.slice(0, TOP_COUNTRIES).map(([code]) => code))
+  const countryLabel = (code: string) =>
+    code === UNKNOWN_COUNTRY ? "Unknown" : kept.has(code) ? countryName(code) : "Other"
+
+  const foldedTotals: Counter = {}
+  for (const [code, count] of Object.entries(countryTotals)) {
+    const label = countryLabel(code)
+    foldedTotals[label] = (foldedTotals[label] || 0) + count
+  }
+  const tail = (name: string) => (name === "Other" ? 1 : name === "Unknown" ? 2 : 0)
+  const countries = Object.entries(foldedTotals)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => tail(a.name) - tail(b.name) || b.count - a.count)
+
+  const countryDaily = [...countryByDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, perCountry]) => {
+      const row: Record<string, number | string> = { date }
+      let total = 0
+      for (const [code, count] of Object.entries(perCountry)) {
+        const label = countryLabel(code)
+        row[label] = ((row[label] as number) || 0) + count
+        total += count
+      }
+      row.total = total
+      return row
+    })
+
   return {
     daily,
     sources,
     answered: sources.reduce((sum, s) => sum + s.count, 0),
+    countryDaily,
+    countries,
+    signups: snapshot.size,
+  }
+}
+
+const UNKNOWN_COUNTRY = "??"
+// Must stay <= COUNTRY_PALETTE length on the Overview page.
+const TOP_COUNTRIES = 8
+const countryNames = new Intl.DisplayNames(["en"], { type: "region" })
+function countryName(code: string): string {
+  try {
+    return countryNames.of(code) ?? code
+  } catch {
+    return code
   }
 }
 
