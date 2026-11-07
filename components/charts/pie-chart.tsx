@@ -60,6 +60,8 @@ export function PieChart({
               borderRadius: "8px",
               color: "#FFFFFF",
             }}
+            // Recharts paints pie tooltip rows black by default — unreadable on the dark card.
+            itemStyle={{ color: "#FFFFFF" }}
           />
           {showLegend && !isMobile && (
             <Legend
