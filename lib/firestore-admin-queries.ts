@@ -486,14 +486,15 @@ export async function fetchAcquisitionMetrics(options: {
     .sort((a, b) => b[1] - a[1])
   const kept = new Set(ranked.slice(0, TOP_COUNTRIES).map(([code]) => code))
   const countryLabel = (code: string) =>
-    code === UNKNOWN_COUNTRY ? "Unknown" : kept.has(code) ? countryName(code) : "Other"
+    code === UNKNOWN_COUNTRY ? UNKNOWN_COUNTRY_LABEL : kept.has(code) ? countryName(code) : OTHER_COUNTRIES_LABEL
 
   const foldedTotals: Counter = {}
   for (const [code, count] of Object.entries(countryTotals)) {
     const label = countryLabel(code)
     foldedTotals[label] = (foldedTotals[label] || 0) + count
   }
-  const tail = (name: string) => (name === "Other" ? 1 : name === "Unknown" ? 2 : 0)
+  const tail = (name: string) =>
+    name === OTHER_COUNTRIES_LABEL ? 1 : name === UNKNOWN_COUNTRY_LABEL ? 2 : 0
   const countries = Object.entries(foldedTotals)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => tail(a.name) - tail(b.name) || b.count - a.count)
@@ -518,11 +519,17 @@ export async function fetchAcquisitionMetrics(options: {
     answered: sources.reduce((sum, s) => sum + s.count, 0),
     countryDaily,
     countries,
+    otherCountries: ranked
+      .slice(TOP_COUNTRIES)
+      .map(([code, count]) => ({ name: countryName(code), count })),
     signups: snapshot.size,
   }
 }
 
 const UNKNOWN_COUNTRY = "??"
+// Display labels of the fold buckets — mirrored in COUNTRY_PINNED_COLORS (Overview page).
+const OTHER_COUNTRIES_LABEL = "Other countries"
+const UNKNOWN_COUNTRY_LABEL = "Unknown (no time zone)"
 // Must stay <= COUNTRY_PALETTE length on the Overview page.
 const TOP_COUNTRIES = 8
 const countryNames = new Intl.DisplayNames(["en"], { type: "region" })

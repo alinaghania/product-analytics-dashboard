@@ -328,6 +328,8 @@ export interface AcquisitionMetrics {
   countryDaily: Array<Record<string, number | string>>
   // Country totals over the window, ordered by count desc ("Other"/"Unknown" last)
   countries: CountSlice[]
+  // Countries folded into "Other countries", ordered by count desc
+  otherCountries: CountSlice[]
   // Signups in the window (with or without a known time zone)
   signups: number
 }

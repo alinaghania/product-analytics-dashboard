@@ -61,9 +61,27 @@ const ACQUISITION_FALLBACK_COLOR = "#6B7694"
 // pinned to slates. Length must stay >= TOP_COUNTRIES in fetchAcquisitionMetrics.
 const COUNTRY_PALETTE = ["#7C3AED", "#2ED47A", "#3B82F6", "#FFB020", "#22D3EE", "#FF5C5C", "#E1306C", "#F97316"]
 const COUNTRY_PINNED_COLORS: Record<string, string> = {
-  Other: "#94A3B8",
-  Unknown: "#64748B",
+  "Other countries": "#94A3B8",
+  "Unknown (no time zone)": "#64748B",
 }
+
+/** Rank-palette colors for a country list, fold buckets pinned. */
+function countryColors(countries: { name: string }[]): string[] {
+  let rank = 0
+  return countries.map(
+    (c) => COUNTRY_PINNED_COLORS[c.name] ?? COUNTRY_PALETTE[rank++ % COUNTRY_PALETTE.length],
+  )
+}
+
+// Period presets of the "Countries — Total" pie, independent of the page date filter.
+type CountryPieRange = "7d" | "30d" | "all"
+const COUNTRY_PIE_RANGES: { value: CountryPieRange; label: string; days: number | null }[] = [
+  { value: "7d", label: "7 d", days: 7 },
+  { value: "30d", label: "30 d", days: 30 },
+  { value: "all", label: "All time", days: null },
+]
+// Before the first signup (2025-12-14) — "All time" lower bound.
+const ALL_TIME_FROM = "2025-01-01"
 
 // App versions are dynamic labels, so their colors come from a fixed-order
 // palette assigned by rank (biggest series first) instead of a name→color map.
@@ -123,6 +141,7 @@ export default function OverviewPage() {
 
   // Sources pie: all signups in the date range, or current premium users only.
   const [sourcesView, setSourcesView] = useState<"all" | "premium">("all")
+  const [countryPieRange, setCountryPieRange] = useState<CountryPieRange>("30d")
 
   const {
     data: sessionData,
@@ -263,6 +282,19 @@ export default function OverviewPage() {
     queryFn: () => fetchAcquisitionMetrics({ from: dateRange.from, to: dateRange.to }),
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
+  })
+
+  // "Countries — Total" pie: own period (7 d / 30 d / all time), not the page filter.
+  const { data: countryPieData, isLoading: countryPieLoading } = useQuery({
+    queryKey: ["acquisition-countries", countryPieRange],
+    queryFn: () => {
+      const days = COUNTRY_PIE_RANGES.find((r) => r.value === countryPieRange)?.days ?? null
+      const today = new Date()
+      return fetchAcquisitionMetrics({
+        from: days == null ? ALL_TIME_FROM : formatDate(subDays(today, days - 1), "yyyy-MM-dd"),
+        to: formatDate(today, "yyyy-MM-dd"),
+      })
+    },
   })
 
   // Premium view of the Sources pie: acquisition sources of all current premium
@@ -458,12 +490,9 @@ export default function OverviewPage() {
 
   // Stacked-chart series, one per country (rank colors, fold buckets pinned).
   const countryStacks = useMemo(() => {
-    let rank = 0
-    return (acquisitionData?.countries ?? []).map((c) => ({
-      key: c.name,
-      label: c.name,
-      color: COUNTRY_PINNED_COLORS[c.name] ?? COUNTRY_PALETTE[rank++ % COUNTRY_PALETTE.length],
-    }))
+    const countries = acquisitionData?.countries ?? []
+    const colors = countryColors(countries)
+    return countries.map((c, i) => ({ key: c.name, label: c.name, color: colors[i] }))
   }, [acquisitionData])
 
   const countryLast7 = useMemo(
@@ -1169,29 +1198,50 @@ export default function OverviewPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <ChartCard
             title={
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span>Countries — Total</span>
                 <InfoTooltip
                   title="Countries — Total"
-                  description="Where new users in the selected date range signed up from, by country. The country is derived from the phone's time zone (users.deviceTimeZone, e.g. Europe/Paris → France)."
-                  howToRead="Each slice is one country's share of all signups in the selected range. Hover for exact counts. Colors match the Signups by Country chart."
-                  limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country. Top 8 countries shown; the rest grouped in Other. Users without a time zone show as Unknown."
-                  dataCoverage={`${(acquisitionData?.signups ?? 0).toLocaleString()} signups in the selected range`}
+                  description="Where new users signed up from, by country, over the period picked on the card (7 days, 30 days or all time — the page date filter does not apply). The country is derived from the phone's time zone (users.deviceTimeZone, e.g. Europe/Paris → France)."
+                  howToRead="Each slice is one country's share of signups. Hover for exact counts. 'Other countries' groups every country outside the top 8 — they are listed under the pie. 'Unknown (no time zone)' = the phone sent no time zone."
+                  limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country."
+                  dataCoverage={`${(countryPieData?.signups ?? 0).toLocaleString()} signups in this period`}
                 />
+                <div className="ml-auto flex items-center gap-1">
+                  {COUNTRY_PIE_RANGES.map((r) => (
+                    <Button
+                      key={r.value}
+                      variant={countryPieRange === r.value ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setCountryPieRange(r.value)}
+                    >
+                      {r.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             }
-            isLoading={acquisitionLoading && !acquisitionData}
+            isLoading={countryPieLoading && !countryPieData}
           >
-            {(acquisitionData?.countries ?? []).length === 0 ? (
+            {(countryPieData?.countries ?? []).length === 0 ? (
               <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-                No signups in the selected range.
+                No signups in this period.
               </div>
             ) : (
-              <PieChart
-                data={acquisitionData?.countries ?? []}
-                colors={countryStacks.map((c) => c.color)}
-                showLabel={false}
-              />
+              <>
+                <PieChart
+                  data={countryPieData?.countries ?? []}
+                  colors={countryColors(countryPieData?.countries ?? [])}
+                  showLabel={false}
+                />
+                {(countryPieData?.otherCountries ?? []).length > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Other countries:</span>{" "}
+                    {countryPieData!.otherCountries.map((c) => `${c.name} ${c.count}`).join(" · ")}
+                  </p>
+                )}
+              </>
             )}
           </ChartCard>
 
@@ -1203,7 +1253,7 @@ export default function OverviewPage() {
                   title="Signups by Country — Last 7 Days"
                   description="New users per day over the last 7 days with signups, stacked by country. The country is derived from the phone's time zone (users.deviceTimeZone, e.g. Europe/Paris → France)."
                   howToRead="Each bar is one day; each colored segment is signups from that country. The number on top is the day's total. Hover for the full per-country breakdown."
-                  limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country. Top 8 countries shown; the rest grouped in Other. Users without a time zone show as Unknown. Days are UTC, like the source chart."
+                  limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country. Top 8 countries shown; every other country is grouped in 'Other countries'. 'Unknown (no time zone)' = the phone sent no time zone. Days are UTC, like the source chart."
                   dataCoverage={`${(acquisitionData?.signups ?? 0).toLocaleString()} signups in the selected range`}
                 />
               </div>
