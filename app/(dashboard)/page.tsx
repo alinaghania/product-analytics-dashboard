@@ -1166,29 +1166,59 @@ export default function OverviewPage() {
           </ChartCard>
         </div>
 
-        <ChartCard
-          title={
-            <div className="flex items-center gap-2">
-              <span>Signups by Country — Last 7 Days</span>
-              <InfoTooltip
-                title="Signups by Country — Last 7 Days"
-                description="New users per day over the last 7 days with signups, stacked by country. The country is derived from the phone's time zone (users.deviceTimeZone, e.g. Europe/Paris → France)."
-                howToRead="Each bar is one day; each colored segment is signups from that country. The number on top is the day's total. Hover for the full per-country breakdown."
-                limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country. Top 8 countries shown; the rest grouped in Other. Users without a time zone show as Unknown. Days are UTC, like the source chart."
-                dataCoverage={`${(acquisitionData?.signups ?? 0).toLocaleString()} signups in the selected range`}
+        <div className="grid gap-6 md:grid-cols-2">
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Countries — Total</span>
+                <InfoTooltip
+                  title="Countries — Total"
+                  description="Where new users in the selected date range signed up from, by country. The country is derived from the phone's time zone (users.deviceTimeZone, e.g. Europe/Paris → France)."
+                  howToRead="Each slice is one country's share of all signups in the selected range. Hover for exact counts. Colors match the Signups by Country chart."
+                  limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country. Top 8 countries shown; the rest grouped in Other. Users without a time zone show as Unknown."
+                  dataCoverage={`${(acquisitionData?.signups ?? 0).toLocaleString()} signups in the selected range`}
+                />
+              </div>
+            }
+            isLoading={acquisitionLoading && !acquisitionData}
+          >
+            {(acquisitionData?.countries ?? []).length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                No signups in the selected range.
+              </div>
+            ) : (
+              <PieChart
+                data={acquisitionData?.countries ?? []}
+                colors={countryStacks.map((c) => c.color)}
+                showLabel={false}
               />
-            </div>
-          }
-          isLoading={acquisitionLoading && !acquisitionData}
-        >
-          {countryLast7.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-              No signups in the selected range.
-            </div>
-          ) : (
-            <BarChart data={countryLast7} xKey="date" yKey="total" stacks={countryStacks} />
-          )}
-        </ChartCard>
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Signups by Country — Last 7 Days</span>
+                <InfoTooltip
+                  title="Signups by Country — Last 7 Days"
+                  description="New users per day over the last 7 days with signups, stacked by country. The country is derived from the phone's time zone (users.deviceTimeZone, e.g. Europe/Paris → France)."
+                  howToRead="Each bar is one day; each colored segment is signups from that country. The number on top is the day's total. Hover for the full per-country breakdown."
+                  limitations="Time zone ≠ GPS location: a traveller or a phone set to another zone is counted in that zone's country. Top 8 countries shown; the rest grouped in Other. Users without a time zone show as Unknown. Days are UTC, like the source chart."
+                  dataCoverage={`${(acquisitionData?.signups ?? 0).toLocaleString()} signups in the selected range`}
+                />
+              </div>
+            }
+            isLoading={acquisitionLoading && !acquisitionData}
+          >
+            {countryLast7.length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                No signups in the selected range.
+              </div>
+            ) : (
+              <BarChart data={countryLast7} xKey="date" yKey="total" stacks={countryStacks} />
+            )}
+          </ChartCard>
+        </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           {retentionMilestones.map((m) => (
