@@ -2,7 +2,7 @@
 
 import { useState, useMemo, isValidElement } from "react"
 import { useParams } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
 import { Header } from "@/components/dashboard/header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -107,8 +107,14 @@ export default function UserDetailPage() {
     staleTime: Infinity,
   })
 
+  const queryClient = useQueryClient()
   const handleReload = async () => {
-    await refetch()
+    await Promise.all([
+      refetch(),
+      // The chats panel (UserChatsPanel) has its own queries, cached server-side too.
+      queryClient.refetchQueries({ queryKey: ["userChatSessions", userId], type: "active" }),
+      queryClient.refetchQueries({ queryKey: ["chatSessionMessages"], type: "active" }),
+    ])
     setLastUpdated(new Date())
   }
 

@@ -6,7 +6,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
 import { getProjectId } from "@/lib/revenuecat"
 import { fetchAscReviews } from "@/lib/app-store-connect"
-import { fetchAcquisitionConversion, fetchWeeklyUsage } from "@/lib/firestore-admin-queries"
+import { acquisitionConversion, weeklyUsage } from "./firestore-data"
 import { productTimeline } from "./timeline"
 import { explainChange, compareGroups } from "./analyses"
 import { chartSpecSchema, type ChartSpec } from "./chart-spec"
@@ -195,7 +195,7 @@ export async function comparePeriods(input: {
 // ── Acquisition × subscription (Firestore) ──────────────────────────────────
 
 export async function acquisition(input: { start_date: string; end_date: string; by_week?: boolean }) {
-  const { rows, noSourceSignups } = await fetchAcquisitionConversion({ from: input.start_date, to: input.end_date })
+  const { rows, noSourceSignups } = await acquisitionConversion({ from: input.start_date, to: input.end_date })
   const bySource = new Map<string, { signups: number; premiumNow: number }>()
   for (const r of rows) {
     const s = bySource.get(r.source) ?? { signups: 0, premiumNow: 0 }
@@ -230,7 +230,7 @@ export async function acquisition(input: { start_date: string; end_date: string;
 // ── Usage & reviews ─────────────────────────────────────────────────────────
 
 export async function usage(input: { start_date: string; end_date: string }) {
-  const rows = await fetchWeeklyUsage({ from: input.start_date, to: input.end_date })
+  const rows = await weeklyUsage({ from: input.start_date, to: input.end_date })
   return {
     definition:
       "Semaines du lundi. inscrites = comptes créés ; actives = utilisatrices ayant fait au moins un suivi (tracking) ; sessions = sessions de suivi ; conversations_chat = conversations IA ouvertes.",

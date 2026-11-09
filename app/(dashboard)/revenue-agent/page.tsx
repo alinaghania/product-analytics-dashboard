@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
 import { Header } from "@/components/dashboard/header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,7 +19,7 @@ import {
   type DeepReport,
   type RevenueAgentResult,
 } from "@/lib/api-client"
-import { AlertTriangle, CheckCircle2, Loader2, Microscope, RotateCcw, Send } from "lucide-react"
+import { AlertTriangle, CheckCircle2, History, Loader2, Microscope, RotateCcw, Send } from "lucide-react"
 
 const EXAMPLES = [
   "Résume-moi la semaine dernière.",
@@ -30,7 +32,8 @@ const EXAMPLES = [
 type Turn =
   | { role: "user"; content: string }
   | { role: "assistant"; content: string; result: RevenueAgentResult }
-  | { role: "deep"; content: string; report: DeepReport }
+  // cachedAt: the report was produced earlier today for the same question (server cache).
+  | { role: "deep"; content: string; report: DeepReport; question: string | null; cachedAt: Date | null }
 
 export default function RevenueAgentPage() {
   const [question, setQuestion] = useState("")
@@ -44,11 +47,15 @@ export default function RevenueAgentPage() {
   // Deep analysis: 5 code-built dossiers → 5 analysts → synthesis (~2-3 min).
   const [deepProgress, setDeepProgress] = useState<DeepProgress[]>([])
   const deepMutation = useMutation({
-    mutationFn: (q: string | null) => {
+    mutationFn: ({ topic, fresh }: { topic: string | null; fresh: boolean }) => {
       setDeepProgress([])
-      return runDeepAnalysis(q, (p) => setDeepProgress((list) => [...list, p]))
+      return runDeepAnalysis(topic, (p) => setDeepProgress((list) => [...list, p]), { fresh })
     },
-    onSuccess: (report) => setTurns((t) => [...t, { role: "deep", content: report.synthese?.en_bref.join(" ") ?? "", report }]),
+    onSuccess: ({ report, cachedAt }, { topic }) =>
+      setTurns((t) => [
+        ...t,
+        { role: "deep", content: report.synthese?.en_bref.join(" ") ?? "", report, question: topic, cachedAt },
+      ]),
   })
   const isPending = askMutation.isPending || deepMutation.isPending
   const error = askMutation.error ?? deepMutation.error
@@ -71,12 +78,19 @@ export default function RevenueAgentPage() {
     )
   }
 
+  // fresh: re-run instead of reusing today's report for the same question.
+  const runDeep = (q: string | null, fresh = false) => {
+    if (isPending) return
+    const label = q ? `🔬 Analyse approfondie : ${q}` : "🔬 Analyse approfondie"
+    setTurns((t) => [...t, { role: "user", content: fresh ? `${label} (relancée)` : label }])
+    deepMutation.mutate({ topic: q, fresh })
+  }
+
   const deep = () => {
     if (isPending) return
     const q = question.trim()
-    setTurns((t) => [...t, { role: "user", content: q ? `🔬 Analyse approfondie : ${q}` : "🔬 Analyse approfondie" }])
     setQuestion("")
-    deepMutation.mutate(q || null)
+    runDeep(q || null)
   }
 
   const reset = () => {
@@ -133,6 +147,22 @@ export default function RevenueAgentPage() {
           ) : turn.role === "deep" ? (
             <Card key={i}>
               <CardContent className="pt-6">
+                {turn.cachedAt && (
+                  <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <History className="h-3.5 w-3.5" />
+                    Rapport déjà produit aujourd'hui à {format(turn.cachedAt, "HH:mm", { locale: fr })}, réutilisé sans
+                    nouvel appel à l'IA.
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => runDeep(turn.question, true)}
+                      disabled={isPending}
+                    >
+                      Relancer l'analyse
+                    </Button>
+                  </p>
+                )}
                 <DeepReportView report={turn.report} />
               </CardContent>
             </Card>

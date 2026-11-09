@@ -8,6 +8,7 @@ The dashboard runs on **Cloud Run** in project `lotus-9663d`, region `europe-wes
 | Runtime identity | Existing `endora-dashboard-readonly` service account, **keyless** (ADC from the metadata server) |
 | Images | Artifact Registry `endora-dashboard`, immutable tags = git SHA, 5 newest kept |
 | Secrets | Secret Manager `endora-dashboard-*` (3 runtime secrets + `build-env` for the public `NEXT_PUBLIC_*` config) |
+| Cache | Bucket `lotus-9663d-endora-dashboard-cache`: API results shared by every admin until midnight (Paris), objects deleted after a day (see "Server cache") |
 | Deploys | `.github/workflows/deploy-cloudrun.yml` on every push to `main`, keyless (Workload Identity Federation) |
 | Budget | 5 EUR/month on resources labelled `app=endora-dashboard`, e-mails at 50/90/100 % and forecast 100 % — alerts only, nothing is stopped |
 
@@ -59,15 +60,26 @@ Terraform lives in `infra/terraform/`. Always run it through `infra/terraform/tf
   Prefer this to pinning traffic on an old revision (`update-traffic --to-revisions`): once traffic is pinned, later CI deploys create revisions that get 0 % of it (the smoke test still passes against the old one). If it happened, `gcloud run services update-traffic endora-dashboard --to-latest --region=europe-west1` restores the normal behaviour.
 - **Logs**: `gcloud run services logs read endora-dashboard --region=europe-west1 --project=lotus-9663d --account=support@myendora.health`
 
+## Server cache
+
+To cut Firestore reads (and LLM calls), `lib/server-cache.ts` keeps the result of every non-Overview API route until midnight Europe/Paris, for all admins: first in the instance's memory, then in the cache bucket, which survives the instance stopping.
+
+- **Live data**: the Overview is never cached, except its retention curve once the activity window it measures is over (it can't change before midnight). Reads of the `dashboard` database (contacts, history) and writes are never cached either.
+- **Forcing a refresh**: "Reload All" (or a card's reload icon) recomputes the data on display with `?fresh=1`; data the page hasn't loaded yet still comes from the cache, and the Overview's retention curve is never recomputed (it can't change before midnight). The header shows when cached figures were computed. "Régénérer" (conversation insights) and "Relancer l'analyse" (deep analysis) recompute the AI results.
+- **Never kept**: errors, and results missing part of their data (a failed section of a user profile, a RevenueCat call that failed, a deep analysis with errors): they are served once, then recomputed.
+- **Deploys**: entries are stored under the Cloud Run revision name, so a deploy starts from an empty cache.
+- **Purge everything**: `gcloud storage rm "gs://lotus-9663d-endora-dashboard-cache/**" --account=support@myendora.health`, then let the instance restart (or deploy) to clear its memory.
+- **Logs**: `[cache] computed <scope> in … ms` for each computation, `[cache] restored <scope> from the bucket` after a cold start, warnings if the bucket can't be read or written (the request is still served).
+
 ## Costs
 
-Expected ~1–2 €/month: nothing is billed while idle (0 instances), CPU is billed only while serving requests, and `max 1 instance` caps CPU + memory at ~70 €/month even under constant load. The free tiers are shared by the whole billing account (and mostly used by the mobile app's functions). Firestore reads made by the dashboard are billed to Firestore and are outside this budget.
+Expected ~1–2 €/month: nothing is billed while idle (0 instances), CPU is billed only while serving requests, and `max 1 instance` caps CPU + memory at ~70 €/month even under constant load. The cache bucket costs well under 0.01 €/month. The free tiers are shared by the whole billing account (and mostly used by the mobile app's functions). Firestore reads made by the dashboard are billed to Firestore and are outside this budget.
 
 ## Finding and deleting everything
 
 Every resource created for the dashboard carries a common mark:
 
-- label `app=endora-dashboard` on everything that supports labels: Cloud Run service **and** its revisions, image repository, secrets, alert channels, state bucket;
+- label `app=endora-dashboard` on everything that supports labels: Cloud Run service **and** its revisions, image repository, secrets, alert channels, cache and state buckets;
 - name prefix `endora-dashboard` + description "managed by Terraform" on what doesn't (deployer service account, WIF pool, budget, the `endoraDashboardRunOperationsViewer` custom role). IAM grants are deleted with the rest.
 
 Inventory:
@@ -87,6 +99,7 @@ Kept on purpose: the `endora-dashboard-readonly` account (it predates this stack
 ## Troubleshooting
 
 - **Every API call returns 401**: read the logs — `[auth] ID token verification failed: …` gives the real cause (credentials, project ID…), and check that the `*.run.app` domain is authorized in Firebase.
+- **A page shows outdated figures**: they come from the server cache (the header says from when). "Reload All" recomputes them; see "Server cache".
 - **GA4 cards fall back to tracking sessions** (`/api/metrics/ga4-activity` → 503): the keyless GA4 call failed. Fallback: store the service-account JSON in a secret and expose it as `FIREBASE_SERVICE_ACCOUNT` (the code already supports it).
 - **Deploy fails with a permission error**: the deployer only has `run.developer` on this service, `run.operations.get` on the project (custom role — `gcloud run deploy` waits on an operation), actAs on the runtime account, push on the image repository and read on the build-env secret. Never widen it to project-level `run.developer`: that would let CI modify the mobile app's Cloud Functions.
 - **`tf.sh plan` shows changes after a CI deploy**: CI must only change the image (and gcloud's nonce label), both ignored in `cloud-run.tf`. Any other drift means someone changed the service by hand — re-apply or port the change into Terraform.

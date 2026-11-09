@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchAppEvents } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -16,23 +17,25 @@ export async function GET(request: NextRequest) {
       to: searchParams.get("to"),
     })
 
-    const [sent, received, failed, screenOpened, conversationStarted, limitReached] = await Promise.all([
-      fetchAppEvents({ from: params.from, to: params.to, name: "endora_message_sent", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "endora_message_received", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "endora_message_failed", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "endora_screen_opened", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "endora_conversation_started", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "endora_message_limit_reached", limitCount: 5000 }),
-    ])
-
-    return NextResponse.json({
-      sent: sent.data,
-      received: received.data,
-      failed: failed.data,
-      screenOpened: screenOpened.data,
-      conversationStarted: conversationStarted.data,
-      limitReached: limitReached.data,
-      generatedAt: new Date().toISOString(),
+    return cachedJson(request, "events-endora", params, async () => {
+      const events = (name: string) => fetchAppEvents({ from: params.from, to: params.to, name, limitCount: 5000 })
+      const [sent, received, failed, screenOpened, conversationStarted, limitReached] = await Promise.all([
+        events("endora_message_sent"),
+        events("endora_message_received"),
+        events("endora_message_failed"),
+        events("endora_screen_opened"),
+        events("endora_conversation_started"),
+        events("endora_message_limit_reached"),
+      ])
+      return {
+        sent: sent.data,
+        received: received.data,
+        failed: failed.data,
+        screenOpened: screenOpened.data,
+        conversationStarted: conversationStarted.data,
+        limitReached: limitReached.data,
+        generatedAt: new Date().toISOString(),
+      }
     })
   })
 }

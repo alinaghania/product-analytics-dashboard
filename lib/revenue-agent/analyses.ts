@@ -3,7 +3,7 @@
 // handed — it never ranks factors or judges significance itself.
 
 import "server-only"
-import { fetchAcquisitionConversion } from "@/lib/firestore-admin-queries"
+import { acquisitionConversion } from "./firestore-data"
 import { fetchChart, MAX_SEGMENTS, round, sumWindow, type ChartQuery } from "./rc-data"
 import { compareProportions, decomposeProduct, variationPct, type ProportionComparison } from "./stats"
 import { productTimeline } from "./timeline"
@@ -95,8 +95,8 @@ export async function explainChange(input: { period_a: Period; period_b: Period 
 
   // Acquisition shifts per source (Firestore).
   const [acqA, acqB] = await Promise.all([
-    fetchAcquisitionConversion({ from: a.start, to: a.end }),
-    fetchAcquisitionConversion({ from: b.start, to: b.end }),
+    acquisitionConversion({ from: a.start, to: a.end }),
+    acquisitionConversion({ from: b.start, to: b.end }),
   ])
   const signupsBySource = (rows: typeof acqA.rows) => {
     const m = new Map<string, number>()

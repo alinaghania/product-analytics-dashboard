@@ -176,7 +176,7 @@ export default function UsersPage() {
   const users: User[] = data?.data || []
   const userIds = users.map((u) => u.id)
 
-  const { data: lastActivitiesMap } = useQuery({
+  const { data: lastActivitiesMap, refetch: refetchLastActivities } = useQuery({
     queryKey: ["lastActivities", userIds],
     queryFn: () => fetchLastActivitiesForUsers(userIds),
     enabled: userIds.length > 0,
@@ -184,7 +184,7 @@ export default function UsersPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const { data: userSessionTimes } = useQuery({
+  const { data: userSessionTimes, refetch: refetchSessionTimes } = useQuery({
     queryKey: ["userSessionTimes", userIds],
     queryFn: () => fetchUserDailySessionTimes(userIds),
     enabled: userIds.length > 0,
@@ -203,7 +203,9 @@ export default function UsersPage() {
   const handleReload = async () => {
     setPagination({ pageIndex: 0, pageSize: 50 })
     setPageCursors([])
-    await refetch()
+    // The per-user columns are cached server-side too: reload them with the list.
+    const columns = userIds.length > 0 ? [refetchLastActivities(), refetchSessionTimes()] : []
+    await Promise.all([refetch(), ...columns])
     setLastUpdated(new Date())
   }
 

@@ -4,7 +4,7 @@
 // or a chart point.
 
 import "server-only"
-import { fetchAcquisitionConversion } from "@/lib/firestore-admin-queries"
+import { acquisitionConversion } from "./firestore-data"
 import type { ChartSpec } from "./chart-spec"
 import { fetchChart, isoDay, round, type RcChart } from "./rc-data"
 import { compareGroups } from "./analyses"
@@ -452,7 +452,7 @@ async function dossierAcquisition(): Promise<Dossier> {
     croissance_vs_mois_precedent_pct: i ? variationPct(Number(newCustomers[i - 1].nouvelles_clientes), Number(r.nouvelles_clientes)) : null,
   }))
   const sources = await acquisition({ start_date: daysAgo(90), end_date: today() })
-  const weekly = await fetchAcquisitionConversion({ from: daysAgo(84), to: today() })
+  const weekly = await acquisitionConversion({ from: daysAgo(84), to: today() })
 
   const topSources = sources.par_source.slice(0, 4).map((s) => s.source)
   const weeks = [...new Set(weekly.rows.map((r) => r.week))].sort()

@@ -43,6 +43,11 @@ resource "google_cloud_run_v2_service" "dashboard" {
         value = var.project_id
       }
 
+      env {
+        name  = "CACHE_BUCKET" # lib/server-cache.ts
+        value = google_storage_bucket.cache.name
+      }
+
       dynamic "env" {
         for_each = var.app_env
         content {

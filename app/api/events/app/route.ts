@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchAppEvents } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -24,19 +25,16 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get("limit") || "200",
     })
 
-    const result = await fetchAppEvents({
-      from: params.from,
-      to: params.to,
-      name: params.name,
-      platform: params.platform,
-      version: params.version,
-      limitCount: params.limit,
-    })
-
-    return NextResponse.json({
-      data: result.data,
-      hasMore: result.hasMore,
-      generatedAt: new Date().toISOString(),
+    return cachedJson(request, "events-app", params, async () => {
+      const result = await fetchAppEvents({
+        from: params.from,
+        to: params.to,
+        name: params.name,
+        platform: params.platform,
+        version: params.version,
+        limitCount: params.limit,
+      })
+      return { data: result.data, hasMore: result.hasMore, generatedAt: new Date().toISOString() }
     })
   })
 }

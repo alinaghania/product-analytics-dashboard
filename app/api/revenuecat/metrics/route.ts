@@ -3,6 +3,7 @@ import { z } from "zod"
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns"
 import { toZonedTime } from "date-fns-tz"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchRevenueCatMetrics, RevenueCatConfigError } from "@/lib/revenuecat"
 
 const querySchema = z.object({
@@ -26,12 +27,17 @@ export async function GET(request: NextRequest) {
       ? new Date(`${params.month}-01T00:00:00`)
       : startOfMonth(subMonths(toZonedTime(new Date(), "Europe/Paris"), 1))
 
+    const startDate = format(startOfMonth(monthStart), "yyyy-MM-dd")
+    const endDate = format(endOfMonth(monthStart), "yyyy-MM-dd")
     try {
-      const result = await fetchRevenueCatMetrics(
-        format(startOfMonth(monthStart), "yyyy-MM-dd"),
-        format(endOfMonth(monthStart), "yyyy-MM-dd"),
+      return await cachedJson(
+        request,
+        "revenuecat-metrics",
+        { startDate, endDate },
+        () => fetchRevenueCatMetrics(startDate, endDate),
+        // The campaign page can't force a refresh: never keep a result missing figures.
+        { cacheIf: (summary) => !summary.degraded },
       )
-      return NextResponse.json(result)
     } catch (error) {
       if (error instanceof RevenueCatConfigError) {
         return NextResponse.json({ error: error.message }, { status: 502 })

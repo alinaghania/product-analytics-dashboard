@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchLastActivitiesForUsers } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -16,7 +17,9 @@ export async function GET(request: NextRequest) {
 
     const userIds = params.userIds.split(",").filter(Boolean)
 
-    const data = await fetchLastActivitiesForUsers(userIds)
-    return NextResponse.json({ data, generatedAt: new Date().toISOString() })
+    return cachedJson(request, "users-activities", [...userIds].sort(), async () => ({
+      data: await fetchLastActivitiesForUsers(userIds),
+      generatedAt: new Date().toISOString(),
+    }))
   })
 }

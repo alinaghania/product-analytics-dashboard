@@ -1805,6 +1805,14 @@ export async function fetchActiveUsersByVersion(options: {
   return { daily, versions, totalActiveUsers: allUsers.size }
 }
 
+/**
+ * Last day (YYYY-MM-DD) of the activity window `calculateRetentionCurve`
+ * measures: the last cohort day plus `maxWeeks` full weeks.
+ */
+export function retentionWindowEnd(cohortEnd: string, maxWeeks: number): string {
+  return addDaysToDateString(cohortEnd, maxWeeks * 7 + 6)
+}
+
 export async function calculateRetentionCurve(
   cohortStart: string,
   cohortEnd: string,
@@ -1857,8 +1865,7 @@ export async function calculateRetentionCurve(
   }
 
   const today = new Date()
-  const maxSessionDate = new Date(cohortEnd + "T23:59:59Z")
-  maxSessionDate.setUTCDate(maxSessionDate.getUTCDate() + maxWeeks * 7 + 6)
+  const maxSessionDate = new Date(`${retentionWindowEnd(cohortEnd, maxWeeks)}T23:59:59Z`)
   const sessionEndDate = maxSessionDate < today ? maxSessionDate : today
 
   // "Active" on a given day = at least one tracking session OR one app_event

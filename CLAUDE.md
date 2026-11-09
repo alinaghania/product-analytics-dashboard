@@ -26,6 +26,15 @@ Hosted on Cloud Run (project `lotus-9663d`, europe-west1), infra in Terraform �
 - Terraform always runs through `infra/terraform/tf.sh` (authenticates as support@myendora.health)
 - Every resource is labelled `app=endora-dashboard`; `infra/terraform/teardown.sh` deletes the whole stack
 
+### Server cache (cost control)
+
+`lib/server-cache.ts` caches API results until midnight Europe/Paris, shared by every admin: process memory, then the bucket `CACHE_BUCKET` (set on Cloud Run only, so local runs never write to it). Entries are namespaced by Cloud Run revision (a deploy starts empty); the cache is off under `next dev`.
+
+- New GET routes for non-Overview pages: wrap the computation in `cachedJson(request, scope, key, compute)` — `key` = the parsed params in a stable order, `compute` must throw on failure (errors are never cached); `cacheIf` keeps partial results out
+- Server-side data reused across requests (LLM corpus, agent tools): `cachedValue(scope, key, compute)` — the value goes through JSON, so no `Date`/`Map`/Timestamp in it
+- Never cached: Overview data (live by design; only `/api/retention` is cached, once its activity window is over), reads of the `dashboard` database (admins write to it — e.g. the users list with the `contacted` filter), auth, writes
+- `?fresh=1` recomputes. Client side (`lib/data-freshness.ts`): reload buttons (Header, ChartCard, KpiCard, DataTable, ConversationViewer) send it for the requests whose data the page already shows — so a reload handler must call its `refetch()`es before any `await` — while data the page never loaded still comes from the cache; the Header shows the cache date. `RequestOptions.fresh` overrides it: the Overview passes `{ fresh: true }` on routes it shares with cached pages and `{ fresh: false }` for the retention curve
+
 ## Architecture
 
 Next.js 16 App Router with React 19. All pages are client-side rendered ("use client"). UI uses shadcn/ui (Radix primitives + Tailwind 4). Charts use Recharts.
@@ -89,6 +98,8 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 - `lib/firestore-admin-queries.ts` - All Firestore data fetching functions (server-side, Admin SDK)
 - `lib/api-client.ts` - Client-side fetch wrappers for API routes (attaches auth token)
 - `lib/api-utils.ts` - Server-side `withAuth()` helper for API route auth
+- `lib/server-cache.ts` - Server cache of API results until midnight (memory + bucket), `cachedJson()` / `cachedValue()`
+- `lib/data-freshness.ts` - Client side of the cache: per-page cache dates, reload buttons that force `?fresh=1` (state dropped on navigation by `components/dashboard/page-cache-scope.tsx`)
 - `lib/types.ts` - TypeScript types for all data models
 - `components/providers/auth-provider.tsx` - Auth context and login/access-denied screens
 - `components/providers/query-provider.tsx` - React Query client config
@@ -169,6 +180,7 @@ Churn proxy used by the users list filter: `subscriptionStatus` is only written 
 - All Firestore queries go through API routes via Admin SDK - never query Firestore directly from client components
 - New query functions go in `lib/firestore-admin-queries.ts`, exposed via API routes, consumed via `lib/api-client.ts`
 - API routes use `withAuth()` wrapper from `lib/api-utils.ts` for auth + error handling
+- Non-Overview GET routes return `cachedJson(...)` from `lib/server-cache.ts` (see "Server cache")
 - Date handling uses `date-fns` with `date-fns-tz` for Europe/Paris timezone
 - Pages are organized under `app/(dashboard)/` route group
 - JSON serialization: Date objects are serialized as ISO strings by API routes; `api-client.ts` converts them back to Date objects

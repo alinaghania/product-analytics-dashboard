@@ -8,6 +8,7 @@ import { ChatMessage } from "./chat-message"
 import { RefreshCcw, Clock, AlertTriangle, MessageSquare, RefreshCw } from "lucide-react"
 import { formatLatency } from "@/lib/date-utils"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
+import { runReload } from "@/lib/data-freshness"
 import { cn } from "@/lib/utils"
 
 interface ConversationViewerProps {
@@ -55,7 +56,7 @@ export function ConversationViewer({
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              onClick={onReload}
+              onClick={() => runReload(onReload)}
               disabled={isLoading}
             >
               <RefreshCcw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />

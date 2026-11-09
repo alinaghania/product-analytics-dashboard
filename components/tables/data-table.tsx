@@ -4,6 +4,7 @@ import { type ColumnDef, flexRender, getCoreRowModel, useReactTable, type Pagina
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, Download, RefreshCcw } from "lucide-react"
+import { runReload } from "@/lib/data-freshness"
 import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData, TValue> {
@@ -57,7 +58,7 @@ export function DataTable<TData, TValue>({
             <Button
               variant="outline"
               size="sm"
-              onClick={onReload}
+              onClick={() => runReload(onReload)}
               disabled={isLoading}
               className="gap-2 bg-transparent"
             >

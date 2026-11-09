@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { useMutation } from "@tanstack/react-query"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -58,8 +60,10 @@ function ConversationEntry({
 }
 
 export function ConversationInsightsPanel({ onOpenChats }: ConversationInsightsPanelProps) {
+  // The server keeps the day's analysis (shared by every admin): the first click
+  // shows it, "Régénérer" asks for a new one.
   const { mutate, isPending, data, error } = useMutation({
-    mutationFn: generateConversationInsights,
+    mutationFn: (fresh: boolean) => generateConversationInsights({ fresh }),
   })
 
   return (
@@ -71,13 +75,13 @@ export function ConversationInsightsPanel({ onOpenChats }: ConversationInsightsP
             Analyse IA des 200 dernières conversations (hors onboarding).
           </p>
         </div>
-        <Button onClick={() => mutate()} disabled={isPending} className="shrink-0">
+        <Button onClick={() => mutate(Boolean(data))} disabled={isPending} className="shrink-0">
           {isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Sparkles className="mr-2 h-4 w-4" />
           )}
-          {isPending ? "Génération…" : "Générer"}
+          {isPending ? "Génération…" : data ? "Régénérer" : "Générer"}
         </Button>
       </CardHeader>
 
@@ -139,6 +143,7 @@ export function ConversationInsightsPanel({ onOpenChats }: ConversationInsightsP
 
             {/* Meta line */}
             <p className="text-xs text-muted-foreground">
+              Générée le {format(data.generatedAt, "d MMM 'à' HH:mm", { locale: fr })} ·{" "}
               {data.meta.conversationsAnalyzed} conversations analysées · {data.meta.onboardingExcluded}{" "}
               onboarding exclues · {data.meta.hallucinationsFiltered} hallucinations filtrées
               {data.meta.truncated ? " · corpus tronqué" : ""}

@@ -3,7 +3,10 @@
 import { Button } from "@/components/ui/button"
 import { RefreshCcw } from "lucide-react"
 import { useState } from "react"
+import { format, isToday } from "date-fns"
+import { fr } from "date-fns/locale"
 import { formatDateTime } from "@/lib/date-utils"
+import { runReload, usePageCacheDate } from "@/lib/data-freshness"
 import { MobileSidebar } from "@/components/dashboard/mobile-sidebar"
 
 interface HeaderProps {
@@ -11,10 +14,15 @@ interface HeaderProps {
   description?: string
   lastUpdated?: Date
   onReloadAll?: () => void | Promise<void>
+  /** Show when the cached figures on the page were computed (off on the live Overview). */
+  showCacheDate?: boolean
 }
 
-export function Header({ title, description, lastUpdated, onReloadAll }: HeaderProps) {
+const formatCacheDate = (date: Date) => format(date, isToday(date) ? "'de' HH:mm" : "'du' d MMM 'à' HH:mm", { locale: fr })
+
+export function Header({ title, description, lastUpdated, onReloadAll, showCacheDate = true }: HeaderProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const oldestCachedAt = usePageCacheDate()
 
   const handleReloadAll = async () => {
     if (!onReloadAll) return
@@ -23,7 +31,8 @@ export function Header({ title, description, lastUpdated, onReloadAll }: HeaderP
     setIsRefreshing(true)
 
     try {
-      await onReloadAll()
+      // The data already on the page is recomputed instead of served from the cache.
+      await runReload(onReloadAll)
       console.log("[v0] ✅ Header: All data refreshed successfully")
     } catch (error) {
       console.error("[v0] ❌ Header: Error refreshing data:", error)
@@ -42,10 +51,19 @@ export function Header({ title, description, lastUpdated, onReloadAll }: HeaderP
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 md:gap-4">
-        {lastUpdated && (
-          <span className="hidden text-xs text-muted-foreground md:inline">
-            Last updated: {formatDateTime(lastUpdated)}
+        {showCacheDate && oldestCachedAt ? (
+          <span
+            className="hidden text-xs text-muted-foreground md:inline"
+            title="Chiffres servis par le cache du serveur, recalculé chaque jour. « Reload All » les recalcule maintenant."
+          >
+            Données {formatCacheDate(oldestCachedAt)} (cache)
           </span>
+        ) : (
+          lastUpdated && (
+            <span className="hidden text-xs text-muted-foreground md:inline">
+              Last updated: {formatDateTime(lastUpdated)}
+            </span>
+          )
         )}
         <Button
           variant="outline"

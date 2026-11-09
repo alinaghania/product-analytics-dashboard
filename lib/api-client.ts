@@ -1,5 +1,6 @@
 "use client"
 
+import { recordCacheStatus, shouldForceFresh } from "./data-freshness"
 import { getFirebaseAuth } from "./firebase"
 // Type-only import: erased at build time, so the "server-only" guard inside
 // agent.ts is never evaluated in the browser bundle.
@@ -30,64 +31,63 @@ async function getAuthToken(): Promise<string> {
   return user.getIdToken()
 }
 
-async function apiFetch<T>(path: string, params?: Record<string, string | undefined>): Promise<T> {
-  const token = await getAuthToken()
+interface RequestOptions {
+  /**
+   * true: skip the server cache (lib/server-cache.ts) and recompute, e.g. the
+   * Overview's live data or "Régénérer". false: always accept a cached answer.
+   * Unset: recompute only when a reload button re-sends data already on display.
+   */
+  fresh?: boolean
+}
 
+// Sends a request to an API route and remembers, for the page that made it, how
+// the server cache answered (lib/data-freshness.ts). `fresh` is decided before
+// the first await, while a reload button's handler is still running.
+async function apiRequest(
+  path: string,
+  params: Record<string, string | undefined> | undefined,
+  init: RequestInit,
+  options?: RequestOptions,
+): Promise<Response> {
+  const page = window.location.pathname
   const url = new URL(path, window.location.origin)
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) url.searchParams.set(key, value)
-    })
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (value !== undefined) url.searchParams.set(key, value)
   }
+  const request = url.pathname + url.search
+  if (options?.fresh ?? shouldForceFresh(page, request)) url.searchParams.set("fresh", "1")
 
-  const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const headers = new Headers(init.headers)
+  headers.set("Authorization", `Bearer ${await getAuthToken()}`)
+  const response = await fetch(url.toString(), { ...init, headers })
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: response.statusText }))
     throw new Error(body.error || `API error: ${response.status}`)
   }
 
-  return response.json()
+  recordCacheStatus(page, request, url.pathname, response.headers)
+  return response
+}
+
+async function apiFetch<T>(path: string, params?: Record<string, string | undefined>, options?: RequestOptions): Promise<T> {
+  return (await apiRequest(path, params, {}, options)).json()
 }
 
 // POST twin of apiFetch (JSON body, same auth + error handling).
-async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const token = await getAuthToken()
-
-  const response = await fetch(new URL(path, window.location.origin).toString(), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ error: response.statusText }))
-    throw new Error(errorBody.error || `API error: ${response.status}`)
-  }
-
+async function apiPost<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
+  const response = await apiRequest(
+    path,
+    undefined,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    options,
+  )
   return response.json()
 }
 
 // DELETE twin of apiPost (no body).
 async function apiDelete<T>(path: string): Promise<T> {
-  const token = await getAuthToken()
-
-  const response = await fetch(new URL(path, window.location.origin).toString(), {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ error: response.statusText }))
-    throw new Error(errorBody.error || `API error: ${response.status}`)
-  }
-
-  return response.json()
+  return (await apiRequest(path, undefined, { method: "DELETE" })).json()
 }
 
 // ============= Auth =============
@@ -110,19 +110,23 @@ export async function fetchUsers(options: {
   contacted?: boolean
   churned?: boolean
   inactive?: boolean
-}): Promise<{ data: any[]; hasMore: boolean; lastCreatedAt?: string }> {
-  const result = await apiFetch<any>("/api/users", {
-    limit: options.limitCount?.toString(),
-    search: options.search,
-    startAfter: options.startAfter,
-    from: options.from,
-    to: options.to,
-    platform: options.platform,
-    premium: options.premium === undefined ? undefined : String(options.premium),
-    contacted: options.contacted === undefined ? undefined : String(options.contacted),
-    churned: options.churned ? "true" : undefined,
-    inactive: options.inactive ? "true" : undefined,
-  })
+}, requestOptions?: RequestOptions): Promise<{ data: any[]; hasMore: boolean; lastCreatedAt?: string }> {
+  const result = await apiFetch<any>(
+    "/api/users",
+    {
+      limit: options.limitCount?.toString(),
+      search: options.search,
+      startAfter: options.startAfter,
+      from: options.from,
+      to: options.to,
+      platform: options.platform,
+      premium: options.premium === undefined ? undefined : String(options.premium),
+      contacted: options.contacted === undefined ? undefined : String(options.contacted),
+      churned: options.churned ? "true" : undefined,
+      inactive: options.inactive ? "true" : undefined,
+    },
+    requestOptions,
+  )
   return {
     data: (result.data || []).map((u: any) => ({
       ...u,
@@ -210,9 +214,17 @@ export interface ConversationInsights {
   }
 }
 
-export async function generateConversationInsights(): Promise<ConversationInsights> {
-  const result = await apiPost<{ data: ConversationInsights }>("/api/users/conversation-insights", {})
-  return result.data
+// Cached server-side for the day: `generatedAt` dates the analysis shown;
+// `fresh` ("Régénérer") runs a new one.
+export async function generateConversationInsights(
+  requestOptions?: RequestOptions,
+): Promise<ConversationInsights & { generatedAt: Date }> {
+  const result = await apiPost<{ data: ConversationInsights; generatedAt: string }>(
+    "/api/users/conversation-insights",
+    {},
+    requestOptions,
+  )
+  return { ...result.data, generatedAt: new Date(result.generatedAt) }
 }
 
 export interface Citation {
@@ -252,18 +264,27 @@ export async function askRevenueAgent(
 
 export type { DeepProgress, DeepReport }
 
-/** Deep analysis: reads the NDJSON stream, reporting progress until the report arrives. */
-export async function runDeepAnalysis(question: string | null, onProgress: (p: DeepProgress) => void): Promise<DeepReport> {
-  const token = await getAuthToken()
-  const response = await fetch(new URL("/api/revenue-agent/deep", window.location.origin).toString(), {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(question ? { question } : {}),
-  })
-  if (!response.ok || !response.body) {
-    const errorBody = await response.json().catch(() => ({ error: response.statusText }))
-    throw new Error(errorBody.error || `API error: ${response.status}`)
-  }
+/**
+ * Deep analysis: reads the NDJSON stream, reporting progress until the report
+ * arrives. A report already produced today for the same question comes back at
+ * once with its `cachedAt`; `fresh` forces a new run.
+ */
+export async function runDeepAnalysis(
+  question: string | null,
+  onProgress: (p: DeepProgress) => void,
+  requestOptions?: RequestOptions,
+): Promise<{ report: DeepReport; cachedAt: Date | null }> {
+  const response = await apiRequest(
+    "/api/revenue-agent/deep",
+    undefined,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(question ? { question } : {}),
+    },
+    requestOptions,
+  )
+  if (!response.body) throw new Error("Analyse interrompue avant la fin.")
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
   let buffer = ""
   for (;;) {
@@ -276,8 +297,9 @@ export async function runDeepAnalysis(question: string | null, onProgress: (p: D
       if (!line.trim()) continue
       const event = JSON.parse(line)
       if (event.type === "progress") onProgress(event as DeepProgress)
-      else if (event.type === "result") return event.data as DeepReport
-      else if (event.type === "error") throw new Error(event.error)
+      else if (event.type === "result") {
+        return { report: event.data as DeepReport, cachedAt: event.cachedAt ? new Date(event.cachedAt) : null }
+      } else if (event.type === "error") throw new Error(event.error)
     }
   }
   throw new Error("Analyse interrompue avant la fin.")
@@ -746,26 +768,33 @@ export async function fetchTrackingEntries(options: {
 
 // ============= Photos =============
 
-export async function fetchPhotos(from?: string, to?: string) {
-  const result = await apiFetch<any>("/api/photos", { from, to })
+export async function fetchPhotos(from?: string, to?: string, requestOptions?: RequestOptions) {
+  const result = await apiFetch<any>("/api/photos", { from, to }, requestOptions)
   return (result.data || []).map((p: any) => ({
     ...p,
     timestamp: p.timestamp ? new Date(p.timestamp) : new Date(),
   }))
 }
 
-export async function fetchPhotoCount(options?: {
-  from?: string
-  to?: string
-  time?: "morning" | "evening"
-  bloated?: boolean
-}): Promise<number> {
-  const result = await apiFetch<{ count: number }>("/api/photos/count", {
-    from: options?.from,
-    to: options?.to,
-    time: options?.time,
-    bloated: options?.bloated === undefined ? undefined : String(options.bloated),
-  })
+export async function fetchPhotoCount(
+  options?: {
+    from?: string
+    to?: string
+    time?: "morning" | "evening"
+    bloated?: boolean
+  },
+  requestOptions?: RequestOptions,
+): Promise<number> {
+  const result = await apiFetch<{ count: number }>(
+    "/api/photos/count",
+    {
+      from: options?.from,
+      to: options?.to,
+      time: options?.time,
+      bloated: options?.bloated === undefined ? undefined : String(options.bloated),
+    },
+    requestOptions,
+  )
   return result.count
 }
 
@@ -789,12 +818,13 @@ export async function calculateRetentionCurve(
   cohortStart: string,
   cohortEnd: string,
   maxWeeks?: number,
+  requestOptions?: RequestOptions,
 ): Promise<RetentionCurveResult> {
-  const result = await apiFetch<{ data: RetentionCurveResult }>("/api/retention", {
-    cohortStart,
-    cohortEnd,
-    maxWeeks: maxWeeks?.toString(),
-  })
+  const result = await apiFetch<{ data: RetentionCurveResult }>(
+    "/api/retention",
+    { cohortStart, cohortEnd, maxWeeks: maxWeeks?.toString() },
+    requestOptions,
+  )
   return result.data
 }
 
