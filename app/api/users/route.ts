@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchUsers } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -32,24 +33,30 @@ export async function GET(request: NextRequest) {
       inactive: searchParams.get("inactive") || undefined,
     })
 
-    const result = await fetchUsers({
-      limitCount: params.limit,
-      search: params.search,
-      startAfter: params.startAfter,
-      from: params.from,
-      to: params.to,
-      platform: params.platform,
-      premium: params.premium === undefined ? undefined : params.premium === "true",
-      contacted: params.contacted === undefined ? undefined : params.contacted === "true",
-      churned: params.churned === "true" || undefined,
-      inactive: params.inactive === "true" || undefined,
-    })
+    const listUsers = async () => {
+      const result = await fetchUsers({
+        limitCount: params.limit,
+        search: params.search,
+        startAfter: params.startAfter,
+        from: params.from,
+        to: params.to,
+        platform: params.platform,
+        premium: params.premium === undefined ? undefined : params.premium === "true",
+        contacted: params.contacted === undefined ? undefined : params.contacted === "true",
+        churned: params.churned === "true" || undefined,
+        inactive: params.inactive === "true" || undefined,
+      })
+      return {
+        data: result.data,
+        hasMore: result.hasMore,
+        lastCreatedAt: result.lastCreatedAt,
+        generatedAt: new Date().toISOString(),
+      }
+    }
 
-    return NextResponse.json({
-      data: result.data,
-      hasMore: result.hasMore,
-      lastCreatedAt: result.lastCreatedAt,
-      generatedAt: new Date().toISOString(),
-    })
+    // The "contacted" filter reads the outreach log that admins write to: a
+    // cached list would ignore the contact they just logged.
+    if (params.contacted !== undefined) return NextResponse.json(await listUsers())
+    return cachedJson(request, "users", params, listUsers)
   })
 }

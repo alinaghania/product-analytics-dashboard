@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchPhotos } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -16,8 +17,9 @@ export async function GET(request: NextRequest) {
       to: searchParams.get("to") || undefined,
     })
 
-    const data = await fetchPhotos({ from: params.from, to: params.to })
-
-    return NextResponse.json({ data, generatedAt: new Date().toISOString() })
+    return cachedJson(request, "photos", params, async () => ({
+      data: await fetchPhotos({ from: params.from, to: params.to }),
+      generatedAt: new Date().toISOString(),
+    }))
   })
 }

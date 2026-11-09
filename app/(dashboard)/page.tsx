@@ -83,6 +83,14 @@ const COUNTRY_PIE_RANGES: { value: CountryPieRange; label: string; days: number 
 // Before the first signup (2025-12-14) — "All time" lower bound.
 const ALL_TIME_FROM = "2025-01-01"
 
+// The Overview shows live data: most of its routes are never cached, and LIVE
+// makes the few it shares with cached pages (users, photos) skip the server
+// cache too. The one exception is the retention curve (app/api/retention),
+// cached once its activity window is over: it can't change before midnight,
+// so even "Reload All" reads it from the cache (STABLE).
+const LIVE = { fresh: true }
+const STABLE = { fresh: false }
+
 // App versions are dynamic labels, so their colors come from a fixed-order
 // palette assigned by rank (biggest series first) instead of a name→color map.
 // The order was validated for adjacent-pair distinguishability (CVD + normal
@@ -159,7 +167,7 @@ export default function OverviewPage() {
     refetch: refetchUsers,
   } = useQuery({
     queryKey: ["all-users"],
-    queryFn: () => fetchUsers({ limitCount: 5000 }),
+    queryFn: () => fetchUsers({ limitCount: 5000 }, LIVE),
     enabled: false,
   })
 
@@ -197,7 +205,7 @@ export default function OverviewPage() {
     refetch: refetchTotalPhotoCount,
   } = useQuery({
     queryKey: ["photos-count", dateRange.from, dateRange.to],
-    queryFn: () => fetchPhotoCount({ from: dateRange.from, to: dateRange.to }),
+    queryFn: () => fetchPhotoCount({ from: dateRange.from, to: dateRange.to }, LIVE),
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
   })
@@ -345,7 +353,7 @@ export default function OverviewPage() {
     refetch: refetchRetention,
   } = useQuery({
     queryKey: ["retention-curve", retentionCohortStart, retentionCohortEnd, retentionWeeks],
-    queryFn: () => calculateRetentionCurve(retentionCohortStart, retentionCohortEnd, retentionWeeks),
+    queryFn: () => calculateRetentionCurve(retentionCohortStart, retentionCohortEnd, retentionWeeks, STABLE),
   })
 
   const {
@@ -364,7 +372,7 @@ export default function OverviewPage() {
     refetch: refetchPhotos,
   } = useQuery({
     queryKey: ["photos", dateRange.from, dateRange.to],
-    queryFn: () => fetchPhotos(dateRange.from, dateRange.to),
+    queryFn: () => fetchPhotos(dateRange.from, dateRange.to, LIVE),
     enabled: false,
   })
 
@@ -856,6 +864,7 @@ export default function OverviewPage() {
         description="Key metrics and trends"
         lastUpdated={lastUpdated}
         onReloadAll={handleReloadAll}
+        showCacheDate={false}
       />
 
       <div className="flex-1 space-y-6 p-4 md:p-6">

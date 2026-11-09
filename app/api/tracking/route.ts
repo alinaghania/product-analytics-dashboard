@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchTrackingMetrics, fetchTrackingEntries, fetchTrackingSessions } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -22,27 +23,30 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get("limit") || "100",
     })
 
-    if (params.mode === "entries") {
-      const result = await fetchTrackingEntries({
-        from: params.from,
-        to: params.to,
-        userId: params.userId,
-        limitCount: params.limit,
-      })
-      return NextResponse.json({ data: result.data, hasMore: result.hasMore, generatedAt: new Date().toISOString() })
-    }
+    return cachedJson(request, "tracking", params, async () => {
+      const generatedAt = new Date().toISOString()
 
-    if (params.mode === "sessions") {
-      const result = await fetchTrackingSessions({
-        from: params.from,
-        to: params.to,
-        limitCount: params.limit,
-      })
-      return NextResponse.json({ data: result.data, hasMore: result.hasMore, generatedAt: new Date().toISOString() })
-    }
+      if (params.mode === "entries") {
+        const result = await fetchTrackingEntries({
+          from: params.from,
+          to: params.to,
+          userId: params.userId,
+          limitCount: params.limit,
+        })
+        return { data: result.data, hasMore: result.hasMore, generatedAt }
+      }
 
-    // mode === "metrics"
-    const data = await fetchTrackingMetrics({ from: params.from, to: params.to })
-    return NextResponse.json({ data, generatedAt: new Date().toISOString() })
+      if (params.mode === "sessions") {
+        const result = await fetchTrackingSessions({
+          from: params.from,
+          to: params.to,
+          limitCount: params.limit,
+        })
+        return { data: result.data, hasMore: result.hasMore, generatedAt }
+      }
+
+      // mode === "metrics"
+      return { data: await fetchTrackingMetrics({ from: params.from, to: params.to }), generatedAt }
+    })
   })
 }

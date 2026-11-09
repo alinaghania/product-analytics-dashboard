@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import {
   fetchUserById,
   fetchUserRawDoc,
@@ -44,97 +45,112 @@ async function wrapSection<T>(
   }
 }
 
+class UserNotFoundError extends Error {}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   return withAuth(request, async () => {
     const { userId } = await params
 
-    const user = await fetchUserById(userId)
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    const [
-      rawDoc,
-      trackingEntries,
-      trackingSessions,
-      conversations,
-      photos,
-      appEvents,
-      bubbleEvents,
-      routines,
-      foodTrials,
-    ] = await Promise.all([
-      safeQuery(() => fetchUserRawDoc(userId), null as Record<string, unknown> | null),
-      wrapSection(fetchUserTrackingEntries(userId, { limitCount: 200 }), []),
-      wrapSection(fetchUserTrackingSessions(userId, 100), []),
-      safeQuery(() => fetchUserChatSessions(userId), [] as Awaited<ReturnType<typeof fetchUserChatSessions>>),
-      wrapSection(fetchUserPhotos(userId, 200), []),
-      wrapSection(fetchUserAppEvents(userId, 200), []),
-      wrapSection(fetchUserBubbleEvents(userId, 200), []),
-      wrapSection(fetchUserRoutines(userId, 100), []),
-      wrapSection(fetchUserFoodTrials(userId, 200), []),
-    ])
-
-    // Derive lastActivity from already-fetched per-user sections — avoids a
-    // separate 1000-doc scan + N+1 message lookup via fetchLastActivitiesForUsers.
-    type ActivityCandidate = { timestamp: Date; type: string; description: string } | null
-    const pickLatest = (
-      list: Array<{ createdAt?: any; updatedAt?: any; startedAt?: any; timestamp?: any }>,
-      type: string,
-      description: string,
-    ): ActivityCandidate => {
-      let best: Date | null = null
-      for (const row of list) {
-        const ts = row.updatedAt || row.createdAt || row.startedAt || row.timestamp
-        if (ts instanceof Date && (!best || ts > best)) best = ts
+    try {
+      return await cachedJson(request, "user-full", { userId }, () => buildUserProfile(userId), {
+        // A section that failed to load is not frozen until midnight.
+        cacheIf: (payload: { data: { sections: Record<string, Section<unknown>> } }) =>
+          Object.values(payload.data.sections).every((section) => section.error === null),
+      })
+    } catch (error) {
+      if (error instanceof UserNotFoundError) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 })
       }
-      return best ? { timestamp: best, type, description } : null
+      throw error
     }
-    const candidates: ActivityCandidate[] = [
-      pickLatest(trackingEntries.data as any, "tracking", "Tracked symptoms"),
-      pickLatest(trackingSessions.data as any, "session", "Tracking session"),
-      pickLatest(photos.data as any, "photo", "Uploaded a photo"),
-      pickLatest(appEvents.data as any, "event", "App interaction"),
-      pickLatest(bubbleEvents.data as any, "bubble", "Bubble interaction"),
-      pickLatest(conversations.data as any, "chat", "Chat conversation"),
-    ]
-    const lastActivity = candidates
-      .filter((c): c is { timestamp: Date; type: string; description: string } => c !== null)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0] || null
-
-    const sourceReadsEstimate =
-      (Array.isArray(trackingEntries.data) ? trackingEntries.data.length : 0) +
-      (Array.isArray(trackingSessions.data) ? trackingSessions.data.length : 0) +
-      (Array.isArray(conversations.data) ? conversations.data.length : 0) +
-      (Array.isArray(photos.data) ? photos.data.length : 0) +
-      (Array.isArray(appEvents.data) ? appEvents.data.length : 0) +
-      (Array.isArray(bubbleEvents.data) ? bubbleEvents.data.length : 0) +
-      (Array.isArray(routines.data) ? routines.data.length : 0) +
-      (Array.isArray(foodTrials.data) ? foodTrials.data.length : 0) +
-      1
-
-    const payload = {
-      data: {
-        user,
-        raw: {
-          userDoc: rawDoc.data,
-        },
-        sections: {
-          trackingEntries,
-          trackingSessions,
-          conversations,
-          photos,
-          appEvents,
-          bubbleEvents,
-          routines,
-          foodTrials,
-          lastActivity: { data: lastActivity, error: null },
-        },
-      },
-      generatedAt: new Date().toISOString(),
-      sourceReadsEstimate,
-    }
-
-    return NextResponse.json(serializeTimestamps(payload))
   })
+}
+
+async function buildUserProfile(userId: string) {
+  const user = await fetchUserById(userId)
+  if (!user) throw new UserNotFoundError()
+
+  const [
+    rawDoc,
+    trackingEntries,
+    trackingSessions,
+    conversations,
+    photos,
+    appEvents,
+    bubbleEvents,
+    routines,
+    foodTrials,
+  ] = await Promise.all([
+    safeQuery(() => fetchUserRawDoc(userId), null as Record<string, unknown> | null),
+    wrapSection(fetchUserTrackingEntries(userId, { limitCount: 200 }), []),
+    wrapSection(fetchUserTrackingSessions(userId, 100), []),
+    safeQuery(() => fetchUserChatSessions(userId), [] as Awaited<ReturnType<typeof fetchUserChatSessions>>),
+    wrapSection(fetchUserPhotos(userId, 200), []),
+    wrapSection(fetchUserAppEvents(userId, 200), []),
+    wrapSection(fetchUserBubbleEvents(userId, 200), []),
+    wrapSection(fetchUserRoutines(userId, 100), []),
+    wrapSection(fetchUserFoodTrials(userId, 200), []),
+  ])
+
+  // Derive lastActivity from already-fetched per-user sections — avoids a
+  // separate 1000-doc scan + N+1 message lookup via fetchLastActivitiesForUsers.
+  type ActivityCandidate = { timestamp: Date; type: string; description: string } | null
+  const pickLatest = (
+    list: Array<{ createdAt?: any; updatedAt?: any; startedAt?: any; timestamp?: any }>,
+    type: string,
+    description: string,
+  ): ActivityCandidate => {
+    let best: Date | null = null
+    for (const row of list) {
+      const ts = row.updatedAt || row.createdAt || row.startedAt || row.timestamp
+      if (ts instanceof Date && (!best || ts > best)) best = ts
+    }
+    return best ? { timestamp: best, type, description } : null
+  }
+  const candidates: ActivityCandidate[] = [
+    pickLatest(trackingEntries.data as any, "tracking", "Tracked symptoms"),
+    pickLatest(trackingSessions.data as any, "session", "Tracking session"),
+    pickLatest(photos.data as any, "photo", "Uploaded a photo"),
+    pickLatest(appEvents.data as any, "event", "App interaction"),
+    pickLatest(bubbleEvents.data as any, "bubble", "Bubble interaction"),
+    pickLatest(conversations.data as any, "chat", "Chat conversation"),
+  ]
+  const lastActivity = candidates
+    .filter((c): c is { timestamp: Date; type: string; description: string } => c !== null)
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0] || null
+
+  const sourceReadsEstimate =
+    (Array.isArray(trackingEntries.data) ? trackingEntries.data.length : 0) +
+    (Array.isArray(trackingSessions.data) ? trackingSessions.data.length : 0) +
+    (Array.isArray(conversations.data) ? conversations.data.length : 0) +
+    (Array.isArray(photos.data) ? photos.data.length : 0) +
+    (Array.isArray(appEvents.data) ? appEvents.data.length : 0) +
+    (Array.isArray(bubbleEvents.data) ? bubbleEvents.data.length : 0) +
+    (Array.isArray(routines.data) ? routines.data.length : 0) +
+    (Array.isArray(foodTrials.data) ? foodTrials.data.length : 0) +
+    1
+
+  const payload = {
+    data: {
+      user,
+      raw: {
+        userDoc: rawDoc.data,
+      },
+      sections: {
+        trackingEntries,
+        trackingSessions,
+        conversations,
+        photos,
+        appEvents,
+        bubbleEvents,
+        routines,
+        foodTrials,
+        lastActivity: { data: lastActivity, error: null },
+      },
+    },
+    generatedAt: new Date().toISOString(),
+    sourceReadsEstimate,
+  }
+
+  return serializeTimestamps(payload)
 }

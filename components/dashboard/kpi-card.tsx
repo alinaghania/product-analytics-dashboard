@@ -3,6 +3,7 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RefreshCcw, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { runReload } from "@/lib/data-freshness"
 import { cn } from "@/lib/utils"
 import { InfoTooltip } from "@/components/dashboard/info-tooltip"
 import { goalStatus, goalProgress, type GoalStatus } from "@/lib/metric-goals"
@@ -101,7 +102,7 @@ export function KpiCard({
 
   const handleReload = () => {
     console.log("[v0] 🔘 KpiCard reload clicked:", label)
-    onReload?.()
+    void runReload(onReload)
   }
 
   return (

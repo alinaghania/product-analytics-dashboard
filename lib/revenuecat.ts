@@ -160,6 +160,7 @@ export async function fetchRevenueCatMetrics(
 ): Promise<RevenueCatMetricsSummary> {
   const projectId = await getProjectId()
   const warnings: string[] = []
+  let degraded = false // a call failed, as opposed to data RevenueCat doesn't have yet
   const monthParams = { start_date: startDate, end_date: endDate, resolution: "2" }
   // Cohort window for the ARPPU: the requested month and the 5 before it.
   const cohortStart = format(subMonths(new Date(`${startDate}T00:00:00`), ARPPU_COHORT_MONTHS - 1), "yyyy-MM-dd")
@@ -191,6 +192,7 @@ export async function fetchRevenueCatMetrics(
     },
     (error) => {
       console.error("[revenuecat] conversion_to_paying failed:", error)
+      degraded = true
       warnings.push(
         "Taux installation → payante indisponible côté RevenueCat" +
           (error instanceof RevenueCatConfigError ? ` (${error.message})` : ""),
@@ -215,6 +217,7 @@ export async function fetchRevenueCatMetrics(
     },
     (error) => {
       console.error("[revenuecat] ltv_per_paying_customer failed:", error)
+      degraded = true
       warnings.push(
         "LTV par payante indisponible côté RevenueCat" +
           (error instanceof RevenueCatConfigError ? ` (${error.message})` : ""),
@@ -245,6 +248,7 @@ export async function fetchRevenueCatMetrics(
         : null,
     (error) => {
       console.error("[revenuecat] net ratio failed:", error)
+      degraded = true
       return null
     },
   )
@@ -278,6 +282,7 @@ export async function fetchRevenueCatMetrics(
     ...conversion,
     conversionTimeframe: CONVERSION_TIMEFRAME,
     warning: warnings.length > 0 ? warnings.join(" · ") : undefined,
+    degraded,
   }
 }
 

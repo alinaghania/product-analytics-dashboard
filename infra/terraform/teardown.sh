@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deletes EVERYTHING this stack created: Cloud Run service, images, secrets and
-# their values, deployer account, GitHub login (WIF), IAM grants, budget and
-# alert channels. Leaves alone what existed before: the endora-dashboard-readonly
+# their values, cache bucket and its entries, deployer account, GitHub login
+# (WIF), IAM grants, budget and alert channels. Leaves alone what existed before: the endora-dashboard-readonly
 # account (used for local dev) and the project's APIs.
 set -euo pipefail
 cd "$(dirname "$0")"

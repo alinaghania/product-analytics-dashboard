@@ -454,6 +454,8 @@ export interface RevenueCatMetricsSummary {
   /** Conversion window used, e.g. "30_days". */
   conversionTimeframe: string
   warning?: string
+  /** A RevenueCat call failed (figures left empty): the server doesn't cache this result. */
+  degraded: boolean
 }
 
 // Overview KPIs — today's active subscriptions per plan (GET /api/revenuecat/subscriptions).

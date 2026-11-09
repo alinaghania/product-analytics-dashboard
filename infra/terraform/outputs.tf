@@ -17,3 +17,8 @@ output "deployer_service_account" {
   description = "Service account the deploy workflow impersonates."
   value       = google_service_account.deployer.email
 }
+
+output "cache_bucket" {
+  description = "Bucket of the server-side cache (lib/server-cache.ts)."
+  value       = google_storage_bucket.cache.name
+}

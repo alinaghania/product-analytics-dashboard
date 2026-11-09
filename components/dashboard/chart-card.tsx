@@ -5,6 +5,7 @@ import type React from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RefreshCcw } from "lucide-react"
+import { runReload } from "@/lib/data-freshness"
 import { cn } from "@/lib/utils"
 
 interface ChartCardProps {
@@ -20,7 +21,7 @@ export function ChartCard({ title, description, children, isLoading, onReload, c
   const handleReload = () => {
     const titleText = typeof title === "string" ? title : "Chart"
     console.log("[v0] 🔘 ChartCard reload clicked:", titleText)
-    onReload?.()
+    void runReload(onReload)
   }
 
   return (

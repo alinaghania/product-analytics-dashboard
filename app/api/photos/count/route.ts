@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchPhotoCount } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -20,13 +21,14 @@ export async function GET(request: NextRequest) {
       bloated: searchParams.get("bloated") || undefined,
     })
 
-    const count = await fetchPhotoCount({
-      from: params.from,
-      to: params.to,
-      time: params.time,
-      bloated: params.bloated === undefined ? undefined : params.bloated === "true",
+    return cachedJson(request, "photos-count", params, async () => {
+      const count = await fetchPhotoCount({
+        from: params.from,
+        to: params.to,
+        time: params.time,
+        bloated: params.bloated === undefined ? undefined : params.bloated === "true",
+      })
+      return { count, generatedAt: new Date().toISOString(), sourceReadsEstimate: 1 }
     })
-
-    return NextResponse.json({ count, generatedAt: new Date().toISOString(), sourceReadsEstimate: 1 })
   })
 }

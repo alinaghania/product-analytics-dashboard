@@ -1,12 +1,16 @@
 import { initializeApp, getApps, cert, applicationDefault, type App, type Credential } from "firebase-admin/app"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getAuth, type Auth } from "firebase-admin/auth"
+import { getStorage } from "firebase-admin/storage"
 import { isCloudRun, readServiceAccountKey } from "./service-account"
+
+type Bucket = ReturnType<ReturnType<typeof getStorage>["bucket"]>
 
 let app: App | undefined
 let db: Firestore | undefined
 let dashboardDb: Firestore | undefined
 let auth: Auth | undefined
+let cacheBucket: Bucket | undefined
 
 // Named Firestore database owned by the dashboard. The service account only
 // has write access on this database (conditional IAM binding) — the mobile
@@ -85,6 +89,18 @@ export function getAdminAuth(): Auth {
     auth = getAuth(adminApp)
   }
   return auth
+}
+
+// Private bucket holding the server-side cache (lib/server-cache.ts). Only set
+// on Cloud Run (CACHE_BUCKET, from Terraform); null elsewhere, so local runs
+// never write into the production cache.
+export function getCacheBucket(): Bucket | null {
+  const name = process.env.CACHE_BUCKET
+  if (!name) return null
+  if (!cacheBucket) {
+    cacheBucket = getStorage(initAdmin()).bucket(name)
+  }
+  return cacheBucket
 }
 
 // Admin emails allowed to access the dashboard. Server-only env var (no

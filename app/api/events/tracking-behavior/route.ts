@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchAppEvents } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -16,17 +17,18 @@ export async function GET(request: NextRequest) {
       to: searchParams.get("to"),
     })
 
-    const [startedResult, sectionSavedResult, completedResult] = await Promise.all([
-      fetchAppEvents({ from: params.from, to: params.to, name: "tracking_session_started", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "tracking_section_saved", limitCount: 5000 }),
-      fetchAppEvents({ from: params.from, to: params.to, name: "tracking_session_completed", limitCount: 5000 }),
-    ])
-
-    return NextResponse.json({
-      started: startedResult.data,
-      sectionSaved: sectionSavedResult.data,
-      completed: completedResult.data,
-      generatedAt: new Date().toISOString(),
+    return cachedJson(request, "events-tracking-behavior", params, async () => {
+      const [startedResult, sectionSavedResult, completedResult] = await Promise.all([
+        fetchAppEvents({ from: params.from, to: params.to, name: "tracking_session_started", limitCount: 5000 }),
+        fetchAppEvents({ from: params.from, to: params.to, name: "tracking_section_saved", limitCount: 5000 }),
+        fetchAppEvents({ from: params.from, to: params.to, name: "tracking_session_completed", limitCount: 5000 }),
+      ])
+      return {
+        started: startedResult.data,
+        sectionSaved: sectionSavedResult.data,
+        completed: completedResult.data,
+        generatedAt: new Date().toISOString(),
+      }
     })
   })
 }

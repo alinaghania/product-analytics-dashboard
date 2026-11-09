@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/api-utils"
+import { cachedJson } from "@/lib/server-cache"
 import { fetchConversations, fetchChatConversations } from "@/lib/firestore-admin-queries"
 
 const querySchema = z.object({
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
       mode: searchParams.get("mode") || "list",
     })
 
+    // Overview data: always live.
     if (params.mode === "analytics") {
       const result = await fetchChatConversations(
         params.from && params.to ? { from: params.from, to: params.to } : undefined,
@@ -31,16 +33,13 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const result = await fetchConversations({
-      from: params.from,
-      to: params.to,
-      limitCount: params.limit,
-    })
-
-    return NextResponse.json({
-      data: result.data,
-      hasMore: result.hasMore,
-      generatedAt: new Date().toISOString(),
+    return cachedJson(request, "chats", params, async () => {
+      const result = await fetchConversations({
+        from: params.from,
+        to: params.to,
+        limitCount: params.limit,
+      })
+      return { data: result.data, hasMore: result.hasMore, generatedAt: new Date().toISOString() }
     })
   })
 }

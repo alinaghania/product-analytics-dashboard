@@ -2,6 +2,7 @@ import "server-only"
 import { z } from "zod"
 import { assertLlmConfigured, callJson, type SystemBlock } from "./llm-client"
 import { fetchConversationsForAsk, type AskConversation } from "./firestore-admin-queries"
+import { cachedValue } from "./server-cache"
 
 export interface Citation {
   conversationId: string
@@ -86,7 +87,10 @@ export async function askConversations(question: string): Promise<AskResult> {
   // Fail fast (→ 503) on missing creds before the expensive corpus fetch.
   assertLlmConfigured()
 
-  const { conversations, meta } = await fetchConversationsForAsk()
+  // The corpus (hundreds of conversations and their messages) is cached until
+  // midnight: successive questions skip the Firestore reads, and the identical
+  // transcript lets the LLM provider reuse its prompt cache (cacheable prefix).
+  const { conversations, meta } = (await cachedValue("ask-corpus", null, () => fetchConversationsForAsk())).value
 
   // Source of truth: conversationId → { userId, set of real messageIds }.
   const byConv = new Map<string, { userId: string; messageIds: Set<string> }>()
