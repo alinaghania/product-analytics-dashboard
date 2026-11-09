@@ -1,0 +1,23 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored: this
+# repo is public.
+
+billing_account = "XXXXXX-XXXXXX-XXXXXX"
+alert_emails    = ["you@example.com"]
+
+# Non-secret runtime config, set as plain Cloud Run env vars. Secrets
+# (REVENUECAT_API_KEY, ASC_PRIVATE_KEY, ANTHROPIC_FOUNDRY_API_KEY) go to Secret
+# Manager instead — see infra/README.md. Drop the optional keys you don't use.
+app_env = {
+  ADMIN_EMAILS                       = "admin@example.com" # comma-separated
+  GA4_PROPERTY_ID                    = ""                  # optional: GA4 cards
+  REVENUECAT_PROJECT_ID              = ""
+  ASC_KEY_ID                         = ""
+  ASC_ISSUER_ID                      = ""
+  ASC_APP_ID                         = ""
+  ANTHROPIC_FOUNDRY_BASE_URL         = ""
+  ANTHROPIC_FOUNDRY_DEPLOYMENT       = ""
+  ANTHROPIC_FOUNDRY_DEPLOYMENT_AGENT = "" # optional
+  ANTHROPIC_FOUNDRY_BETA             = "" # optional
+  LLM_MODEL                          = "" # optional
+  LLM_MODEL_AGENT                    = "" # optional
+}

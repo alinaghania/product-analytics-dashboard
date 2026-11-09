@@ -46,3 +46,13 @@ secrets/
 playwright/.cache/
 tests/.auth/
 /screenshots/
+
+# terraform (state and real variable values stay out of this public repo)
+infra/terraform/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# credentials file written by google-github-actions/auth (CI)
+gha-creds-*.json

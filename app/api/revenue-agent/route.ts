@@ -4,8 +4,9 @@ import { withAuth } from "@/lib/api-utils"
 import { runRevenueAgent } from "@/lib/revenue-agent/agent"
 import { RevenueCatConfigError } from "@/lib/revenuecat"
 
-// Several LLM turns + RevenueCat/ASC/Firestore calls: Node runtime, long limit
-// (≤ the plan's ceiling — Pro 300s).
+// Several LLM turns + RevenueCat/ASC/Firestore calls: Node runtime, long limit.
+// maxDuration is Vercel-only; on Cloud Run the limit is the service timeout
+// (infra/terraform/cloud-run.tf).
 export const runtime = "nodejs"
 export const maxDuration = 300
 export const dynamic = "force-dynamic"

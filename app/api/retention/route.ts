@@ -4,7 +4,8 @@ import { withAuth } from "@/lib/api-utils"
 import { calculateRetentionCurve } from "@/lib/firestore-admin-queries"
 
 // The activity scan reads app_events over up to ~3 months (100k+ docs) — needs
-// more than Vercel's default function timeout.
+// more than Vercel's default function timeout. maxDuration is Vercel-only; on
+// Cloud Run the limit is the service timeout (infra/terraform/cloud-run.tf).
 export const maxDuration = 60
 
 const querySchema = z.object({

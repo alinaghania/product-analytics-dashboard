@@ -1,0 +1,30 @@
+# Secrets — never in the image. Next copies `.env` into the standalone output.
+# `.env.production` is the exception: CI writes the public NEXT_PUBLIC_*
+# values there and `next build` reads it.
+.env*
+!.env.production
+secrets/
+# Credentials file that google-github-actions/auth writes into the workspace.
+gha-creds-*.json
+
+# Build output and dependencies (rebuilt inside the image)
+node_modules/
+.next/
+
+# Not needed to build or run the app
+.git/
+.github/
+.vercel/
+.claude/
+.agents/
+infra/
+exports/
+plans/
+tests/
+test-results/
+playwright-report/
+screenshots/
+*.tsbuildinfo
+.DS_Store
+Dockerfile
+.dockerignore

@@ -6,6 +6,8 @@ const projectRoot = dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Self-contained server (.next/standalone) for the Cloud Run Docker image.
+  output: "standalone",
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -1,8 +1,7 @@
-import { initializeApp, getApps, cert, type App } from "firebase-admin/app"
+import { initializeApp, getApps, cert, applicationDefault, type App, type Credential } from "firebase-admin/app"
 import { getFirestore, type Firestore } from "firebase-admin/firestore"
 import { getAuth, type Auth } from "firebase-admin/auth"
-import * as path from "path"
-import * as fs from "fs"
+import { isCloudRun, readServiceAccountKey } from "./service-account"
 
 let app: App | undefined
 let db: Firestore | undefined
@@ -14,26 +13,16 @@ let auth: Auth | undefined
 // app's "(default)" database stays read-only at the infrastructure level.
 const DASHBOARD_DB_ID = "dashboard"
 
-function getServiceAccountCredential() {
-  // Option 1: FIREBASE_SERVICE_ACCOUNT env var (Vercel production)
-  const envJson = process.env.FIREBASE_SERVICE_ACCOUNT
-  if (envJson) {
-    try {
-      return cert(JSON.parse(envJson))
-    } catch (e) {
-      throw new Error("Failed to parse FIREBASE_SERVICE_ACCOUNT env var as JSON")
-    }
+// A JSON key when one is configured (local dev); otherwise, on Cloud Run, the
+// service's runtime identity (endora-dashboard-readonly) through Application
+// Default Credentials — no key involved. The project ID then comes from
+// GOOGLE_CLOUD_PROJECT (set by Terraform) or the metadata server.
+function getCredential(): Credential {
+  const key = readServiceAccountKey()
+  if (key) {
+    return cert({ projectId: key.project_id, clientEmail: key.client_email, privateKey: key.private_key })
   }
-
-  // Option 2: SERVICE_ACCOUNT_PATH file (local dev)
-  const filePath = process.env.SERVICE_ACCOUNT_PATH
-  if (filePath) {
-    const resolved = path.resolve(filePath)
-    if (fs.existsSync(resolved)) {
-      return cert(JSON.parse(fs.readFileSync(resolved, "utf-8")))
-    }
-    throw new Error(`Service account file not found: ${resolved}`)
-  }
+  if (isCloudRun()) return applicationDefault()
 
   throw new Error(
     "No Firebase service account configured. Set FIREBASE_SERVICE_ACCOUNT env var or SERVICE_ACCOUNT_PATH.",
@@ -49,9 +38,7 @@ function initAdmin(): App {
     return app
   }
 
-  app = initializeApp({
-    credential: getServiceAccountCredential(),
-  })
+  app = initializeApp({ credential: getCredential() })
   return app
 }
 
@@ -74,7 +61,7 @@ let scanPool: Firestore[] | undefined
 export function getAdminDbPool(): Firestore[] {
   initAdmin() // keep the default app as getApps()[0] before adding named ones
   if (!scanPool) {
-    const credential = getServiceAccountCredential()
+    const credential = getCredential()
     scanPool = Array.from({ length: SCAN_POOL_SIZE }, (_, i) => {
       const name = `scan-pool-${i}`
       const existing = getApps().find((a) => a.name === name)
@@ -141,6 +128,10 @@ export async function verifyAuth(request: Request): Promise<{ uid: string; email
     return { uid: decoded.uid, email: email! }
   } catch (error) {
     if (error instanceof AuthError) throw error
+    // Expired tokens and infrastructure failures (credentials, project ID,
+    // network) both land here: log the cause so a misconfiguration doesn't
+    // masquerade as a session problem.
+    console.warn("[auth] ID token verification failed:", error instanceof Error ? error.message : error)
     throw new AuthError("Invalid or expired token", 401)
   }
 }
