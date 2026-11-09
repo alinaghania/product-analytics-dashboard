@@ -1,0 +1,98 @@
+name: Deploy to Cloud Run
+
+# Keyless: GitHub's OIDC token is exchanged for short-lived credentials of the
+# deployer service account (Workload Identity Federation, infra/terraform).
+# GCP only accepts this workflow file, on main, for push/workflow_dispatch —
+# renaming this file requires updating infra/terraform/github-wif.tf.
+# Actions are pinned to commit SHAs: the repo is public and the job can mint
+# GCP credentials.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-cloudrun
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: lotus-9663d
+  REGION: europe-west1
+  SERVICE: endora-dashboard
+  IMAGE: europe-west1-docker.pkg.dev/lotus-9663d/endora-dashboard/app
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Writes gha-creds-*.json into the workspace — excluded by .dockerignore.
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: projects/887196452035/locations/global/workloadIdentityPools/endora-dashboard-github/providers/github-actions
+          service_account: endora-dashboard-deployer@lotus-9663d.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      # Image tags are immutable: a re-run for the same commit (re-run job,
+      # manual dispatch after a secret rotation) reuses the existing image.
+      - name: Check for an existing image of this commit
+        id: image
+        run: |
+          if gcloud artifacts docker images describe "${IMAGE}:${GITHUB_SHA}" --quiet >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure Docker for Artifact Registry
+        if: steps.image.outputs.exists != 'true'
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      # Public Firebase web config (NEXT_PUBLIC_*), inlined by `next build`.
+      # Kept in Secret Manager because this repo is public.
+      - name: Fetch build-time config
+        if: steps.image.outputs.exists != 'true'
+        run: gcloud secrets versions access latest --secret=endora-dashboard-build-env --project="$PROJECT_ID" --out-file=.env.production
+
+      - name: Set up Docker Buildx
+        if: steps.image.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build and push image
+        if: steps.image.outputs.exists != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          # Path context (not the default Git context) so .env.production is included.
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Only the image changes: every other setting is owned by Terraform.
+      # Each deploy creates a new revision, which also picks up rotated secrets.
+      - name: Deploy to Cloud Run
+        run: gcloud run deploy "$SERVICE" --image="${IMAGE}:${GITHUB_SHA}" --region="$REGION" --project="$PROJECT_ID" --quiet
+
+      # Proves the new revision boots and serves; real checks are in infra/README.md.
+      - name: Smoke test
+        run: |
+          url="$(gcloud run services describe "$SERVICE" --region="$REGION" --project="$PROJECT_ID" --format='value(status.url)')"
+          page="$(curl -s -o /dev/null -w '%{http_code}' "$url/")"
+          api="$(curl -s -o /dev/null -w '%{http_code}' "$url/api/auth/me")"
+          echo "GET / -> $page (expected 200), GET /api/auth/me without a token -> $api (expected 401)"
+          test "$page" = "200" && test "$api" = "401"

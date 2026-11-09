@@ -16,10 +16,15 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 3. Set `ADMIN_EMAILS=your@email.com` in `.env` (server-only — never `NEXT_PUBLIC_`)
 4. Run `npm install && npm run dev`
 
-### Production (Vercel)
+### Production (Cloud Run)
 
-- Set `FIREBASE_SERVICE_ACCOUNT` env var with the full JSON content of the service account key
-- Set `ADMIN_EMAILS` with comma-separated admin emails (server-only env var)
+Hosted on Cloud Run (project `lotus-9663d`, europe-west1), infra in Terraform — runbook in `infra/README.md`. Vercel (`.github/workflows/deploy.yml`) keeps deploying in parallel until the cutover.
+
+- Deploy: push to `main` → `.github/workflows/deploy-cloudrun.yml` builds the Docker image and deploys it (keyless, Workload Identity Federation)
+- The service runs **keyless** as `endora-dashboard-readonly`: `lib/service-account.ts` only allows Application Default Credentials when `K_SERVICE` is set (Cloud Run) — never locally, where ADC points to an unrelated account
+- Config: non-secret env vars (`ADMIN_EMAILS`, …) in `infra/terraform/terraform.tfvars` (git-ignored, the repo is public); secrets in Secret Manager (`endora-dashboard-*`)
+- Terraform always runs through `infra/terraform/tf.sh` (authenticates as support@myendora.health)
+- Every resource is labelled `app=endora-dashboard`; `infra/terraform/teardown.sh` deletes the whole stack
 
 ## Architecture
 
@@ -80,6 +85,7 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 
 - `lib/firebase.ts` - Client-side Firebase init, auth helpers
 - `lib/firebase-admin.ts` - Server-side Admin SDK init, `verifyAuth()`, `getAdminDb()`
+- `lib/service-account.ts` - Service-account key loading (`FIREBASE_SERVICE_ACCOUNT` / `SERVICE_ACCOUNT_PATH`) and `isCloudRun()`, shared by Firebase Admin and GA4
 - `lib/firestore-admin-queries.ts` - All Firestore data fetching functions (server-side, Admin SDK)
 - `lib/api-client.ts` - Client-side fetch wrappers for API routes (attaches auth token)
 - `lib/api-utils.ts` - Server-side `withAuth()` helper for API route auth
@@ -88,7 +94,9 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 - `components/providers/query-provider.tsx` - React Query client config
 - `app/(dashboard)/layout.tsx` - Dashboard layout with sidebar
 - `app/(dashboard)/page.tsx` - Overview dashboard
-- `next.config.mjs` - `ignoreBuildErrors: true`, unoptimized images
+- `next.config.mjs` - `output: "standalone"`, `ignoreBuildErrors: true`, unoptimized images
+- `Dockerfile` / `.dockerignore` - Cloud Run image (Next standalone server on port 8080)
+- `infra/terraform/` - Cloud Run, Artifact Registry, Secret Manager, GitHub WIF, budget (see `infra/README.md`)
 
 ## Dashboard Pages
 
@@ -176,3 +184,5 @@ After completing any task:
 - The `postinstall` script patches Firebase SDK exports - run `npm install` if Firebase imports break
 - `lotus-mobile/lotus-firebase` is NOT a dependency - the dashboard bypasses Firestore rules entirely via Admin SDK
 - The `secrets/` directory is in `.gitignore` - service account keys are never committed
+- Next's standalone build copies `.env` into its output: `.dockerignore` must keep excluding `.env*` and `secrets/` (only the CI-generated `.env.production`, public `NEXT_PUBLIC_*` values, enters the image), plus `gha-creds-*.json`, the credentials file `google-github-actions/auth` writes into the CI workspace (the build cache of this public repo would otherwise carry it)
+- `maxDuration` route exports only apply on Vercel; on Cloud Run the request timeout is 600s (`infra/terraform/cloud-run.tf`)

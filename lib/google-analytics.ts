@@ -1,33 +1,23 @@
 import { BetaAnalyticsDataClient } from "@google-analytics/data"
-import * as fs from "fs"
-import * as path from "path"
+import { isCloudRun, readServiceAccountKey } from "./service-account"
 
 let client: BetaAnalyticsDataClient | undefined
 
-function getServiceAccountCredentials() {
-  const envJson = process.env.FIREBASE_SERVICE_ACCOUNT
-  if (envJson) {
-    return JSON.parse(envJson)
-  }
-  const filePath = process.env.SERVICE_ACCOUNT_PATH
-  if (filePath) {
-    const resolved = path.resolve(filePath)
-    if (fs.existsSync(resolved)) {
-      return JSON.parse(fs.readFileSync(resolved, "utf-8"))
-    }
-  }
-  throw new Error("No service account configured for Google Analytics")
-}
-
+// Same credential rule as lib/firebase-admin.ts: a JSON key when configured,
+// otherwise (Cloud Run only) Application Default Credentials — the client asks
+// the metadata server for its default Analytics scopes.
 export function getGa4Client(): BetaAnalyticsDataClient {
   if (client) return client
-  const credentials = getServiceAccountCredentials()
-  client = new BetaAnalyticsDataClient({
-    credentials: {
-      client_email: credentials.client_email,
-      private_key: credentials.private_key,
-    },
-  })
+  const key = readServiceAccountKey()
+  if (key) {
+    client = new BetaAnalyticsDataClient({
+      credentials: { client_email: key.client_email, private_key: key.private_key },
+    })
+  } else if (isCloudRun()) {
+    client = new BetaAnalyticsDataClient()
+  } else {
+    throw new Error("No service account configured for Google Analytics")
+  }
   return client
 }
 

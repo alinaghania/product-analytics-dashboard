@@ -24,3 +24,7 @@ The app runs on http://localhost:3000. Sign in with a Google account listed in `
 - `npm run dev` — start the dev server
 - `npm run build` — production build
 - `npm run lint` — lint
+
+## Deployment
+
+Production runs on Google Cloud Run. Every push to `main` builds the Docker image and deploys it (`.github/workflows/deploy-cloudrun.yml`). The infrastructure is in Terraform under `infra/terraform/`; see `infra/README.md` for the bootstrap, day-to-day operations, rollback and full teardown.

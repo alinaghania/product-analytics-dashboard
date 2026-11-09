@@ -3,9 +3,9 @@ import { withAuth } from "@/lib/api-utils"
 import { generateConversationInsights } from "@/lib/conversation-insights"
 
 // Reading ~400 conversations + their messages, then making 2 LLM calls, is
-// slow: force the Node runtime (Admin SDK) and raise Vercel's execution limit
-// (default ~10s Hobby / 15s Pro is far too short). Keep maxDuration ≤ the plan's
-// ceiling (Hobby 60s, Pro 300s).
+// slow: force the Node runtime (Admin SDK) and raise the execution limit.
+// maxDuration is Vercel-only; on Cloud Run the limit is the service timeout
+// (infra/terraform/cloud-run.tf).
 export const runtime = "nodejs"
 export const maxDuration = 120
 export const dynamic = "force-dynamic"

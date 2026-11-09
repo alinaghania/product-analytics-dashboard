@@ -4,8 +4,9 @@ import { withAuth } from "@/lib/api-utils"
 import { askConversations } from "@/lib/conversation-ask"
 
 // Reading ~hundreds of conversations + their messages, then one LLM call over a
-// large corpus, is slow: force the Node runtime (Admin SDK) and raise Vercel's
-// execution limit. Keep maxDuration ≤ the plan's ceiling (Hobby 60s, Pro 300s).
+// large corpus, is slow: force the Node runtime (Admin SDK) and raise the
+// execution limit. maxDuration is Vercel-only; on Cloud Run the limit is the
+// service timeout (infra/terraform/cloud-run.tf).
 export const runtime = "nodejs"
 export const maxDuration = 120
 export const dynamic = "force-dynamic"

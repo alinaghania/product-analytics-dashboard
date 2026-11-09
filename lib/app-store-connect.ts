@@ -13,7 +13,7 @@ let cachedToken: { jwt: string; expiresAt: number } | null = null
 function getToken(): string {
   const keyId = process.env.ASC_KEY_ID
   const issuerId = process.env.ASC_ISSUER_ID
-  // Vercel may store the multi-line .p8 with literal "\n" — normalize.
+  // A single-line env var may hold the multi-line .p8 with literal "\n" — normalize.
   const privateKey = process.env.ASC_PRIVATE_KEY?.replace(/\\n/g, "\n")
   if (!keyId || !issuerId || !privateKey) {
     throw new Error("App Store Connect not configured: set ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY")
