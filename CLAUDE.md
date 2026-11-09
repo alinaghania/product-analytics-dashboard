@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ### Production (Cloud Run)
 
-Hosted on Cloud Run (project `lotus-9663d`, europe-west1), infra in Terraform — runbook in `infra/README.md`. Vercel (`.github/workflows/deploy.yml`) keeps deploying in parallel until the cutover.
+Hosted on Cloud Run (project `lotus-9663d`, europe-west1), infra in Terraform — runbook in `infra/README.md`. Vercel is no longer used (its deploy workflow and `vercel.json` were removed).
 
 - Deploy: push to `main` → `.github/workflows/deploy-cloudrun.yml` builds the Docker image and deploys it (keyless, Workload Identity Federation)
 - The service runs **keyless** as `endora-dashboard-readonly`: `lib/service-account.ts` only allows Application Default Credentials when `K_SERVICE` is set (Cloud Run) — never locally, where ADC points to an unrelated account
