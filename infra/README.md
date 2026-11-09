@@ -10,7 +10,7 @@ The dashboard runs on **Cloud Run** in project `lotus-9663d`, region `europe-wes
 | Secrets | Secret Manager `endora-dashboard-*` (3 runtime secrets + `build-env` for the public `NEXT_PUBLIC_*` config) |
 | Cache | Bucket `lotus-9663d-endora-dashboard-cache`: API results shared by every admin until midnight (Paris), objects deleted after a day (see "Server cache") |
 | Deploys | `.github/workflows/deploy-cloudrun.yml` on every push to `main`, keyless (Workload Identity Federation) |
-| Budget | 5 EUR/month on resources labelled `app=endora-dashboard`, e-mails at 50/90/100 % and forecast 100 % — alerts only, nothing is stopped |
+| Budget | 5 EUR/month on resources labelled `app=endora-dashboard`, e-mails at 50/90/100 %, forecast 100 %, then at 10, 15 and 20 EUR — alerts only, nothing is stopped |
 
 Terraform lives in `infra/terraform/`. Always run it through `infra/terraform/tf.sh`, which authenticates as `support@myendora.health` instead of the machine's default gcloud account.
 

@@ -6,6 +6,11 @@ resource "google_monitoring_notification_channel" "budget_email" {
   user_labels  = local.labels
 }
 
+locals {
+  # Further alerts at fixed amounts above the budget, in EUR per month.
+  budget_alert_levels_eur = [10, 15, 20]
+}
+
 resource "google_billing_budget" "dashboard" {
   billing_account = var.billing_account
   display_name    = "endora-dashboard - ${var.budget_eur} EUR/mois"
@@ -36,6 +41,15 @@ resource "google_billing_budget" "dashboard" {
   threshold_rules {
     threshold_percent = 1.0
   }
+  # Thresholds are relative to the budget amount: 10 EUR on a 5 EUR budget = 200 %.
+  dynamic "threshold_rules" {
+    for_each = local.budget_alert_levels_eur
+    content {
+      threshold_percent = threshold_rules.value / var.budget_eur
+    }
+  }
+  # Last: the API lists forecast thresholds after the others, and Terraform
+  # compares the rules in order (another order shows a diff on every plan).
   threshold_rules {
     threshold_percent = 1.0
     spend_basis       = "FORECASTED_SPEND"
