@@ -2,6 +2,7 @@
 
 import { recordCacheStatus, shouldForceFresh } from "./data-freshness"
 import { getFirebaseAuth } from "./firebase"
+import type { OnboardingDataset } from "./onboarding-journal/types"
 // Type-only import: erased at build time, so the "server-only" guard inside
 // agent.ts is never evaluated in the browser bundle.
 import type { AgentResult as RevenueAgentResult } from "./revenue-agent/agent"
@@ -386,6 +387,12 @@ export async function fetchAvgAge(): Promise<{ avgAge: number; sampleSize: numbe
 
 export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
   const result = await apiFetch<{ data: OnboardingAnalytics }>("/api/metrics/onboarding")
+  return result.data
+}
+
+// Onboarding journeys started between two Europe/Paris days (yyyy-MM-dd, inclusive).
+export async function fetchOnboardingJournal(from: string, to: string): Promise<OnboardingDataset> {
+  const result = await apiFetch<{ data: OnboardingDataset }>("/api/onboarding/journal", { from, to })
   return result.data
 }
 

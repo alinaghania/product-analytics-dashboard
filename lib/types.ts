@@ -318,8 +318,12 @@ export interface DateRange {
   to: string
 }
 
-/** A single `{ name, count }` slice for a chart (name is the display label). */
-export interface CountSlice {
+/**
+ * A single `{ name, count }` slice for a chart (name is the display label).
+ * A type alias, not an interface: the chart components take
+ * `Record<string, unknown>[]`, which an interface is not assignable to.
+ */
+export type CountSlice = {
   name: string
   count: number
 }
@@ -386,7 +390,6 @@ export interface OnboardingAnalytics {
   completionRate: number
   avgAge: number
   hasEndoPercent: number
-  funnel: Array<{ name: string; value: number }>
 
   // What users want (V4 intent / preference selections)
   objective: CountSlice[]

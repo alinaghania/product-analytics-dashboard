@@ -90,6 +90,21 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 - `staleTime: Infinity`, `retry: false`
 - Data is fetched manually, not auto-refreshed
 
+### Onboarding journal
+
+The Onboarding page reads the journal the mobile app writes since 0.1.12 (`onboarding_sessions` + `onboarding_events`), in three steps:
+
+1. `GET /api/onboarding/journal?from&to` reads the journeys started in the range (`fetchOnboardingSessions`), then their events 240 journeys at a time (`fetchOnboardingEvents`), and reduces each batch to one `Journey` per session (`lib/onboarding-journal/digest.ts`, server-only). Cached per date range.
+2. The browser filters and aggregates the journeys (`report.ts`, `moments.ts`, `segments.ts`, `insights.ts`): a filter or a parcours never calls the server. Only the period does, and the comparison (one more call, for the period just before).
+3. `components/onboarding/` renders one tab per way of looking at them.
+
+- Statistics only count journeys the journal covers from their first screen (`coverage: "full"`); the others stay visible in the Sessions tab
+- Screens are discovered from the data, never hardcoded: a new or moved screen shows up by itself. Their order is what the journeys agree on pair by pair (`flowOrder` in `report.ts`): a logged `stepIndex` only compares within a journey, since conditional screens shift it
+- Their texts (question, options) come from `lib/onboarding-journal/catalog.json`, generated from the app: after a change of the app's onboarding, run `node scripts/generate-onboarding-catalog.mjs <path to a lotus-mobile checkout>`. A screen missing from the catalog is shown under its raw id
+- An answer is what was validated on its screen (`StepVisit.answer`), not what sits in `answers` of the session: the form also keeps a value picked and never validated. On a single choice the first logged value is the pick: the app may log after it values it derives from it (`chosenOptions` in `report.ts`)
+- The journal is not read literally: `digest.ts` reads through what the app logs oddly (a failed Apple/Google sign-in is a `register_cancel` followed by a `register_error`; `hold_cancel` is logged again after `hold_complete`; `registeredAt` is rewritten by every later sign-in; a `session_start` can follow the end of the onboarding; a lost batch can drop a `step_view`). Before trusting a new figure, recount it from raw events
+- The "Profil des inscrites" tab is the older view: answers stored in `users.registrationData`, all time (`/api/metrics/onboarding`)
+
 ## Key Files
 
 - `lib/firebase.ts` - Client-side Firebase init, auth helpers
@@ -101,6 +116,7 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 - `lib/server-cache.ts` - Server cache of API results until midnight (memory + bucket), `cachedJson()` / `cachedValue()`
 - `lib/data-freshness.ts` - Client side of the cache: per-page cache dates, reload buttons that force `?fresh=1` (state dropped on navigation by `components/dashboard/page-cache-scope.tsx`)
 - `lib/types.ts` - TypeScript types for all data models
+- `lib/onboarding-journal/` - Onboarding page: journal types, server-side digest, browser-side statistics (see "Onboarding journal")
 - `components/providers/auth-provider.tsx` - Auth context and login/access-denied screens
 - `components/providers/query-provider.tsx` - React Query client config
 - `app/(dashboard)/layout.tsx` - Dashboard layout with sidebar
@@ -114,6 +130,7 @@ Google Sign-In via Firebase Auth. Admin access is email-based: the user's email 
 ```
 app/(dashboard)/
 ├── page.tsx                        # Overview dashboard (/)
+├── onboarding/page.tsx             # Onboarding tunnel, from the onboarding journal
 ├── users/page.tsx                  # Users list with data table
 ├── users/[userId]/page.tsx         # Individual user detail
 ├── users-analytics/page.tsx        # User analytics deep dive
@@ -128,7 +145,7 @@ app/(dashboard)/
 
 ## Firestore Collections
 
-`users`, `tracking_sessions`, `tracking`, `chat_conversations` (subcollection: `messages`), `app_events`, `bubble_events`, `photos`, `routines`
+`users`, `tracking_sessions`, `tracking`, `chat_conversations` (subcollection: `messages`), `app_events`, `bubble_events`, `photos`, `routines`, `onboarding_sessions`, `onboarding_events`
 
 ### Dashboard-owned database (`dashboard`)
 
@@ -175,6 +192,19 @@ Churn proxy used by the users list filter: `subscriptionStatus` is only written 
 
 **`photos`** — Photo uploads for visual symptom tracking
 - `id`, `userId`, `pain` (0-10), `bloated` (0-10), `time: "morning"|"evening"`, `viewCount`, `timestamp`, `createdAt`
+
+**`onboarding_sessions`** — One record per onboarding journey (app ≥ 0.1.12; doc ID = `sessionId`)
+- `sessionId`, `flow: "onboarding"|"reonboarding"`, `status: "in_progress"|"completed"|"registered"`, `platform`, `appVersion`, `lang`, `branch?` (parcours)
+- `startedAt`, `completedAt?`, `registeredAt?`, `paywallAt?` (ms, phone clock), `updatedAt` (Timestamp)
+- `lastStepId?`, `lastStepType?`, `lastStepIndex?`, `stepCount?`, `screensViewed?`, `activeMs?`, `answers?` (the registration form as filled so far)
+- `userId?`, `registerMethod?`, `paywallResult?: "purchased"|"restored"|"cancelled"|"already_premium"`, `screenW?`, `screenH?`, `fontScale?`, `osVersion?`
+
+**`onboarding_events`** — Every action of those journeys (~120 per journey)
+- `sessionId`, `name` (`step_view`, `step_leave`, `option_select`, `permission_result`, `register_error`, `paywall_result`… — the list is `ONBOARDING_EVENTS` in lotus-mobile/src/constants/analyticsEvents.ts)
+- `t` (ms, phone clock) + `seq` order the events of a journey; `createdAt` (Timestamp, server)
+- `stepId?`, `stepType?`, `stepIndex?`, `stepCount?`, `branch?`, `via?`, `value?`, `detail?`, `count?`, `selected?`, `durationMs?`
+- `platform`, `appVersion`, `lang`, `flow` on every event; `screenW`, `screenH`, `fontScale`, `osVersion` on `session_start`
+- Written by phones and never validated by the dashboard: read every field of both collections defensively
 
 ## Important Patterns
 

@@ -1,4 +1,5 @@
-import { format, toZonedTime } from "date-fns-tz"
+import { fr } from "date-fns/locale"
+import { format, formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz"
 
 const TIMEZONE = "Europe/Paris"
 
@@ -6,6 +7,19 @@ const TIMEZONE = "Europe/Paris"
 export function toDayKey(date: Date): string {
   const parisDate = toZonedTime(date, TIMEZONE)
   return format(parisDate, "yyyy-MM-dd", { timeZone: TIMEZONE })
+}
+
+// First and last millisecond of an inclusive range of Europe/Paris days (yyyy-MM-dd)
+export function parisDayRange(from: string, to: string): { fromMs: number; toMs: number } {
+  return {
+    fromMs: fromZonedTime(`${from}T00:00:00.000`, TIMEZONE).getTime(),
+    toMs: fromZonedTime(`${to}T23:59:59.999`, TIMEZONE).getTime(),
+  }
+}
+
+// A moment written in Europe/Paris time and in French, whatever the reader's time zone (date-fns pattern)
+export function formatInParis(date: Date | number, pattern: string): string {
+  return formatInTimeZone(date, TIMEZONE, pattern, { locale: fr })
 }
 
 // Get hour (0-23) in Europe/Paris
