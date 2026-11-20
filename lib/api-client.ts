@@ -15,6 +15,7 @@ import type {
   CampaignHistoryEntry,
   CampaignHistoryInputs,
   CampaignHistoryResults,
+  ChatFeedbackStats,
   ContactChannel,
   ContactEntry,
   OnboardingAnalytics,
@@ -250,6 +251,12 @@ export interface AskResult {
 
 export async function askConversations(question: string): Promise<AskResult> {
   const result = await apiPost<{ data: AskResult }>("/api/conversations/ask", { question })
+  return result.data
+}
+
+// 👍/👎 left by users on the assistant's chat answers.
+export async function fetchChatFeedback(): Promise<ChatFeedbackStats> {
+  const result = await apiFetch<{ data: ChatFeedbackStats }>("/api/chats/feedback")
   return result.data
 }
 

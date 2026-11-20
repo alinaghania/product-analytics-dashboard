@@ -165,6 +165,7 @@ Churn proxy used by the users list filter: `subscriptionStatus` is only written 
 **`chat_conversations/{id}/messages`** — Individual messages
 - `id`, `conversationId`, `role: "user"|"assistant"|"system"|"endora"`, `agent?`
 - `content`, `status?: "success"|"error"|"pending"`, `errorMessage?`, `latencyMs?`, `retryCount?`, `createdAt`
+- `feedback?: "up"|"down"|null`, `feedbackAt?` — 👍/👎 left by the user on an assistant answer (current state only; charted on the Ask Conversations page via `/api/chats/feedback`). Read with one query per conversation (`fetchChatFeedbackStats()`): a collection-group query would need an index in the mobile app's Firebase config, which stays untouched
 
 **`app_events`** — Custom app events
 - `id`, `userId`, `name`, `screen?`, `platform?`, `appVersion?`, `params?`, `createdAt`

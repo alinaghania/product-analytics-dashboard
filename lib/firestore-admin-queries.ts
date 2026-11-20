@@ -3,6 +3,7 @@ import { fetchContactedUserIdSet } from "./firestore-dashboard-queries"
 import { Timestamp } from "firebase-admin/firestore"
 import { format as formatDate } from "date-fns"
 import { TIMEZONE_TO_COUNTRY } from "./timezone-country"
+import { toDayKey as toParisDayKey } from "./analytics"
 import {
   labelize,
   ACQUISITION_SOURCE_LABELS,
@@ -34,6 +35,7 @@ import type {
   AcquisitionMetrics,
   PremiumAcquisitionMetrics,
   ActiveUsersByVersion,
+  ChatFeedbackStats,
   CountSlice,
 } from "./types"
 
@@ -1330,6 +1332,84 @@ export async function fetchConversationsForAsk(opts?: {
     conversations: out,
     meta: { conversationsAnalyzed: out.length, onboardingExcluded, truncated },
   }
+}
+
+// ============= CHAT FEEDBACK (👍/👎) =============
+//
+// The mobile app stores the thumb a user leaves on an assistant answer on the
+// message doc itself: `feedback: "up" | "down" | null` (null = thumb removed)
+// with `feedbackAt`. Only the current state exists — a thumb that was changed
+// or removed leaves no trace.
+
+const FEEDBACK_VALUES = ["up", "down"]
+const FEEDBACK_SCAN_CONCURRENCY = 200
+
+// Every chat message currently carrying a thumb: one small query per
+// conversation, which only needs Firestore's automatic indexes. A single
+// collection-group query would need an index declared in the mobile app's
+// Firebase config, which the dashboard leaves untouched.
+async function fetchRatedMessageDocs(): Promise<FirebaseFirestore.QueryDocumentSnapshot[]> {
+  const pool = getAdminDbPool()
+  const conversations = await getAdminDb().collection("chat_conversations").select().get()
+  const docs: FirebaseFirestore.QueryDocumentSnapshot[] = []
+  for (let i = 0; i < conversations.size; i += FEEDBACK_SCAN_CONCURRENCY) {
+    const snapshots = await Promise.all(
+      conversations.docs
+        .slice(i, i + FEEDBACK_SCAN_CONCURRENCY)
+        .map((conversation, j) =>
+          pool[j % pool.length]
+            .collection("chat_conversations")
+            .doc(conversation.id)
+            .collection("messages")
+            .where("feedback", "in", FEEDBACK_VALUES)
+            .select("feedback", "feedbackAt")
+            .get(),
+        ),
+    )
+    for (const snapshot of snapshots) docs.push(...snapshot.docs)
+  }
+  return docs
+}
+
+export async function fetchChatFeedbackStats(): Promise<ChatFeedbackStats> {
+  const docs = await fetchRatedMessageDocs()
+
+  // Monday of the week a yyyy-MM-dd day belongs to.
+  const weekStartOf = (day: string) => addDaysToDateString(day, -((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7))
+
+  const today = toParisDayKey(new Date())
+  let likes = 0
+  let dislikes = 0
+  const ratedConversations = new Set<string>()
+  const byWeek = new Map<string, { likes: number; dislikes: number }>()
+  for (const doc of docs) {
+    const data = doc.data()
+    const key = data.feedback === "up" ? "likes" : "dislikes"
+    if (key === "likes") likes++
+    else dislikes++
+    ratedConversations.add(doc.ref.parent.parent!.id)
+
+    // `feedbackAt` comes from the phone's clock: skip an unreadable date, and
+    // keep one set in the future inside the series.
+    const ratedAt = toDate(data.feedbackAt)
+    if (!ratedAt || Number.isNaN(ratedAt.getTime())) continue
+    const ratedDay = toParisDayKey(ratedAt)
+    const week = weekStartOf(ratedDay > today ? today : ratedDay)
+    const counts = byWeek.get(week) ?? { likes: 0, dislikes: 0 }
+    counts[key]++
+    byWeek.set(week, counts)
+  }
+
+  // Continuous series from the first rated week to this one, so quiet weeks show as gaps.
+  const weekly: ChatFeedbackStats["weekly"] = []
+  if (byWeek.size > 0) {
+    for (let week = [...byWeek.keys()].sort()[0]; week <= today; week = addDaysToDateString(week, 7)) {
+      const counts = byWeek.get(week) ?? { likes: 0, dislikes: 0 }
+      weekly.push({ weekStart: week, ...counts, total: counts.likes + counts.dislikes })
+    }
+  }
+
+  return { likes, dislikes, ratedConversations: ratedConversations.size, weekly }
 }
 
 // ============= APP EVENTS =============

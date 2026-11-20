@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CHAT_FEEDBACK_QUERY_KEY, ChatFeedbackChart } from "@/components/chat/chat-feedback-chart"
 import { CitationList } from "@/components/chat/citation-list"
 import {
   addAskHistory,
@@ -116,6 +117,8 @@ export default function AskConversationsPage() {
       <Header
         title="Ask Conversations"
         description="Pose une question en langage naturel sur les conversations récentes des utilisatrices."
+        // The likes/dislikes chart is the only cached data on this page.
+        onReloadAll={() => queryClient.refetchQueries({ queryKey: CHAT_FEEDBACK_QUERY_KEY })}
       />
 
       <div className="flex-1 space-y-6 p-6">
@@ -203,6 +206,8 @@ export default function AskConversationsPage() {
             </CardContent>
           </Card>
         )}
+
+        <ChatFeedbackChart />
 
         {showHistory && (
           <HistoryPanel
