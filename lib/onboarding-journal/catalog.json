@@ -1,0 +1,7868 @@
+{
+ "steps": {
+  "U1": {
+   "type": "personalizedMessage",
+   "title": "Endora",
+   "saveTo": "_splash"
+  },
+  "U2": {
+   "type": "languageSelector",
+   "title": "Choisis ta langue",
+   "saveTo": "language"
+  },
+  "U3": {
+   "type": "textInput",
+   "title": "Comment souhaites-tu qu'Endora t'appelle ?",
+   "saveTo": "preferredName"
+  },
+  "U4": {
+   "type": "personalizedMessage",
+   "title": "C'est un plaisir de faire ta connaissance, [prénom] !",
+   "saveTo": "_greeting"
+  },
+  "U4_CONSENT": {
+   "type": "consent",
+   "title": "Tes données, ta vie privée",
+   "saveTo": "_consent"
+  },
+  "U4_BIRTH": {
+   "type": "birthYearWheel",
+   "title": "Quelle est ton année de naissance ?",
+   "saveTo": "birthYear"
+  },
+  "U4_SOURCE": {
+   "type": "singleSelectExpand",
+   "title": "Comment avez-vous connu Endora ?",
+   "saveTo": "acquisitionSource",
+   "options": [
+    {
+     "value": "appstore",
+     "label": "App Store"
+    },
+    {
+     "value": "google",
+     "label": "Recherche Google"
+    },
+    {
+     "value": "friends",
+     "label": "Proches"
+    },
+    {
+     "value": "instagram",
+     "label": "Instagram"
+    },
+    {
+     "value": "facebook",
+     "label": "Facebook"
+    },
+    {
+     "value": "tiktok",
+     "label": "TikTok"
+    },
+    {
+     "value": "youtube",
+     "label": "YouTube ou télévision"
+    },
+    {
+     "value": "influencer",
+     "label": "Influenceur·euse ou célébrité"
+    },
+    {
+     "value": "medical",
+     "label": "Membre du corps médical"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "U5_TOUR": {
+   "type": "productTour",
+   "title": "Bienvenue sur Endora",
+   "saveTo": "_tour_welcome"
+  },
+  "U5b_VALIDATION": {
+   "type": "personalizedMessage",
+   "title": "Quelle que soit ta situation, Endora t'accompagne avec un suivi adapté à tes besoins.",
+   "saveTo": "_validation_u5b"
+  },
+  "U5b": {
+   "type": "singleSelectExpand",
+   "title": "Quelle situation te correspond le mieux ?",
+   "saveTo": "situationsConcerned",
+   "options": [
+    {
+     "value": "endo_confirmed",
+     "label": "Endométriose diagnostiquée"
+    },
+    {
+     "value": "adeno_confirmed",
+     "label": "Adénomyose diagnostiquée"
+    },
+    {
+     "value": "endo_adeno",
+     "label": "Endo + adéno diagnostiquées"
+    },
+    {
+     "value": "endo_suspected",
+     "label": "Endométriose suspectée / symptômes"
+    },
+    {
+     "value": "cycle_suivi",
+     "label": "Suivi de mes règles / mon cycle"
+    },
+    {
+     "value": "sopk_confirmed",
+     "label": "SOPK diagnostiqué"
+    },
+    {
+     "value": "sopk_endo",
+     "label": "SOPK + endo diagnostiqués"
+    },
+    {
+     "value": "baby_project",
+     "label": "Projet bébé / PMA"
+    },
+    {
+     "value": "baby_endo",
+     "label": "Projet bébé + endométriose"
+    },
+    {
+     "value": "baby_sopk",
+     "label": "Projet bébé + SOPK"
+    },
+    {
+     "value": "fibro_confirmed",
+     "label": "Fibromyalgie diagnostiquée"
+    },
+    {
+     "value": "menopause_situation",
+     "label": "Périménopause / ménopause"
+    },
+    {
+     "value": "menopause_endo",
+     "label": "Ménopause + endométriose"
+    },
+    {
+     "value": "congestion_pelvienne",
+     "label": "Congestion pelvienne diagnostiquée"
+    }
+   ]
+  },
+  "F_PROGRAM": {
+   "type": "program",
+   "title": "On prépare ton programme…",
+   "saveTo": "onboardingProgram"
+  },
+  "ED0": {
+   "type": "personalizedMessage",
+   "title": "Savais-tu que l'endométriose peut évoluer au fil du temps ? Ce qui te gêne le plus peut changer selon les périodes, le cycle ou les traitements. Endora t'aidera à suivre plus facilement ce qui revient, ce qui change, et à retrouver plus clairement l'évolution de tes symptômes.",
+   "saveTo": "_welcome_endo"
+  },
+  "ED1": {
+   "type": "multiSelectExpand",
+   "title": "Quel(s) type(s) d'endométriose t'a-t-on diagnostiqué(s) ?",
+   "saveTo": "endoTypes",
+   "options": [
+    {
+     "value": "superficial",
+     "label": "Superficielle (péritonéale)"
+    },
+    {
+     "value": "ovarian",
+     "label": "Ovarienne (endométriome)"
+    },
+    {
+     "value": "deep",
+     "label": "Profonde (infiltrante)"
+    },
+    {
+     "value": "multiple",
+     "label": "Plusieurs types"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED2": {
+   "type": "multiSelectExpand",
+   "title": "Dans quelle(s) zone(s) ton endométriose a-t-elle été trouvée ?",
+   "saveTo": "endoLocations",
+   "options": [
+    {
+     "value": "ovaries",
+     "label": "Ovaires"
+    },
+    {
+     "value": "peritoneum",
+     "label": "Péritoine / zone pelvienne"
+    },
+    {
+     "value": "intestine_rectum",
+     "label": "Intestin / rectum"
+    },
+    {
+     "value": "bladder_urinary",
+     "label": "Vessie / appareil urinaire"
+    },
+    {
+     "value": "rectovaginal",
+     "label": "Zone recto-vaginale / ligaments"
+    },
+    {
+     "value": "diaphragm",
+     "label": "Diaphragme"
+    },
+    {
+     "value": "thorax",
+     "label": "Thorax"
+    },
+    {
+     "value": "scar",
+     "label": "Cicatrice"
+    },
+    {
+     "value": "rare_locations",
+     "label": "Atteintes plus rares"
+    },
+    {
+     "value": "other",
+     "label": "Autres localisations"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    }
+   ]
+  },
+  "ED3": {
+   "type": "singleSelectExpand",
+   "title": "Le stade de ton endométriose t'a-t-il été précisé ?",
+   "saveTo": "endoStage",
+   "options": [
+    {
+     "value": "stage1",
+     "label": "Stade 1"
+    },
+    {
+     "value": "stage2",
+     "label": "Stade 2"
+    },
+    {
+     "value": "stage3",
+     "label": "Stade 3"
+    },
+    {
+     "value": "stage4",
+     "label": "Stade 4"
+    },
+    {
+     "value": "not_specified",
+     "label": "Non, on ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED4": {
+   "type": "yearPicker",
+   "title": "En quelle année ton endométriose a-t-elle été diagnostiquée ?",
+   "saveTo": "diagnosisYear"
+  },
+  "ED5": {
+   "type": "multiSelectExpand",
+   "title": "Comment ton diagnostic a-t-il été posé ?",
+   "saveTo": "diagnosisMethod",
+   "options": [
+    {
+     "value": "endo_ultrasound",
+     "label": "Échographie endovaginale / vaginale"
+    },
+    {
+     "value": "abdo_ultrasound",
+     "label": "Échographie abdominale"
+    },
+    {
+     "value": "mri",
+     "label": "IRM"
+    },
+    {
+     "value": "laparoscopy",
+     "label": "Cœlioscopie / laparoscopie"
+    },
+    {
+     "value": "biopsy",
+     "label": "Biopsie / analyse de tissu"
+    },
+    {
+     "value": "clinical",
+     "label": "Examen clinique / avis médical"
+    },
+    {
+     "value": "fertility",
+     "label": "Découverte dans un parcours fertilité / PMA"
+    },
+    {
+     "value": "emergency",
+     "label": "Découverte en urgence ou pendant une autre prise en charge"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED6": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui avec ton endo ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles importantes"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "irregular_cycle",
+     "label": "Cycle irrégulier"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements en dehors des règles"
+    },
+    {
+     "value": "chronic_pelvic",
+     "label": "Douleur pelvienne en dehors des règles"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs lombaires"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "chronic_daily_pain",
+     "label": "Douleurs chroniques (quasi quotidiennes)"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Rapports sexuels douloureux"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse de libido"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "bowel_issues",
+     "label": "Constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "frequency",
+     "label": "Besoin fréquent d'uriner"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression pelvienne"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "acne",
+     "label": "Acné"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux"
+    },
+    {
+     "value": "mood_anxiety",
+     "label": "Sautes d'humeur / anxiété"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    }
+   ]
+  },
+  "SHARED_CYCLE_CTX": {
+   "type": "singleSelectExpand",
+   "title": "Aujourd'hui, as-tu encore des règles ?",
+   "saveTo": "bleedingStatus",
+   "options": [
+    {
+     "value": "regular",
+     "label": "Oui, régulièrement"
+    },
+    {
+     "value": "irregular",
+     "label": "Oui, mais pas régulièrement"
+    },
+    {
+     "value": "suppressed",
+     "label": "Non, à cause d'un traitement hormonal ou d'une contraception"
+    },
+    {
+     "value": "hysterectomy",
+     "label": "Non, après une chirurgie"
+    },
+    {
+     "value": "other",
+     "label": "Non, autre raison"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    },
+    {
+     "value": "very_spaced",
+     "label": "Oui, mais elles sont très espacées"
+    },
+    {
+     "value": "almost_never",
+     "label": "Non, presque jamais"
+    }
+   ]
+  },
+  "SHARED_HORMONAL": {
+   "type": "singleSelectExpand",
+   "title": "Prends-tu actuellement un traitement ou une contraception qui modifie tes règles ?",
+   "saveTo": "hormonalModifier",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    },
+    {
+     "value": "hormonal_contraception",
+     "label": "Oui, une contraception hormonale"
+    },
+    {
+     "value": "hormonal_treatment",
+     "label": "Oui, un autre traitement hormonal"
+    },
+    {
+     "value": "both",
+     "label": "Oui, les deux"
+    }
+   ]
+  },
+  "SHARED_TREATMENT_NAME": {
+   "type": "textInput",
+   "title": "Quel est le nom de ton traitement ou de ta contraception ?",
+   "saveTo": "contraceptionName"
+  },
+  "SHARED_LAST_PERIOD": {
+   "type": "datePicker",
+   "title": "Quand ont commencé tes dernières règles ?",
+   "saveTo": "lastBleedingStart"
+  },
+  "SHARED_TIMING": {
+   "type": "multiSelectExpand",
+   "title": "Dans quelles situations tes symptômes reviennent-ils ou s'aggravent-ils le plus ?",
+   "saveTo": "symptomTiming",
+   "options": [
+    {
+     "value": "before_periods",
+     "label": "Quelques jours avant mes règles"
+    },
+    {
+     "value": "during_periods",
+     "label": "Pendant mes règles"
+    },
+    {
+     "value": "after_periods",
+     "label": "Juste après mes règles"
+    },
+    {
+     "value": "around_ovulation",
+     "label": "Autour de l'ovulation"
+    },
+    {
+     "value": "all_month",
+     "label": "Tout au long du mois"
+    },
+    {
+     "value": "no_cycle_link",
+     "label": "Sans lien clair avec mon cycle"
+    },
+    {
+     "value": "bowel_movement",
+     "label": "Quand je vais à la selle"
+    },
+    {
+     "value": "urinate_bladder",
+     "label": "Quand j'urine ou quand ma vessie est pleine"
+    },
+    {
+     "value": "intercourse",
+     "label": "Pendant ou après les rapports"
+    },
+    {
+     "value": "bloating",
+     "label": "Quand mon ventre gonfle / quand je suis ballonnée"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "stress",
+     "label": "En période de stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Quand je manque de sommeil"
+    },
+    {
+     "value": "movement_position",
+     "label": "Quand je bouge ou change de position"
+    },
+    {
+     "value": "no_clear_factor",
+     "label": "Sans facteur clair"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED13_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une crise ? Un tap.",
+   "saveTo": "_tour_medical"
+  },
+  "TCF_TOUR_TRENDS": {
+   "type": "productTour",
+   "title": "Vois ce qui change, semaine après semaine",
+   "saveTo": "_tour_symptomTrends"
+  },
+  "TCF_TOUR_CALL": {
+   "type": "productTour",
+   "title": "Appelle Endora ou écris-lui",
+   "saveTo": "_tour_call"
+  },
+  "ED8": {
+   "type": "singleSelectExpand",
+   "title": "Aujourd'hui, à quel point ton endo prend de la place dans ta vie ?",
+   "saveTo": "dailyImpact",
+   "options": [
+    {
+     "value": "very_little",
+     "label": "Très peu"
+    },
+    {
+     "value": "a_little",
+     "label": "Un peu"
+    },
+    {
+     "value": "sometimes",
+     "label": "Par moments"
+    },
+    {
+     "value": "often",
+     "label": "Souvent"
+    },
+    {
+     "value": "a_lot",
+     "label": "Beaucoup"
+    }
+   ]
+  },
+  "ED9": {
+   "type": "multiSelectExpand",
+   "title": "En ce moment, qu'est-ce qui est le plus dur pour toi ?",
+   "saveTo": "whatWeighsMost",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles"
+    },
+    {
+     "value": "pelvic_pain",
+     "label": "Douleurs pelviennes en dehors des règles"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs dans le bas du dos"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "diffuse_pain",
+     "label": "Douleurs diffuses ou chroniques"
+    },
+    {
+     "value": "intense_flares",
+     "label": "Crises douloureuses très intenses"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements entre les règles"
+    },
+    {
+     "value": "irregular_cycle",
+     "label": "Cycle irrégulier"
+    },
+    {
+     "value": "no_periods",
+     "label": "Absence de règles"
+    },
+    {
+     "value": "unpredictable_periods",
+     "label": "Règles imprévisibles"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "belly_heaviness",
+     "label": "Sensation de lourdeur dans le ventre"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression dans le bas-ventre"
+    },
+    {
+     "value": "digestive_pain",
+     "label": "Douleurs digestives"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "constipation",
+     "label": "Constipation"
+    },
+    {
+     "value": "diarrhea",
+     "label": "Diarrhée"
+    },
+    {
+     "value": "alternating_bowel",
+     "label": "Alternance constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "urinary_frequency",
+     "label": "Envies fréquentes d'uriner"
+    },
+    {
+     "value": "bladder_pressure",
+     "label": "Sensation de pression sur la vessie"
+    },
+    {
+     "value": "recurrent_urinary",
+     "label": "Gêne urinaire récurrente"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Douleurs pendant les rapports"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse du désir"
+    },
+    {
+     "value": "fear_pain_intercourse",
+     "label": "Appréhension des rapports à cause de la douleur"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "post_period_fatigue",
+     "label": "Fatigue après les règles"
+    },
+    {
+     "value": "post_flare_fatigue",
+     "label": "Fatigue après une crise"
+    },
+    {
+     "value": "work_impact",
+     "label": "Difficulté à travailler ou à étudier"
+    },
+    {
+     "value": "social_impact",
+     "label": "Impact sur ma vie sociale"
+    },
+    {
+     "value": "need_to_slow_down",
+     "label": "Besoin de ralentir au quotidien"
+    },
+    {
+     "value": "mood_swings",
+     "label": "Sautes d'humeur / irritabilité"
+    },
+    {
+     "value": "anxiety",
+     "label": "Anxiété / charge mentale"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    },
+    {
+     "value": "acne",
+     "label": "Acné / peau plus grasse"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux / cheveux plus fins"
+    },
+    {
+     "value": "hirsutism",
+     "label": "Pilosité excessive"
+    },
+    {
+     "value": "fertility_difficulty",
+     "label": "Difficulté à tomber enceinte"
+    },
+    {
+     "value": "baby_project",
+     "label": "Le projet bébé / la fertilité"
+    },
+    {
+     "value": "ovulation_tracking",
+     "label": "Le suivi de l'ovulation"
+    },
+    {
+     "value": "fertility_uncertainty",
+     "label": "L'incertitude liée à ma fertilité"
+    },
+    {
+     "value": "end_of_day_pain",
+     "label": "Douleur qui empire en fin de journée"
+    },
+    {
+     "value": "standing_pain",
+     "label": "Douleur aggravée quand je reste debout longtemps"
+    },
+    {
+     "value": "lying_relief",
+     "label": "Douleur soulagée en m'allongeant"
+    },
+    {
+     "value": "pelvic_heaviness",
+     "label": "Sensation de pesanteur pelvienne"
+    }
+   ]
+  },
+  "endoDiagnosed_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_endoDiagnosed"
+  },
+  "ED10": {
+   "type": "singleSelectExpand",
+   "title": "Es-tu sous traitement en ce moment pour ton endométriose ?",
+   "saveTo": "currentTreatmentStatus",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "tried_not_suitable",
+     "label": "J'ai déjà essayé, mais ça ne me convient pas"
+    },
+    {
+     "value": "not_now",
+     "label": "Pas pour le moment"
+    },
+    {
+     "value": "prefer_not_answer",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "ED10b": {
+   "type": "multiSelectExpand",
+   "title": "Quels traitements utilises-tu actuellement ?",
+   "saveTo": "currentTreatments",
+   "options": [
+    {
+     "value": "pill",
+     "label": "Pilule / contraception hormonale"
+    },
+    {
+     "value": "progestin",
+     "label": "Progestatif / dienogest"
+    },
+    {
+     "value": "hormonal_iud",
+     "label": "DIU hormonal"
+    },
+    {
+     "value": "gnrh",
+     "label": "GnRH / ménopause artificielle"
+    },
+    {
+     "value": "painkillers",
+     "label": "Antidouleurs / anti-inflammatoires"
+    },
+    {
+     "value": "nerve_pain",
+     "label": "Traitement pour douleurs nerveuses"
+    },
+    {
+     "value": "physiotherapy",
+     "label": "Kiné / kiné pelvienne"
+    },
+    {
+     "value": "osteopathy",
+     "label": "Ostéopathie"
+    },
+    {
+     "value": "nutrition",
+     "label": "Approche alimentation / nutrition"
+    },
+    {
+     "value": "psychological",
+     "label": "Soutien psy / relaxation / gestion de la douleur"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    }
+   ]
+  },
+  "ED11": {
+   "type": "singleSelectExpand",
+   "title": "As-tu déjà été opérée pour ton endométriose ?",
+   "saveTo": "surgeryHistory",
+   "options": [
+    {
+     "value": "yes_once",
+     "label": "Oui, une fois"
+    },
+    {
+     "value": "yes_multiple",
+     "label": "Oui, plusieurs fois"
+    },
+    {
+     "value": "no",
+     "label": "Non, jamais"
+    },
+    {
+     "value": "planned",
+     "label": "C'est prévu"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED11b": {
+   "type": "multiSelectExpand",
+   "title": "Quel type d'operation as-tu eu, ou est prévu ?",
+   "saveTo": "surgeryTypes",
+   "options": [
+    {
+     "value": "laparoscopy",
+     "label": "Cœlioscopie / laparoscopie"
+    },
+    {
+     "value": "endometrioma",
+     "label": "Chirurgie d'endométriome ovarien"
+    },
+    {
+     "value": "digestive_surgery",
+     "label": "Chirurgie digestive liée à l'endométriose"
+    },
+    {
+     "value": "urinary_surgery",
+     "label": "Chirurgie urinaire liée à l'endométriose"
+    },
+    {
+     "value": "hysterectomy",
+     "label": "Hystérectomie"
+    },
+    {
+     "value": "no_details",
+     "label": "Je n'ai pas les détails"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED12": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui pour ton endométriose ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "specialized_center",
+     "label": "Centre spécialisé / centre expert endométriose"
+    },
+    {
+     "value": "gynecologist",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "gp",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "pain_specialist",
+     "label": "Médecin de la douleur"
+    },
+    {
+     "value": "physiotherapy",
+     "label": "Kiné / kiné pelvienne"
+    },
+    {
+     "value": "osteopath",
+     "label": "Ostéopathe"
+    },
+    {
+     "value": "fertility",
+     "label": "PMA / fertilité"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED13": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt pour ton endométriose ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "exam",
+     "label": "Un examen"
+    },
+    {
+     "value": "surgery",
+     "label": "Une opération"
+    },
+    {
+     "value": "treatment_change",
+     "label": "Un changement de traitement"
+    },
+    {
+     "value": "nothing",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "ED14": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "ED_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_ed"
+  },
+  "ED15": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ED15_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts"
+  },
+  "TCF_EXPECTATIONS": {
+   "type": "singleSelectExpand",
+   "title": "Qu'attends-tu le plus d'Endora ?",
+   "saveTo": "appExpectationsV2",
+   "options": [
+    {
+     "value": "suivre_evolution",
+     "label": "Mieux suivre l'évolution de mes symptômes"
+    },
+    {
+     "value": "identifier_aliments",
+     "label": "Identifier les aliments qui peuvent aggraver mes symptômes"
+    },
+    {
+     "value": "comprendre_corps",
+     "label": "Mieux comprendre mon corps"
+    },
+    {
+     "value": "conseils_personnalises",
+     "label": "Recevoir des conseils personnalisés d'Endora pour améliorer mon quotidien"
+    },
+    {
+     "value": "apprendre_pathologie",
+     "label": "En apprendre plus sur ma pathologie et mon corps"
+    },
+    {
+     "value": "comprendre_facteurs",
+     "label": "Comprendre les facteurs qui peuvent aggraver mes symptômes (sommeil, activité physique, phases du cycle)"
+    }
+   ]
+  },
+  "TCF_HEALTH_PERMISSION": {
+   "type": "healthPermission",
+   "title": "Connecte tes données d'activité",
+   "saveTo": "healthDataSyncEnabled"
+  },
+  "TCF_TOUR_WIDGETS": {
+   "type": "productTour",
+   "title": "Endora sur ton écran d'accueil",
+   "saveTo": "_tour_homeWidgets"
+  },
+  "AD0": {
+   "type": "personalizedMessage",
+   "title": "Savais-tu que l'adénomyose peut se vivre très différemment d'une personne à l'autre ? Chez certaines, elle provoque surtout des règles très abondantes ou très douloureuses ; chez d'autres, une sensation de lourdeur, de gonflement ou une fatigue importante. Endora t'aidera à suivre plus facilement ce qui revient, ce qui change, et l'impact réel de tes symptômes au fil du temps.",
+   "saveTo": "_welcome_adeno"
+  },
+  "AD1": {
+   "type": "multiSelectExpand",
+   "title": "Comment ton adénomyose a-t-elle été diagnostiquée ?",
+   "saveTo": "diagnosisMethod",
+   "options": [
+    {
+     "value": "endo_ultrasound",
+     "label": "Échographie endovaginale / vaginale"
+    },
+    {
+     "value": "abdo_ultrasound",
+     "label": "Échographie abdominale"
+    },
+    {
+     "value": "mri",
+     "label": "IRM"
+    },
+    {
+     "value": "tissue_analysis",
+     "label": "Après analyse d'un tissu retiré"
+    },
+    {
+     "value": "clinical",
+     "label": "Examen clinique / avis médical"
+    },
+    {
+     "value": "fertility",
+     "label": "Découverte dans un parcours fertilité / PMA"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD2": {
+   "type": "yearPicker",
+   "title": "En quelle année ton adénomyose a-t-elle été diagnostiquée ?",
+   "saveTo": "adenoDiagnosisYear"
+  },
+  "AD3": {
+   "type": "multiSelectExpand",
+   "title": "Sait-on comment se présente ton adénomyose ?",
+   "saveTo": "adenoForm",
+   "options": [
+    {
+     "value": "diffuse",
+     "label": "Diffuse"
+    },
+    {
+     "value": "focal",
+     "label": "Focale"
+    },
+    {
+     "value": "adenomyoma",
+     "label": "Adénomyome"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD3b": {
+   "type": "multiSelectExpand",
+   "title": "Sais-tu où elle est située dans l'utérus ? (si on te l'a précisé)",
+   "saveTo": "adenoUterusLocation",
+   "options": [
+    {
+     "value": "anterior",
+     "label": "Avant de l'utérus"
+    },
+    {
+     "value": "posterior",
+     "label": "Arrière de l'utérus"
+    },
+    {
+     "value": "multiple_zones",
+     "label": "Plusieurs zones"
+    },
+    {
+     "value": "diffuse_uterus",
+     "label": "Diffuse (un peu partout)"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD4": {
+   "type": "singleSelectExpand",
+   "title": "Concernant l'endométriose, où en es-tu ?",
+   "saveTo": "adenoAssociatedEndo",
+   "options": [
+    {
+     "value": "diagnosed",
+     "label": "Diagnostiquée"
+    },
+    {
+     "value": "suspected",
+     "label": "Suspectée"
+    },
+    {
+     "value": "mentioned",
+     "label": "On m'en a parlé sans confirmation"
+    },
+    {
+     "value": "not_investigated",
+     "label": "Pas investiguée / on ne l'a jamais recherchée"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD4b": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui avec ton adénomyose ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles importantes"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "irregular_cycle",
+     "label": "Cycle irrégulier"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements en dehors des règles"
+    },
+    {
+     "value": "chronic_pelvic",
+     "label": "Douleur pelvienne en dehors des règles"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs lombaires"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "chronic_daily_pain",
+     "label": "Douleurs chroniques (quasi quotidiennes)"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Rapports sexuels douloureux"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse de libido"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "bowel_issues",
+     "label": "Constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "frequency",
+     "label": "Besoin fréquent d'uriner"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression pelvienne"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "acne",
+     "label": "Acné"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux"
+    },
+    {
+     "value": "mood_anxiety",
+     "label": "Sautes d'humeur / anxiété"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    }
+   ]
+  },
+  "AD5": {
+   "type": "singleSelectExpand",
+   "title": "Aujourd'hui, à quel point ton adénomyose prend-elle de la place dans ta vie ?",
+   "saveTo": "dailyImpact",
+   "options": [
+    {
+     "value": "very_little",
+     "label": "Très peu"
+    },
+    {
+     "value": "a_little",
+     "label": "Un peu"
+    },
+    {
+     "value": "sometimes",
+     "label": "Par moments"
+    },
+    {
+     "value": "often",
+     "label": "Souvent"
+    },
+    {
+     "value": "a_lot",
+     "label": "Beaucoup"
+    }
+   ]
+  },
+  "AD6": {
+   "type": "multiSelectExpand",
+   "title": "En ce moment, qu'est-ce qui est le plus dur pour toi ?",
+   "saveTo": "whatWeighsMost",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles"
+    },
+    {
+     "value": "pelvic_pain",
+     "label": "Douleurs pelviennes en dehors des règles"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs dans le bas du dos"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "diffuse_pain",
+     "label": "Douleurs diffuses ou chroniques"
+    },
+    {
+     "value": "intense_flares",
+     "label": "Crises douloureuses très intenses"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements entre les règles"
+    },
+    {
+     "value": "irregular_cycle",
+     "label": "Cycle irrégulier"
+    },
+    {
+     "value": "no_periods",
+     "label": "Absence de règles"
+    },
+    {
+     "value": "unpredictable_periods",
+     "label": "Règles imprévisibles"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "belly_heaviness",
+     "label": "Sensation de lourdeur dans le ventre"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression dans le bas-ventre"
+    },
+    {
+     "value": "digestive_pain",
+     "label": "Douleurs digestives"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "constipation",
+     "label": "Constipation"
+    },
+    {
+     "value": "diarrhea",
+     "label": "Diarrhée"
+    },
+    {
+     "value": "alternating_bowel",
+     "label": "Alternance constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "urinary_frequency",
+     "label": "Envies fréquentes d'uriner"
+    },
+    {
+     "value": "bladder_pressure",
+     "label": "Sensation de pression sur la vessie"
+    },
+    {
+     "value": "recurrent_urinary",
+     "label": "Gêne urinaire récurrente"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Douleurs pendant les rapports"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse du désir"
+    },
+    {
+     "value": "fear_pain_intercourse",
+     "label": "Appréhension des rapports à cause de la douleur"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "post_period_fatigue",
+     "label": "Fatigue après les règles"
+    },
+    {
+     "value": "post_flare_fatigue",
+     "label": "Fatigue après une crise"
+    },
+    {
+     "value": "work_impact",
+     "label": "Difficulté à travailler ou à étudier"
+    },
+    {
+     "value": "social_impact",
+     "label": "Impact sur ma vie sociale"
+    },
+    {
+     "value": "need_to_slow_down",
+     "label": "Besoin de ralentir au quotidien"
+    },
+    {
+     "value": "mood_swings",
+     "label": "Sautes d'humeur / irritabilité"
+    },
+    {
+     "value": "anxiety",
+     "label": "Anxiété / charge mentale"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    },
+    {
+     "value": "acne",
+     "label": "Acné / peau plus grasse"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux / cheveux plus fins"
+    },
+    {
+     "value": "hirsutism",
+     "label": "Pilosité excessive"
+    },
+    {
+     "value": "fertility_difficulty",
+     "label": "Difficulté à tomber enceinte"
+    },
+    {
+     "value": "baby_project",
+     "label": "Le projet bébé / la fertilité"
+    },
+    {
+     "value": "ovulation_tracking",
+     "label": "Le suivi de l'ovulation"
+    },
+    {
+     "value": "fertility_uncertainty",
+     "label": "L'incertitude liée à ma fertilité"
+    },
+    {
+     "value": "end_of_day_pain",
+     "label": "Douleur qui empire en fin de journée"
+    },
+    {
+     "value": "standing_pain",
+     "label": "Douleur aggravée quand je reste debout longtemps"
+    },
+    {
+     "value": "lying_relief",
+     "label": "Douleur soulagée en m'allongeant"
+    },
+    {
+     "value": "pelvic_heaviness",
+     "label": "Sensation de pesanteur pelvienne"
+    }
+   ]
+  },
+  "AD13_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une crise ? Un tap.",
+   "saveTo": "_tour_medical"
+  },
+  "AD9": {
+   "type": "singleSelectExpand",
+   "title": "Quand tu saignes, comment c'est le plus souvent ?",
+   "saveTo": "bleedingVolume",
+   "options": [
+    {
+     "value": "light",
+     "label": "Léger"
+    },
+    {
+     "value": "normal",
+     "label": "Plutôt normal"
+    },
+    {
+     "value": "heavy",
+     "label": "Abondant"
+    },
+    {
+     "value": "very_heavy",
+     "label": "Très abondant"
+    },
+    {
+     "value": "variable",
+     "label": "Ça change beaucoup d'un cycle à l'autre"
+    },
+    {
+     "value": "spotting",
+     "label": "J'ai surtout des spottings / petits saignements"
+    },
+    {
+     "value": "prefer_not_answer",
+     "label": "Je préfère ne pas répondre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD9b": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus quand les saignements sont importants ?",
+   "saveTo": "bleedingImpact",
+   "options": [
+    {
+     "value": "change_often",
+     "label": "Je dois me changer très souvent"
+    },
+    {
+     "value": "night_waking",
+     "label": "Je me lève la nuit"
+    },
+    {
+     "value": "clots",
+     "label": "J'ai des caillots"
+    },
+    {
+     "value": "fear_leaks",
+     "label": "J'ai peur des fuites"
+    },
+    {
+     "value": "exhausted",
+     "label": "Je suis épuisée après"
+    },
+    {
+     "value": "disrupts_work",
+     "label": "Ça perturbe mon travail / mes sorties"
+    },
+    {
+     "value": "stress",
+     "label": "Ça me stresse beaucoup"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    }
+   ]
+  },
+  "adenoDiagnosed_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_adenoDiagnosed"
+  },
+  "AD10": {
+   "type": "singleSelectExpand",
+   "title": "Es-tu sous traitement en ce moment pour ton adénomyose ?",
+   "saveTo": "currentTreatmentStatus",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "tried_not_suitable",
+     "label": "J'ai déjà essayé, mais ça ne me convient pas"
+    },
+    {
+     "value": "not_now",
+     "label": "Pas pour le moment"
+    },
+    {
+     "value": "prefer_not_answer",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "AD10b": {
+   "type": "multiSelectExpand",
+   "title": "Quels traitements utilises-tu actuellement ?",
+   "saveTo": "currentTreatments",
+   "options": [
+    {
+     "value": "hormonal_iud",
+     "label": "DIU hormonal / Mirena"
+    },
+    {
+     "value": "pill",
+     "label": "Pilule / contraception hormonale"
+    },
+    {
+     "value": "other_hormonal",
+     "label": "Autre traitement hormonal"
+    },
+    {
+     "value": "painkillers",
+     "label": "Antidouleurs / anti-inflammatoires"
+    },
+    {
+     "value": "bleeding_medication",
+     "label": "Médicament pour réduire les saignements"
+    },
+    {
+     "value": "iron_supplements",
+     "label": "Compléments pour le fer / anémie"
+    },
+    {
+     "value": "physiotherapy",
+     "label": "Kiné / prise en charge complémentaire"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    }
+   ]
+  },
+  "AD11": {
+   "type": "singleSelectExpand",
+   "title": "As-tu déjà eu une intervention liée à ton adénomyose ?",
+   "saveTo": "surgeryHistory",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "planned",
+     "label": "C'est prévu"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD11b": {
+   "type": "multiSelectExpand",
+   "title": "Quel type d'intervention as-tu eu, ou est prévu ?",
+   "saveTo": "surgeryTypes",
+   "options": [
+    {
+     "value": "hysterectomy",
+     "label": "Hystérectomie"
+    },
+    {
+     "value": "endometrial_ablation",
+     "label": "Ablation de l'endomètre"
+    },
+    {
+     "value": "uterine_embolization",
+     "label": "Embolisation des artères utérines"
+    },
+    {
+     "value": "other",
+     "label": "Une autre intervention"
+    },
+    {
+     "value": "no_details",
+     "label": "Je n'ai pas les détails"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD12": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui pour ton adénomyose ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "gynecologist",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "specialized_center",
+     "label": "Centre spécialisé / centre expert"
+    },
+    {
+     "value": "gp",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "midwife",
+     "label": "Sage-femme"
+    },
+    {
+     "value": "fertility",
+     "label": "PMA / fertilité"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD13": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt pour ton adénomyose ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "exam",
+     "label": "Un examen"
+    },
+    {
+     "value": "intervention",
+     "label": "Une intervention / opération"
+    },
+    {
+     "value": "treatment_change",
+     "label": "Un changement de traitement"
+    },
+    {
+     "value": "nothing",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "AD14": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "AD_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_ad"
+  },
+  "AD15": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "AD15_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts"
+  },
+  "EA0": {
+   "type": "personalizedMessage",
+   "title": "Savais-tu que l'endométriose et l'adénomyose peuvent se cumuler et se vivre très différemment selon les périodes ? Chez certaines personnes, ce sont surtout les douleurs qui prennent de la place ; chez d'autres, les saignements, la fatigue, le ventre gonflé ou la vie intime. Endora t'aidera à suivre plus facilement ce qui revient, ce qui change, et ce qui pèse le plus au fil du temps.",
+   "saveTo": "_welcome_endo_adeno"
+  },
+  "EA1": {
+   "type": "multiSelectExpand",
+   "title": "Quel(s) type(s) d'endométriose t'a-t-on diagnostiqué(s) ?",
+   "saveTo": "endoTypes",
+   "options": [
+    {
+     "value": "superficial",
+     "label": "Superficielle (péritonéale)"
+    },
+    {
+     "value": "ovarian",
+     "label": "Ovarienne (endométriome)"
+    },
+    {
+     "value": "deep",
+     "label": "Profonde (infiltrante)"
+    },
+    {
+     "value": "multiple",
+     "label": "Plusieurs types"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA_STAGE": {
+   "type": "singleSelectExpand",
+   "title": "Le stade de ton endométriose t'a-t-il été précisé ?",
+   "saveTo": "endoStage",
+   "options": [
+    {
+     "value": "stage1",
+     "label": "Stade 1"
+    },
+    {
+     "value": "stage2",
+     "label": "Stade 2"
+    },
+    {
+     "value": "stage3",
+     "label": "Stade 3"
+    },
+    {
+     "value": "stage4",
+     "label": "Stade 4"
+    },
+    {
+     "value": "not_specified",
+     "label": "Non, on ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA2": {
+   "type": "multiSelectExpand",
+   "title": "Dans quelle(s) zone(s) ton endométriose a-t-elle été trouvée ?",
+   "saveTo": "endoLocations",
+   "options": [
+    {
+     "value": "ovaries",
+     "label": "Ovaires"
+    },
+    {
+     "value": "peritoneum",
+     "label": "Péritoine / zone pelvienne"
+    },
+    {
+     "value": "intestine_rectum",
+     "label": "Intestin / rectum"
+    },
+    {
+     "value": "bladder_urinary",
+     "label": "Vessie / appareil urinaire"
+    },
+    {
+     "value": "rectovaginal",
+     "label": "Zone recto-vaginale / ligaments"
+    },
+    {
+     "value": "diaphragm",
+     "label": "Diaphragme"
+    },
+    {
+     "value": "thorax",
+     "label": "Thorax"
+    },
+    {
+     "value": "scar",
+     "label": "Cicatrice"
+    },
+    {
+     "value": "rare_locations",
+     "label": "Atteintes plus rares"
+    },
+    {
+     "value": "other",
+     "label": "Autres localisations"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    }
+   ]
+  },
+  "EA3": {
+   "type": "multiSelectExpand",
+   "title": "Comment ton endométriose a-t-elle été diagnostiquée ?",
+   "saveTo": "diagnosisMethod",
+   "options": [
+    {
+     "value": "endo_ultrasound",
+     "label": "Échographie endovaginale / vaginale"
+    },
+    {
+     "value": "abdo_ultrasound",
+     "label": "Échographie abdominale"
+    },
+    {
+     "value": "mri",
+     "label": "IRM"
+    },
+    {
+     "value": "laparoscopy",
+     "label": "Cœlioscopie / laparoscopie"
+    },
+    {
+     "value": "biopsy",
+     "label": "Biopsie / analyse de tissu"
+    },
+    {
+     "value": "clinical",
+     "label": "Examen clinique / avis médical"
+    },
+    {
+     "value": "fertility",
+     "label": "Découverte dans un parcours fertilité / PMA"
+    },
+    {
+     "value": "emergency",
+     "label": "Découverte en urgence ou pendant une autre prise en charge"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA4": {
+   "type": "multiSelectExpand",
+   "title": "Sait-on comment se présente ton adénomyose ?",
+   "saveTo": "adenoForm",
+   "options": [
+    {
+     "value": "diffuse",
+     "label": "Diffuse"
+    },
+    {
+     "value": "focal",
+     "label": "Focale"
+    },
+    {
+     "value": "adenomyoma",
+     "label": "Adénomyome"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA_ADENO_LOC": {
+   "type": "multiSelectExpand",
+   "title": "Sais-tu où elle est située dans l'utérus ? (si on te l'a précisé)",
+   "saveTo": "adenoUterusLocation",
+   "options": [
+    {
+     "value": "anterior",
+     "label": "Avant de l'utérus"
+    },
+    {
+     "value": "posterior",
+     "label": "Arrière de l'utérus"
+    },
+    {
+     "value": "multiple_zones",
+     "label": "Plusieurs zones"
+    },
+    {
+     "value": "diffuse_uterus",
+     "label": "Diffuse (un peu partout)"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA_ADENO_DIAG": {
+   "type": "multiSelectExpand",
+   "title": "Comment ton adénomyose a-t-elle été diagnostiquée ?",
+   "saveTo": "adenoDiagnosisMethod",
+   "options": [
+    {
+     "value": "endo_ultrasound",
+     "label": "Échographie endovaginale / vaginale"
+    },
+    {
+     "value": "abdo_ultrasound",
+     "label": "Échographie abdominale"
+    },
+    {
+     "value": "mri",
+     "label": "IRM"
+    },
+    {
+     "value": "tissue_analysis",
+     "label": "Après analyse d'un tissu retiré"
+    },
+    {
+     "value": "clinical",
+     "label": "Examen clinique / avis médical"
+    },
+    {
+     "value": "fertility",
+     "label": "Découverte dans un parcours fertilité / PMA"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA5": {
+   "type": "singleSelectExpand",
+   "title": "Dans ton parcours, qu'est-ce qu'on a identifié en premier ?",
+   "saveTo": "diagnosisOrderEndoAdeno",
+   "options": [
+    {
+     "value": "endo_first",
+     "label": "D'abord l'endométriose"
+    },
+    {
+     "value": "adeno_first",
+     "label": "D'abord l'adénomyose"
+    },
+    {
+     "value": "both_same_time",
+     "label": "Les deux à peu près en même temps"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas / je ne me souviens plus"
+    }
+   ]
+  },
+  "EA6": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles importantes"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "irregular_cycle",
+     "label": "Cycle irrégulier"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements en dehors des règles"
+    },
+    {
+     "value": "chronic_pelvic",
+     "label": "Douleur pelvienne en dehors des règles"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs lombaires"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "chronic_daily_pain",
+     "label": "Douleurs chroniques (quasi quotidiennes)"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Rapports sexuels douloureux"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse de libido"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "bowel_issues",
+     "label": "Constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "frequency",
+     "label": "Besoin fréquent d'uriner"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression pelvienne"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "acne",
+     "label": "Acné"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux"
+    },
+    {
+     "value": "mood_anxiety",
+     "label": "Sautes d'humeur / anxiété"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    }
+   ]
+  },
+  "EA7": {
+   "type": "multiSelectExpand",
+   "title": "Aujourd'hui, qu'est-ce qui est le plus difficile pour toi à comprendre ou à gérer ?",
+   "saveTo": "mainBurden",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "dont_understand_triggers",
+     "label": "Je ne comprends pas ce qui déclenche mes symptômes (alimentation, cycle, stress, activité physique...)"
+    },
+    {
+     "value": "hard_to_see_evolution",
+     "label": "J'ai du mal à voir comment mes symptômes évoluent (d'un jour à l'autre, d'un cycle à l'autre)"
+    },
+    {
+     "value": "too_many_symptoms",
+     "label": "J'ai trop de symptômes et je ne sais pas par où commencer"
+    },
+    {
+     "value": "dont_know_what_to_change",
+     "label": "Je ne sais pas quoi changer dans mon quotidien pour aller mieux"
+    },
+    {
+     "value": "nothing_relieves",
+     "label": "Rien ne semble vraiment me soulager"
+    },
+    {
+     "value": "dont_know_priorities",
+     "label": "Je ne sais pas quels symptômes suivre en priorité"
+    },
+    {
+     "value": "no_clear_markers",
+     "label": "Je manque de repères pour comprendre ce qui m'aide ou m'aggrave"
+    },
+    {
+     "value": "no_adapted_treatment",
+     "label": "Je n'ai pas de traitement adapté aujourd'hui"
+    },
+    {
+     "value": "need_clarity_consultation",
+     "label": "J'ai besoin d'y voir plus clair avant ma prochaine consultation"
+    }
+   ]
+  },
+  "EA8": {
+   "type": "multiSelectExpand",
+   "title": "En ce moment, qu'est-ce qui est le plus dur pour toi ?",
+   "saveTo": "whatWeighsMost",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles"
+    },
+    {
+     "value": "pelvic_pain",
+     "label": "Douleurs pelviennes en dehors des règles"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs dans le bas du dos"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "diffuse_pain",
+     "label": "Douleurs diffuses ou chroniques"
+    },
+    {
+     "value": "intense_flares",
+     "label": "Crises douloureuses très intenses"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements entre les règles"
+    },
+    {
+     "value": "irregular_cycle",
+     "label": "Cycle irrégulier"
+    },
+    {
+     "value": "no_periods",
+     "label": "Absence de règles"
+    },
+    {
+     "value": "unpredictable_periods",
+     "label": "Règles imprévisibles"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "belly_heaviness",
+     "label": "Sensation de lourdeur dans le ventre"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression dans le bas-ventre"
+    },
+    {
+     "value": "digestive_pain",
+     "label": "Douleurs digestives"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "constipation",
+     "label": "Constipation"
+    },
+    {
+     "value": "diarrhea",
+     "label": "Diarrhée"
+    },
+    {
+     "value": "alternating_bowel",
+     "label": "Alternance constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "urinary_frequency",
+     "label": "Envies fréquentes d'uriner"
+    },
+    {
+     "value": "bladder_pressure",
+     "label": "Sensation de pression sur la vessie"
+    },
+    {
+     "value": "recurrent_urinary",
+     "label": "Gêne urinaire récurrente"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Douleurs pendant les rapports"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse du désir"
+    },
+    {
+     "value": "fear_pain_intercourse",
+     "label": "Appréhension des rapports à cause de la douleur"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "post_period_fatigue",
+     "label": "Fatigue après les règles"
+    },
+    {
+     "value": "post_flare_fatigue",
+     "label": "Fatigue après une crise"
+    },
+    {
+     "value": "work_impact",
+     "label": "Difficulté à travailler ou à étudier"
+    },
+    {
+     "value": "social_impact",
+     "label": "Impact sur ma vie sociale"
+    },
+    {
+     "value": "need_to_slow_down",
+     "label": "Besoin de ralentir au quotidien"
+    },
+    {
+     "value": "mood_swings",
+     "label": "Sautes d'humeur / irritabilité"
+    },
+    {
+     "value": "anxiety",
+     "label": "Anxiété / charge mentale"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    },
+    {
+     "value": "acne",
+     "label": "Acné / peau plus grasse"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux / cheveux plus fins"
+    },
+    {
+     "value": "hirsutism",
+     "label": "Pilosité excessive"
+    },
+    {
+     "value": "fertility_difficulty",
+     "label": "Difficulté à tomber enceinte"
+    },
+    {
+     "value": "baby_project",
+     "label": "Le projet bébé / la fertilité"
+    },
+    {
+     "value": "ovulation_tracking",
+     "label": "Le suivi de l'ovulation"
+    },
+    {
+     "value": "fertility_uncertainty",
+     "label": "L'incertitude liée à ma fertilité"
+    },
+    {
+     "value": "end_of_day_pain",
+     "label": "Douleur qui empire en fin de journée"
+    },
+    {
+     "value": "standing_pain",
+     "label": "Douleur aggravée quand je reste debout longtemps"
+    },
+    {
+     "value": "lying_relief",
+     "label": "Douleur soulagée en m'allongeant"
+    },
+    {
+     "value": "pelvic_heaviness",
+     "label": "Sensation de pesanteur pelvienne"
+    }
+   ]
+  },
+  "EA16_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une crise ? Un tap.",
+   "saveTo": "_tour_medical"
+  },
+  "EA11": {
+   "type": "singleSelectExpand",
+   "title": "Quand tu saignes, comment c'est le plus souvent ?",
+   "saveTo": "bleedingVolume",
+   "options": [
+    {
+     "value": "light",
+     "label": "Léger"
+    },
+    {
+     "value": "normal",
+     "label": "Plutôt normal"
+    },
+    {
+     "value": "heavy",
+     "label": "Abondant"
+    },
+    {
+     "value": "very_heavy",
+     "label": "Très abondant"
+    },
+    {
+     "value": "variable",
+     "label": "Ça change beaucoup d'un cycle à l'autre"
+    },
+    {
+     "value": "spotting",
+     "label": "J'ai surtout des spottings / petits saignements"
+    },
+    {
+     "value": "prefer_not_answer",
+     "label": "Je préfère ne pas répondre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA12": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus quand les saignements sont importants ?",
+   "saveTo": "bleedingImpact",
+   "options": [
+    {
+     "value": "change_often",
+     "label": "Je dois me changer très souvent"
+    },
+    {
+     "value": "night_waking",
+     "label": "Je me lève la nuit"
+    },
+    {
+     "value": "clots",
+     "label": "J'ai des caillots"
+    },
+    {
+     "value": "fear_leaks",
+     "label": "J'ai peur des fuites"
+    },
+    {
+     "value": "exhausted",
+     "label": "Je suis épuisée après"
+    },
+    {
+     "value": "disrupts_work",
+     "label": "Ça perturbe mon travail / mes sorties"
+    },
+    {
+     "value": "stress",
+     "label": "Ça me stresse beaucoup"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    }
+   ]
+  },
+  "endoAdeno_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_endoAdeno"
+  },
+  "EA13": {
+   "type": "singleSelectExpand",
+   "title": "Es-tu sous traitement en ce moment pour ton endométriose et/ou ton adénomyose ?",
+   "saveTo": "currentTreatmentStatus",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "tried_not_suitable",
+     "label": "J'ai déjà essayé, mais ça ne me convient pas"
+    },
+    {
+     "value": "not_now",
+     "label": "Pas pour le moment"
+    },
+    {
+     "value": "prefer_not_answer",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "EA13b": {
+   "type": "multiSelectExpand",
+   "title": "Quels traitements utilises-tu actuellement ?",
+   "saveTo": "currentTreatments",
+   "options": [
+    {
+     "value": "pill",
+     "label": "Pilule / contraception hormonale"
+    },
+    {
+     "value": "progestin",
+     "label": "Progestatif / dienogest"
+    },
+    {
+     "value": "hormonal_iud",
+     "label": "DIU hormonal"
+    },
+    {
+     "value": "gnrh",
+     "label": "GnRH / ménopause artificielle"
+    },
+    {
+     "value": "painkillers",
+     "label": "Antidouleurs / anti-inflammatoires"
+    },
+    {
+     "value": "nerve_pain",
+     "label": "Traitement pour douleurs nerveuses"
+    },
+    {
+     "value": "bleeding_medication",
+     "label": "Médicament pour réduire les saignements"
+    },
+    {
+     "value": "iron_supplements",
+     "label": "Compléments pour le fer / anémie"
+    },
+    {
+     "value": "physiotherapy",
+     "label": "Kiné / kiné pelvienne"
+    },
+    {
+     "value": "osteopathy",
+     "label": "Ostéopathie"
+    },
+    {
+     "value": "nutrition",
+     "label": "Approche alimentation / nutrition"
+    },
+    {
+     "value": "psychological",
+     "label": "Soutien psy / relaxation / gestion de la douleur"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    }
+   ]
+  },
+  "EA14": {
+   "type": "singleSelectExpand",
+   "title": "As-tu déjà eu une opération ou une intervention liée à ton endométriose ou à ton adénomyose ?",
+   "saveTo": "surgeryHistory",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "planned",
+     "label": "C'est prévu"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA14b": {
+   "type": "multiSelectExpand",
+   "title": "Quel type d'intervention as-tu eu, ou est prévu ?",
+   "saveTo": "surgeryTypes",
+   "options": [
+    {
+     "value": "laparoscopy",
+     "label": "Cœlioscopie / laparoscopie"
+    },
+    {
+     "value": "endometrioma",
+     "label": "Chirurgie d'endométriome ovarien"
+    },
+    {
+     "value": "digestive_surgery",
+     "label": "Chirurgie digestive liée à l'endométriose"
+    },
+    {
+     "value": "urinary_surgery",
+     "label": "Chirurgie urinaire liée à l'endométriose"
+    },
+    {
+     "value": "hysterectomy",
+     "label": "Hystérectomie"
+    },
+    {
+     "value": "endometrial_ablation",
+     "label": "Ablation de l'endomètre"
+    },
+    {
+     "value": "uterine_embolization",
+     "label": "Embolisation des artères utérines"
+    },
+    {
+     "value": "other",
+     "label": "Une autre intervention"
+    },
+    {
+     "value": "no_details",
+     "label": "Je n'ai pas les détails"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA15": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "specialized_center",
+     "label": "Centre spécialisé / centre expert endométriose"
+    },
+    {
+     "value": "gynecologist",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "gp",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "pain_specialist",
+     "label": "Médecin de la douleur"
+    },
+    {
+     "value": "physiotherapy",
+     "label": "Kiné / kiné pelvienne"
+    },
+    {
+     "value": "osteopath",
+     "label": "Ostéopathe"
+    },
+    {
+     "value": "midwife",
+     "label": "Sage-femme"
+    },
+    {
+     "value": "fertility",
+     "label": "PMA / fertilité"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA16": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "exam",
+     "label": "Un examen"
+    },
+    {
+     "value": "intervention",
+     "label": "Une intervention / opération"
+    },
+    {
+     "value": "treatment_change",
+     "label": "Un changement de traitement"
+    },
+    {
+     "value": "nothing",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "EA17": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "EA_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_ea"
+  },
+  "EA18": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "EA18_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts"
+  },
+  "ES0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton parcours symptômes",
+   "saveTo": "_welcome_endoSuspected"
+  },
+  "ES1": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te fait penser que l'endométriose pourrait faire partie de ce que tu vis ?",
+   "saveTo": "suspectedReason",
+   "options": [
+    {
+     "value": "period_pain_disrupts",
+     "label": "Mes douleurs de règles perturbent vraiment mon quotidien"
+    },
+    {
+     "value": "recurring_pelvic_pain",
+     "label": "J'ai des douleurs pelviennes qui reviennent, même en dehors des règles"
+    },
+    {
+     "value": "pain_intercourse",
+     "label": "J'ai mal pendant ou après les rapports"
+    },
+    {
+     "value": "bowel_pain",
+     "label": "J'ai mal quand je vais à la selle"
+    },
+    {
+     "value": "urinary_discomfort",
+     "label": "J'ai une gêne, des douleurs ou des brûlures quand j'urine"
+    },
+    {
+     "value": "bloating",
+     "label": "J'ai souvent le ventre gonflé ou ballonné"
+    },
+    {
+     "value": "digestive_issues",
+     "label": "J'ai souvent des troubles digestifs (constipation, diarrhée, nausées...)"
+    },
+    {
+     "value": "back_leg_pain",
+     "label": "J'ai mal dans le bas du dos, le bas-ventre ou parfois dans les jambes"
+    },
+    {
+     "value": "significant_fatigue",
+     "label": "Je ressens une fatigue importante"
+    },
+    {
+     "value": "fertility_difficulty",
+     "label": "J'ai des difficultés à tomber enceinte"
+    },
+    {
+     "value": "cyclical_symptoms",
+     "label": "Mes symptômes semblent revenir au même moment du cycle"
+    },
+    {
+     "value": "heavy_unusual_bleeding",
+     "label": "J'ai des règles abondantes ou des saignements inhabituels"
+    },
+    {
+     "value": "blood_stool_urine",
+     "label": "J'ai parfois du sang dans les selles ou dans les urines pendant mes règles"
+    },
+    {
+     "value": "gut_feeling_endo",
+     "label": "Je ne sais pas trop l'expliquer, mais mes symptômes me font penser à l'endométriose"
+    }
+   ]
+  },
+  "ES2": {
+   "type": "singleSelectExpand",
+   "title": "Depuis combien de temps ces symptômes te gênent-ils ?",
+   "saveTo": "symptomDuration",
+   "options": [
+    {
+     "value": "less_6m",
+     "label": "Moins de 6 mois"
+    },
+    {
+     "value": "6m_1y",
+     "label": "6 mois a 1 an"
+    },
+    {
+     "value": "1_3y",
+     "label": "1 a 3 ans"
+    },
+    {
+     "value": "3_5y",
+     "label": "3 a 5 ans"
+    },
+    {
+     "value": "5plus",
+     "label": "Plus de 5 ans"
+    },
+    {
+     "value": "since_adolescence",
+     "label": "Depuis l'adolescence"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ES3": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles importantes"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "irregular_cycle",
+     "label": "Cycle irrégulier"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements en dehors des règles"
+    },
+    {
+     "value": "chronic_pelvic",
+     "label": "Douleur pelvienne en dehors des règles"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs lombaires"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "chronic_daily_pain",
+     "label": "Douleurs chroniques (quasi quotidiennes)"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Rapports sexuels douloureux"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse de libido"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "bowel_issues",
+     "label": "Constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "frequency",
+     "label": "Besoin fréquent d'uriner"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression pelvienne"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "acne",
+     "label": "Acné"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux"
+    },
+    {
+     "value": "mood_anxiety",
+     "label": "Sautes d'humeur / anxiété"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    }
+   ]
+  },
+  "ES5": {
+   "type": "singleSelectExpand",
+   "title": "As-tu déjà consulte pour ces symptômes ?",
+   "saveTo": "consultedForSymptoms",
+   "options": [
+    {
+     "value": "yes_multiple",
+     "label": "Oui, plusieurs fois"
+    },
+    {
+     "value": "yes_few",
+     "label": "Oui, une fois ou quelques fois"
+    },
+    {
+     "value": "no",
+     "label": "Non, pas encore"
+    },
+    {
+     "value": "want_but_lost",
+     "label": "J'aimerais, mais je ne sais pas par ou commencer"
+    },
+    {
+     "value": "afraid",
+     "label": "J'ai peur de ne pas être prise au sérieux"
+    }
+   ]
+  },
+  "ES5b": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qu'on t'a dit jusqu'ici ?",
+   "saveTo": "whatDoctorSaid",
+   "options": [
+    {
+     "value": "told_normal",
+     "label": "On m'a dit que c'était normal"
+    },
+    {
+     "value": "told_stress",
+     "label": "On m'a dit que c'était lié au stress"
+    },
+    {
+     "value": "endo_mentioned",
+     "label": "On a évoqué une endométriose"
+    },
+    {
+     "value": "other_lead",
+     "label": "On a évoqué une autre piste"
+    },
+    {
+     "value": "treatment_no_explanation",
+     "label": "On m'a prescrit un traitement sans plus d'explications"
+    },
+    {
+     "value": "normal_exams",
+     "label": "Mes examens étaient normaux ou non concluants"
+    },
+    {
+     "value": "referred_specialist",
+     "label": "On m'a orientée vers un spécialiste"
+    },
+    {
+     "value": "dont_remember",
+     "label": "Je ne sais plus"
+    }
+   ]
+  },
+  "ES6": {
+   "type": "singleSelectExpand",
+   "title": "As-tu déjà passé des examens pour ces symptômes ?",
+   "saveTo": "examsDoneStatus",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "en_cours",
+     "label": "C'est en cours"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ES6b": {
+   "type": "multiSelectExpand",
+   "title": "Quels examens as-tu déjà passés ?",
+   "saveTo": "examsCompleted",
+   "options": [
+    {
+     "value": "clinical_gyneco",
+     "label": "Examen clinique / gynécologique"
+    },
+    {
+     "value": "echo_endovaginal",
+     "label": "Échographie endovaginale / vaginale"
+    },
+    {
+     "value": "echo_abdominal",
+     "label": "Échographie abdominale"
+    },
+    {
+     "value": "mri",
+     "label": "IRM"
+    },
+    {
+     "value": "laparoscopy",
+     "label": "Cœlioscopie / laparoscopie"
+    },
+    {
+     "value": "blood_test",
+     "label": "Prise de sang uniquement"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ES6c": {
+   "type": "singleSelectExpand",
+   "title": "Qu'ont montre ces examens jusqu'ici ?",
+   "saveTo": "examResults",
+   "options": [
+    {
+     "value": "signs_endo",
+     "label": "Des signes qui peuvent faire penser à une endométriose"
+    },
+    {
+     "value": "inconclusive",
+     "label": "Rien de concluant"
+    },
+    {
+     "value": "normal",
+     "label": "Mes examens étaient normaux"
+    },
+    {
+     "value": "other_lead",
+     "label": "Une autre piste a été évoquée"
+    },
+    {
+     "value": "waiting",
+     "label": "Je suis en attente des résultats"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ES_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une crise ? Un tap.",
+   "saveTo": "_tour_medical_es"
+  },
+  "endoSuspected_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_endoSuspected"
+  },
+  "ES9": {
+   "type": "multiSelectExpand",
+   "title": "D'après tes symptômes où ce qu'on t'a déjà dit, quelle zone semble la plus concernee ?",
+   "saveTo": "suspectedZones",
+   "options": [
+    {
+     "value": "pelvis",
+     "label": "Pelvis / bas-ventre"
+    },
+    {
+     "value": "ovaries",
+     "label": "Ovaires"
+    },
+    {
+     "value": "intestin_rectum",
+     "label": "Intestin / rectum"
+    },
+    {
+     "value": "bladder",
+     "label": "Vessie / urinaire"
+    },
+    {
+     "value": "back_legs",
+     "label": "Dos / jambes"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne m'a rien précisé"
+    }
+   ]
+  },
+  "ES10": {
+   "type": "multiSelectExpand",
+   "title": "As-tu déjà essayé quelque chose pour soulager ces symptômes ?",
+   "saveTo": "triedRemedies",
+   "options": [
+    {
+     "value": "painkillers",
+     "label": "Antidouleurs / anti-inflammatoires"
+    },
+    {
+     "value": "hormonal_treatment",
+     "label": "Contraception hormonale / traitement hormonal"
+    },
+    {
+     "value": "heat_rest",
+     "label": "Bouillotte / repos"
+    },
+    {
+     "value": "diet_change",
+     "label": "Changer mon alimentation"
+    },
+    {
+     "value": "complementary",
+     "label": "Kiné / ostéo / autre approche complémentaire"
+    },
+    {
+     "value": "nothing_helps",
+     "label": "Rien ne m'aide vraiment"
+    },
+    {
+     "value": "nothing_tried",
+     "label": "Je n'ai encore rien essayé"
+    }
+   ]
+  },
+  "ES11": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui pour ces symptômes ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "gynecologist",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "general_practitioner",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "endo_specialist",
+     "label": "Centre spécialisé / spécialiste endométriose"
+    },
+    {
+     "value": "pain_doctor",
+     "label": "Médecin de la douleur"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ES12": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "medical_appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "ultrasound",
+     "label": "Une échographie"
+    },
+    {
+     "value": "mri",
+     "label": "Une IRM"
+    },
+    {
+     "value": "specialist_consult",
+     "label": "Une consultation spécialisée"
+    },
+    {
+     "value": "laparoscopy",
+     "label": "Une cœlioscopie / laparoscopie"
+    },
+    {
+     "value": "nothing_planned",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "ES13": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "ES_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_es"
+  },
+  "ES14": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ES_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts_es"
+  },
+  "SC0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton suivi règles / cycle",
+   "saveTo": "_welcome_cycleSuivi"
+  },
+  "SC2": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce que tu veux surtout suivre ici ?",
+   "saveTo": "cycleTrackingGoals",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "period_arrival",
+     "label": "Savoir quand mes règles arrivent"
+    },
+    {
+     "value": "premenstrual_symptoms",
+     "label": "Comprendre ce qui revient avant mes règles"
+    },
+    {
+     "value": "regularity",
+     "label": "Voir si mes cycles sont réguliers ou non"
+    },
+    {
+     "value": "treatment_effect",
+     "label": "Suivre l'effet d'un traitement / d'une contraception"
+    },
+    {
+     "value": "fertile_days",
+     "label": "Repérer mes jours fertiles / mon ovulation"
+    },
+    {
+     "value": "bleeding_spotting",
+     "label": "Suivre mes saignements / spottings"
+    },
+    {
+     "value": "understand_symptoms",
+     "label": "Mieux comprendre mes symptômes"
+    },
+    {
+     "value": "appointment_record",
+     "label": "Garder une trace pour un rendez-vous"
+    },
+    {
+     "value": "know_cycle",
+     "label": "Je veux juste mieux connaître mon cycle"
+    }
+   ]
+  },
+  "SC3": {
+   "type": "datePicker",
+   "title": "Quand ont commencé tes dernières règles ?",
+   "saveTo": "lastBleedingStart"
+  },
+  "SC4": {
+   "type": "singleSelectExpand",
+   "title": "Sur les derniers mois, tes règles sont plutôt...",
+   "saveTo": "cycleRegularity",
+   "options": [
+    {
+     "value": "predictable",
+     "label": "Prévisibles"
+    },
+    {
+     "value": "somewhat_variable",
+     "label": "Un peu variables"
+    },
+    {
+     "value": "very_variable",
+     "label": "Très variables"
+    },
+    {
+     "value": "too_early",
+     "label": "Trop tôt pour le dire"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SC5": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui revient le plus autour de ton cycle ?",
+   "saveTo": "cycleSymptoms",
+   "maxSelections": 5,
+   "options": [
+    {
+     "value": "cramps",
+     "label": "Crampes / douleurs de règles"
+    },
+    {
+     "value": "mood_swings",
+     "label": "Sautes d'humeur / irritabilité"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "headaches",
+     "label": "Maux de tête"
+    },
+    {
+     "value": "breast_pain",
+     "label": "Douleurs des seins"
+    },
+    {
+     "value": "skin_acne",
+     "label": "Problèmes de peau / acné"
+    },
+    {
+     "value": "cravings",
+     "label": "Envies / fringales"
+    },
+    {
+     "value": "spotting",
+     "label": "Spotting / petits saignements"
+    },
+    {
+     "value": "few_symptoms",
+     "label": "Peu ou pas de symptômes"
+    }
+   ]
+  },
+  "SC6": {
+   "type": "singleSelectExpand",
+   "title": "Comment sont tes saignements le plus souvent ?",
+   "saveTo": "bleedingVolume",
+   "options": [
+    {
+     "value": "very_light",
+     "label": "Très légers"
+    },
+    {
+     "value": "moderate",
+     "label": "Plutôt modérés"
+    },
+    {
+     "value": "heavy",
+     "label": "Abondants"
+    },
+    {
+     "value": "very_heavy",
+     "label": "Très abondants"
+    },
+    {
+     "value": "variable",
+     "label": "Ça change beaucoup d'un cycle à l'autre"
+    },
+    {
+     "value": "spotting_only",
+     "label": "J'ai surtout des spottings / petits saignements"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "SC_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une douleur qui monte ? Un tap.",
+   "saveTo": "_tour_medical_sc"
+  },
+  "cycleSuivi_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_cycleSuivi"
+  },
+  "SC8": {
+   "type": "multiSelectExpand",
+   "title": "Si tu es sous traitement, qu'aimerais-tu surtout surveiller ?",
+   "saveTo": "treatmentMonitoringWants",
+   "options": [
+    {
+     "value": "bleeding",
+     "label": "Mes saignements"
+    },
+    {
+     "value": "pain_cramps",
+     "label": "Mes douleurs / crampes"
+    },
+    {
+     "value": "mood",
+     "label": "Mon humeur"
+    },
+    {
+     "value": "skin",
+     "label": "Ma peau"
+    },
+    {
+     "value": "energy",
+     "label": "Mon énergie"
+    },
+    {
+     "value": "libido",
+     "label": "Ma libido"
+    },
+    {
+     "value": "spotting",
+     "label": "Mes spottings"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "SC9": {
+   "type": "multiSelectExpand",
+   "title": "As-tu déjà remarqué ce qui aggrave le plus tes symptômes ?",
+   "saveTo": "symptomAggravators",
+   "options": [
+    {
+     "value": "lack_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "certain_foods",
+     "label": "Certains aliments"
+    },
+    {
+     "value": "intense_sport",
+     "label": "Le sport intense"
+    },
+    {
+     "value": "long_days",
+     "label": "Les longues journées / les trajets"
+    },
+    {
+     "value": "not_noticed",
+     "label": "Je n'ai pas remarqué"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "SC10": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "SC_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_sc"
+  },
+  "SC11": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SC_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts_sc"
+  },
+  "SP0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton suivi SOPK",
+   "saveTo": "_welcome_sopkDiagnosed"
+  },
+  "SP1": {
+   "type": "multiSelectExpand",
+   "title": "Comment ton SOPK a-t-il été diagnostiqué ?",
+   "saveTo": "sopkDiagnosisMethod",
+   "options": [
+    {
+     "value": "blood_hormonal",
+     "label": "Prise de sang / bilan hormonal"
+    },
+    {
+     "value": "ultrasound",
+     "label": "Échographie"
+    },
+    {
+     "value": "irregular_periods",
+     "label": "Parce que mes règles étaient irrégulières ou absentes"
+    },
+    {
+     "value": "skin_hair_signs",
+     "label": "Parce que j'avais de l'acné, de la pilosité ou une perte de cheveux"
+    },
+    {
+     "value": "fertility_journey",
+     "label": "Dans un parcours fertilité / projet bébé"
+    },
+    {
+     "value": "other_checkup",
+     "label": "Pendant un autre bilan médical"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas / on ne me l'a pas bien expliqué"
+    }
+   ]
+  },
+  "SP2": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui a conduit au diagnostic de SOPK ?",
+   "saveTo": "sopkDiagnosisTrigger",
+   "options": [
+    {
+     "value": "irregular_absent",
+     "label": "Mes règles irrégulières ou absentes"
+    },
+    {
+     "value": "acne_oily",
+     "label": "Mon acné ou ma peau grasse"
+    },
+    {
+     "value": "hair_growth",
+     "label": "Ma pilosité"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Ma perte de cheveux"
+    },
+    {
+     "value": "ultrasound",
+     "label": "Mon échographie"
+    },
+    {
+     "value": "blood_test",
+     "label": "Ma prise de sang"
+    },
+    {
+     "value": "ovulation_difficulty",
+     "label": "Mes difficultés a ovuler / a concevoir"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SP3": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui avec ton SOPK ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "irregular_periods",
+     "label": "Règles irrégulières"
+    },
+    {
+     "value": "absent_periods",
+     "label": "Absence de règles"
+    },
+    {
+     "value": "ovulation_difficulty",
+     "label": "Difficulté à repérer mon ovulation"
+    },
+    {
+     "value": "acne",
+     "label": "Acné / peau grasse"
+    },
+    {
+     "value": "hair_growth",
+     "label": "Pilosité visage / corps"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "fertility",
+     "label": "Difficulté à concevoir / projet bébé compliqué"
+    },
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles importantes"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements en dehors des règles"
+    },
+    {
+     "value": "chronic_pelvic",
+     "label": "Douleur pelvienne en dehors des règles"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs lombaires"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "chronic_daily_pain",
+     "label": "Douleurs chroniques (quasi quotidiennes)"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Rapports sexuels douloureux"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse de libido"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "bowel_issues",
+     "label": "Constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "frequency",
+     "label": "Besoin fréquent d'uriner"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression pelvienne"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "mood_anxiety",
+     "label": "Sautes d'humeur / anxiété"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    }
+   ]
+  },
+  "SP4": {
+   "type": "multiSelectExpand",
+   "title": "Aujourd'hui, qu'est-ce qui est le plus difficile pour toi à comprendre ou à gérer ?",
+   "saveTo": "mainBurden",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "dont_understand_triggers",
+     "label": "Je ne comprends pas ce qui déclenche mes symptômes (alimentation, cycle, stress, activité physique...)"
+    },
+    {
+     "value": "hard_to_see_evolution",
+     "label": "J'ai du mal à voir comment mes symptômes évoluent (d'un jour à l'autre, d'un cycle à l'autre)"
+    },
+    {
+     "value": "too_many_symptoms",
+     "label": "J'ai trop de symptômes et je ne sais pas par où commencer"
+    },
+    {
+     "value": "dont_know_what_to_change",
+     "label": "Je ne sais pas quoi changer dans mon quotidien pour aller mieux"
+    },
+    {
+     "value": "nothing_relieves",
+     "label": "Rien ne semble vraiment me soulager"
+    },
+    {
+     "value": "dont_know_priorities",
+     "label": "Je ne sais pas quels symptômes suivre en priorité"
+    },
+    {
+     "value": "no_clear_markers",
+     "label": "Je manque de repères pour comprendre ce qui m'aide ou m'aggrave"
+    },
+    {
+     "value": "no_adapted_treatment",
+     "label": "Je n'ai pas de traitement adapté aujourd'hui"
+    },
+    {
+     "value": "need_clarity_consultation",
+     "label": "J'ai besoin d'y voir plus clair avant ma prochaine consultation"
+    }
+   ]
+  },
+  "SP_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Un mauvais moment ? Un tap.",
+   "saveTo": "_tour_medical_sp"
+  },
+  "SP6": {
+   "type": "singleSelectExpand",
+   "title": "Sur les derniers mois, tes règles sont plutôt...",
+   "saveTo": "cycleRegularity",
+   "options": [
+    {
+     "value": "predictable",
+     "label": "Assez prévisibles"
+    },
+    {
+     "value": "somewhat_variable",
+     "label": "Un peu variables"
+    },
+    {
+     "value": "very_variable",
+     "label": "Très variables"
+    },
+    {
+     "value": "very_rare",
+     "label": "Très rares"
+    },
+    {
+     "value": "spotting",
+     "label": "J'ai surtout des spottings / petits saignements"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SP7": {
+   "type": "multiSelectExpand",
+   "title": "A-t-on déjà parle avec toi de certains points de santé lies au SOPK ?",
+   "saveTo": "sopkMetabolicHistory",
+   "options": [
+    {
+     "value": "insulin_resistance",
+     "label": "Résistance à l'insuline"
+    },
+    {
+     "value": "prediabetes",
+     "label": "Prediabete / glycémie élevée"
+    },
+    {
+     "value": "type2_diabetes",
+     "label": "Diabete de type 2"
+    },
+    {
+     "value": "cholesterol",
+     "label": "Cholesterol"
+    },
+    {
+     "value": "blood_pressure",
+     "label": "Tension arterielle"
+    },
+    {
+     "value": "none",
+     "label": "Rien de tout ça"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SP8": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qu'on surveille déjà dans ton suivi ?",
+   "saveTo": "sopkMonitoredMetrics",
+   "options": [
+    {
+     "value": "glycemia",
+     "label": "Glycémie / HbA1c"
+    },
+    {
+     "value": "cholesterol",
+     "label": "Cholesterol"
+    },
+    {
+     "value": "blood_pressure",
+     "label": "Tension"
+    },
+    {
+     "value": "hormonal_panel",
+     "label": "Bilan hormonal"
+    },
+    {
+     "value": "ultrasound",
+     "label": "Échographie"
+    },
+    {
+     "value": "ovulation_fertility",
+     "label": "Ovulation / fertilité"
+    },
+    {
+     "value": "nothing",
+     "label": "Rien de particulier"
+    },
+    {
+     "value": "symptoms",
+     "label": "Symptomes"
+    },
+    {
+     "value": "nutrition",
+     "label": "Alimentation"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "sopkDiagnosed_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_sopkDiagnosed"
+  },
+  "SP9": {
+   "type": "singleSelectExpand",
+   "title": "Es-tu sous traitement en ce moment pour ton SOPK ?",
+   "saveTo": "currentTreatmentStatus",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "tried_not_suitable",
+     "label": "J'ai déjà essayé, mais ça ne me convient pas"
+    },
+    {
+     "value": "not_now",
+     "label": "Pas pour le moment"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "SP9b": {
+   "type": "multiSelectExpand",
+   "title": "Quels traitements utilises-tu actuellement ?",
+   "saveTo": "currentTreatments",
+   "options": [
+    {
+     "value": "pill",
+     "label": "Pilule / contraception hormonale"
+    },
+    {
+     "value": "metformin",
+     "label": "Metformine"
+    },
+    {
+     "value": "ovulation_stimulation",
+     "label": "Traitement pour stimuler l'ovulation / fertilité"
+    },
+    {
+     "value": "acne_treatment",
+     "label": "Traitement pour l'acné"
+    },
+    {
+     "value": "hair_treatment",
+     "label": "Traitement pour la pilosité"
+    },
+    {
+     "value": "supplements",
+     "label": "Compléments / autre approche"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    }
+   ]
+  },
+  "SP10": {
+   "type": "singleSelectExpand",
+   "title": "Le projet bébé est-il un sujet pour toi en ce moment ?",
+   "saveTo": "sopkBabyProject",
+   "options": [
+    {
+     "value": "yes_now",
+     "label": "Oui, maintenant"
+    },
+    {
+     "value": "yes_later",
+     "label": "Oui, plus tard"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "SP11": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui pour ton SOPK ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "gynecologist",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "endocrinologist",
+     "label": "Endocrinologue"
+    },
+    {
+     "value": "general_practitioner",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "dermatologist",
+     "label": "Dermatologue"
+    },
+    {
+     "value": "dietitian",
+     "label": "Dieteticien(ne) / nutrition"
+    },
+    {
+     "value": "pma_fertility",
+     "label": "PMA / fertilité"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SP12": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "medical_appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "blood_test",
+     "label": "Une prise de sang / un bilan"
+    },
+    {
+     "value": "ultrasound",
+     "label": "Une échographie"
+    },
+    {
+     "value": "treatment_change",
+     "label": "Un changement de traitement"
+    },
+    {
+     "value": "fertility_pma",
+     "label": "Un rendez-vous fertilité / PMA"
+    },
+    {
+     "value": "nothing_planned",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "SP13": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "SP_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_sp"
+  },
+  "SP14": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SP_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts_sp"
+  },
+  "SE0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton suivi SOPK + endométriose",
+   "saveTo": "_welcome_sopkEndo"
+  },
+  "SE1": {
+   "type": "multiSelectExpand",
+   "title": "Pour ton endométriose, sait-on surtout où elle se situe ?",
+   "saveTo": "endoLocations",
+   "options": [
+    {
+     "value": "ovaries",
+     "label": "Ovaires"
+    },
+    {
+     "value": "peritoneum",
+     "label": "Péritoine / zone pelvienne"
+    },
+    {
+     "value": "intestine_rectum",
+     "label": "Intestin / rectum"
+    },
+    {
+     "value": "bladder_urinary",
+     "label": "Vessie / appareil urinaire"
+    },
+    {
+     "value": "rectovaginal",
+     "label": "Zone recto-vaginale / ligaments"
+    },
+    {
+     "value": "diaphragm",
+     "label": "Diaphragme"
+    },
+    {
+     "value": "thorax",
+     "label": "Thorax"
+    },
+    {
+     "value": "scar",
+     "label": "Cicatrice"
+    },
+    {
+     "value": "rare_locations",
+     "label": "Atteintes plus rares"
+    },
+    {
+     "value": "other",
+     "label": "Autres localisations"
+    },
+    {
+     "value": "not_specified",
+     "label": "On ne me l'a pas précisé"
+    }
+   ]
+  },
+  "SE2": {
+   "type": "multiSelectExpand",
+   "title": "Pour ton SOPK, qu'est-ce qui a surtout permis de poser le diagnostic ?",
+   "saveTo": "sopkDiagnosisTrigger",
+   "options": [
+    {
+     "value": "irregular_periods",
+     "label": "Mes règles irrégulières ou absentes"
+    },
+    {
+     "value": "blood_test",
+     "label": "Une prise de sang / un bilan hormonal"
+    },
+    {
+     "value": "ultrasound",
+     "label": "Une échographie"
+    },
+    {
+     "value": "acne_oily_skin",
+     "label": "Mon acné / ma peau grasse"
+    },
+    {
+     "value": "hair_growth",
+     "label": "Ma pilosité"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Ma perte de cheveux"
+    },
+    {
+     "value": "fertility_difficulty",
+     "label": "Des difficultés a ovuler ou a concevoir"
+    },
+    {
+     "value": "multiple_elements",
+     "label": "Plusieurs éléments à la fois"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas / on ne me l'a pas bien expliqué"
+    }
+   ]
+  },
+  "SE2b": {
+   "type": "yearPicker",
+   "title": "En quelle année as-tu reçu ton diagnostic d'endométriose ?",
+   "saveTo": "diagnosisYear"
+  },
+  "SE2c": {
+   "type": "yearPicker",
+   "title": "En quelle année as-tu reçu ton diagnostic de SOPK ?",
+   "saveTo": "sopkDiagnosisYear"
+  },
+  "SE3": {
+   "type": "multiSelectExpand",
+   "title": "Aujourd'hui, qu'est-ce qui est le plus difficile pour toi à comprendre ou à gérer ?",
+   "saveTo": "mainBurden",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "dont_understand_triggers",
+     "label": "Je ne comprends pas ce qui déclenche mes symptômes (alimentation, cycle, stress, activité physique...)"
+    },
+    {
+     "value": "hard_to_see_evolution",
+     "label": "J'ai du mal à voir comment mes symptômes évoluent (d'un jour à l'autre, d'un cycle à l'autre)"
+    },
+    {
+     "value": "too_many_symptoms",
+     "label": "J'ai trop de symptômes et je ne sais pas par où commencer"
+    },
+    {
+     "value": "dont_know_what_to_change",
+     "label": "Je ne sais pas quoi changer dans mon quotidien pour aller mieux"
+    },
+    {
+     "value": "nothing_relieves",
+     "label": "Rien ne semble vraiment me soulager"
+    },
+    {
+     "value": "dont_know_priorities",
+     "label": "Je ne sais pas quels symptômes suivre en priorité"
+    },
+    {
+     "value": "no_clear_markers",
+     "label": "Je manque de repères pour comprendre ce qui m'aide ou m'aggrave"
+    },
+    {
+     "value": "no_adapted_treatment",
+     "label": "Je n'ai pas de traitement adapté aujourd'hui"
+    },
+    {
+     "value": "need_clarity_consultation",
+     "label": "J'ai besoin d'y voir plus clair avant ma prochaine consultation"
+    }
+   ]
+  },
+  "SE4": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "irregular_periods",
+     "label": "Règles irrégulières"
+    },
+    {
+     "value": "absent_periods",
+     "label": "Absence de règles"
+    },
+    {
+     "value": "ovulation_difficulty",
+     "label": "Difficulté à repérer mon ovulation"
+    },
+    {
+     "value": "acne",
+     "label": "Acné / peau grasse"
+    },
+    {
+     "value": "hair_growth",
+     "label": "Pilosité visage / corps"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Chute de cheveux"
+    },
+    {
+     "value": "weight_gain",
+     "label": "Prise de poids"
+    },
+    {
+     "value": "fertility",
+     "label": "Difficulté à concevoir / projet bébé compliqué"
+    },
+    {
+     "value": "painful_periods",
+     "label": "Douleurs de règles importantes"
+    },
+    {
+     "value": "heavy_periods",
+     "label": "Règles abondantes"
+    },
+    {
+     "value": "long_periods",
+     "label": "Règles longues"
+    },
+    {
+     "value": "intermenstrual_bleeding",
+     "label": "Saignements en dehors des règles"
+    },
+    {
+     "value": "chronic_pelvic",
+     "label": "Douleur pelvienne en dehors des règles"
+    },
+    {
+     "value": "back_pain",
+     "label": "Douleurs lombaires"
+    },
+    {
+     "value": "leg_pain",
+     "label": "Douleurs dans les jambes"
+    },
+    {
+     "value": "ovulation_pain",
+     "label": "Douleurs pendant l'ovulation"
+    },
+    {
+     "value": "chronic_daily_pain",
+     "label": "Douleurs chroniques (quasi quotidiennes)"
+    },
+    {
+     "value": "dyspareunia",
+     "label": "Rapports sexuels douloureux"
+    },
+    {
+     "value": "post_coital_pain",
+     "label": "Douleurs après les rapports"
+    },
+    {
+     "value": "low_libido",
+     "label": "Baisse de libido"
+    },
+    {
+     "value": "bloating",
+     "label": "Ballonnements / ventre gonflé"
+    },
+    {
+     "value": "dyschezia",
+     "label": "Douleurs en allant à la selle"
+    },
+    {
+     "value": "bowel_issues",
+     "label": "Constipation / diarrhée"
+    },
+    {
+     "value": "nausea",
+     "label": "Nausées"
+    },
+    {
+     "value": "dysuria",
+     "label": "Douleurs en urinant"
+    },
+    {
+     "value": "frequency",
+     "label": "Besoin fréquent d'uriner"
+    },
+    {
+     "value": "pelvic_pressure",
+     "label": "Sensation de pression pelvienne"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue importante"
+    },
+    {
+     "value": "mood_anxiety",
+     "label": "Sautes d'humeur / anxiété"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Troubles du sommeil"
+    }
+   ]
+  },
+  "SE5": {
+   "type": "singleSelectExpand",
+   "title": "Aujourd'hui, as-tu encore des règles ?",
+   "saveTo": "bleedingStatus",
+   "options": [
+    {
+     "value": "regular",
+     "label": "Oui, plutôt régulières"
+    },
+    {
+     "value": "irregular",
+     "label": "Oui, mais elles varient beaucoup"
+    },
+    {
+     "value": "very_spaced",
+     "label": "Oui, mais elles sont très espacées"
+    },
+    {
+     "value": "almost_never",
+     "label": "Non, presque jamais"
+    },
+    {
+     "value": "suppressed",
+     "label": "Non, à cause d'un traitement ou d'une contraception"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SE5b": {
+   "type": "singleSelectExpand",
+   "title": "Prends-tu actuellement un traitement ou une contraception qui modifie tes règles ?",
+   "saveTo": "hormonalModifier",
+   "options": [
+    {
+     "value": "hormonal_contraception",
+     "label": "Oui, une contraception hormonale"
+    },
+    {
+     "value": "hormonal_treatment",
+     "label": "Oui, un autre traitement hormonal"
+    },
+    {
+     "value": "both",
+     "label": "Oui, les deux"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SE5c": {
+   "type": "multiSelectExpand",
+   "title": "Quels traitements utilises-tu actuellement ?",
+   "saveTo": "currentTreatments",
+   "options": [
+    {
+     "value": "pill",
+     "label": "Pilule / contraception hormonale"
+    },
+    {
+     "value": "progestin_dienogest",
+     "label": "Progestatif / dienogest"
+    },
+    {
+     "value": "hormonal_iud",
+     "label": "DIU hormonal"
+    },
+    {
+     "value": "metformin",
+     "label": "Metformine"
+    },
+    {
+     "value": "gnrh",
+     "label": "GnRH / ménopause artificielle"
+    },
+    {
+     "value": "painkillers",
+     "label": "Antidouleurs / anti-inflammatoires"
+    },
+    {
+     "value": "nerve_pain_treatment",
+     "label": "Traitement pour douleurs nerveuses"
+    },
+    {
+     "value": "acne_treatment",
+     "label": "Traitement pour l'acné"
+    },
+    {
+     "value": "hair_growth_treatment",
+     "label": "Traitement pour la pilosité"
+    },
+    {
+     "value": "ovulation_stimulation",
+     "label": "Traitement pour stimuler l'ovulation / fertilité"
+    },
+    {
+     "value": "supplements",
+     "label": "Compléments / autre approche"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    }
+   ]
+  },
+  "SE5d": {
+   "type": "datePicker",
+   "title": "Quand ont commencé tes dernières règles ?",
+   "saveTo": "lastBleedingStart"
+  },
+  "SE12_TOUR": {
+   "type": "productTour",
+   "title": "Une crise ? Un tap.",
+   "saveTo": "_tour_medical_support"
+  },
+  "SE7": {
+   "type": "multiSelectExpand",
+   "title": "Parmi ces signes lies au SOPK, qu'est-ce qui te gêne le plus en ce moment ?",
+   "saveTo": "pcosSymptoms",
+   "options": [
+    {
+     "value": "acne",
+     "label": "Acné"
+    },
+    {
+     "value": "oily_skin",
+     "label": "Peau grasse"
+    },
+    {
+     "value": "facial_hair",
+     "label": "Pilosité du visage"
+    },
+    {
+     "value": "body_hair",
+     "label": "Pilosité du corps"
+    },
+    {
+     "value": "hair_loss",
+     "label": "Perte de cheveux"
+    },
+    {
+     "value": "hair_thinning",
+     "label": "Cheveux qui s'affinent"
+    },
+    {
+     "value": "none",
+     "label": "Aucun de ces signes en ce moment"
+    }
+   ]
+  },
+  "SE8": {
+   "type": "multiSelectExpand",
+   "title": "A-t-on déjà parle avec toi de certains points de santé lies au SOPK ?",
+   "saveTo": "sopkMetabolicHistory",
+   "options": [
+    {
+     "value": "insulin_resistance",
+     "label": "Résistance à l'insuline"
+    },
+    {
+     "value": "prediabetes",
+     "label": "Prediabete / glycémie élevée"
+    },
+    {
+     "value": "type2_diabetes",
+     "label": "Diabete de type 2"
+    },
+    {
+     "value": "cholesterol",
+     "label": "Cholesterol"
+    },
+    {
+     "value": "blood_pressure",
+     "label": "Tension arterielle"
+    },
+    {
+     "value": "weight_waist",
+     "label": "Poids / tour de taille"
+    },
+    {
+     "value": "nothing",
+     "label": "Rien de tout ça"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "sopkEndo_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_sopkEndo"
+  },
+  "SE10": {
+   "type": "singleSelectExpand",
+   "title": "Le projet bébé est-il un sujet pour toi en ce moment ?",
+   "saveTo": "sopkBabyProject",
+   "options": [
+    {
+     "value": "yes_now",
+     "label": "Oui, maintenant"
+    },
+    {
+     "value": "yes_later",
+     "label": "Oui, plus tard"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "SE11": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "gynecologist",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "endocrinologist",
+     "label": "Endocrinologue"
+    },
+    {
+     "value": "gp",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "endo_center",
+     "label": "Centre spécialisé endométriose"
+    },
+    {
+     "value": "dermatologist",
+     "label": "Dermatologue"
+    },
+    {
+     "value": "pain_specialist",
+     "label": "Médecin de la douleur"
+    },
+    {
+     "value": "nutritionist",
+     "label": "Dieteticien(ne) / nutrition"
+    },
+    {
+     "value": "pma_fertility",
+     "label": "PMA / fertilité"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SE12": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "medical_appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "blood_test",
+     "label": "Une prise de sang / un bilan"
+    },
+    {
+     "value": "ultrasound",
+     "label": "Une échographie"
+    },
+    {
+     "value": "treatment_change",
+     "label": "Un changement de traitement"
+    },
+    {
+     "value": "surgery",
+     "label": "Une intervention / opération"
+    },
+    {
+     "value": "fertility_appointment",
+     "label": "Un rendez-vous fertilité / PMA"
+    },
+    {
+     "value": "nothing_planned",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "SE13": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "SE_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_se"
+  },
+  "SE13b": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "SE13_TOUR": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts_ai"
+  },
+  "BB0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton parcours projet bébé",
+   "saveTo": "_welcome_babyProject"
+  },
+  "BB1": {
+   "type": "singleSelectExpand",
+   "title": "Ou en es-tu aujourd'hui dans ton projet bébé ?",
+   "saveTo": "fertilityDetails.ttcStatus",
+   "options": [
+    {
+     "value": "just_starting",
+     "label": "On commencé tout juste"
+    },
+    {
+     "value": "less_6_months",
+     "label": "On essaie depuis moins de 6 mois"
+    },
+    {
+     "value": "6_to_12_months",
+     "label": "On essaie depuis 6 a 12 mois"
+    },
+    {
+     "value": "more_12_months",
+     "label": "On essaie depuis plus de 12 mois"
+    },
+    {
+     "value": "fertility_workup",
+     "label": "On est en bilan fertilité"
+    },
+    {
+     "value": "pma",
+     "label": "On est en PMA"
+    },
+    {
+     "value": "break",
+     "label": "On fait une pause"
+    },
+    {
+     "value": "exploring",
+     "label": "Je me renseigne seulement"
+    }
+   ]
+  },
+  "BB2": {
+   "type": "singleSelectExpand",
+   "title": "Aujourd'hui, ou en es-tu par rapport à la contraception ou aux traitements hormonaux ?",
+   "saveTo": "contraceptionStopStatus",
+   "options": [
+    {
+     "value": "stopped_all",
+     "label": "J'ai tout arrêté pour essayer de concevoir"
+    },
+    {
+     "value": "stopped_partial",
+     "label": "J'ai arrete la contraception mais pas tous les traitements"
+    },
+    {
+     "value": "still_on",
+     "label": "Je suis encore sous traitement / contraception"
+    },
+    {
+     "value": "not_applicable",
+     "label": "Ce n'est pas applicable"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "BB3": {
+   "type": "singleSelectExpand",
+   "title": "Sais-tu si tu ovules ?",
+   "saveTo": "ovulationStatus",
+   "options": [
+    {
+     "value": "yes_regular",
+     "label": "Oui, plutôt régulièrement"
+    },
+    {
+     "value": "yes_not_every_cycle",
+     "label": "Oui, mais pas à chaque cycle"
+    },
+    {
+     "value": "no_rarely",
+     "label": "Non, ou très rarement"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    },
+    {
+     "value": "exploring",
+     "label": "On est en train de l'explorer"
+    }
+   ]
+  },
+  "BB4": {
+   "type": "multiSelectExpand",
+   "title": "Comment suis-tu ton ovulation ou ta fenêtre fertile ?",
+   "saveTo": "fertilityDetails.ovulationTracking",
+   "options": [
+    {
+     "value": "ovulation_tests",
+     "label": "Tests d'ovulation"
+    },
+    {
+     "value": "bbt",
+     "label": "Temperature basale"
+    },
+    {
+     "value": "cervical_mucus",
+     "label": "Glaire cervicale"
+    },
+    {
+     "value": "ultrasound_monitoring",
+     "label": "Échographies / monitoring"
+    },
+    {
+     "value": "app_calendar",
+     "label": "Application / calendrier"
+    },
+    {
+     "value": "not_tracking",
+     "label": "Je ne la suis pas"
+    },
+    {
+     "value": "dont_know_how",
+     "label": "Je ne sais pas comment faire"
+    }
+   ]
+  },
+  "BB4_TOUR": {
+   "type": "personalizedMessage",
+   "title": "Suis tes cycles d'ovulation avec Endora",
+   "saveTo": "_tour_ovulation_tracking"
+  },
+  "BB5": {
+   "type": "multiSelectExpand",
+   "title": "As-tu déjà eu un bilan fertilité ?",
+   "saveTo": "fertilityDetails.testsCompleted",
+   "options": [
+    {
+     "value": "hormonal_panel",
+     "label": "Bilan hormonal"
+    },
+    {
+     "value": "amh",
+     "label": "AMH / reserve ovarienne"
+    },
+    {
+     "value": "follicular_ultrasound",
+     "label": "Échographie folliculaire"
+    },
+    {
+     "value": "tubal_check",
+     "label": "Verification des trompes"
+    },
+    {
+     "value": "spermogram",
+     "label": "Spermogramme du partenaire"
+    },
+    {
+     "value": "ovulation_monitoring",
+     "label": "Suivi de l'ovulation"
+    },
+    {
+     "value": "none",
+     "label": "Aucun bilan pour le moment"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas exactement"
+    }
+   ]
+  },
+  "BB6": {
+   "type": "singleSelectExpand",
+   "title": "Aujourd'hui, qu'est-ce qui prend le plus de place dans ton projet bébé ?",
+   "saveTo": "babyMainConcern",
+   "options": [
+    {
+     "value": "waiting",
+     "label": "L'attente / le temps qui passe"
+    },
+    {
+     "value": "irregular_ovulation",
+     "label": "L'ovulation irrégulière"
+    },
+    {
+     "value": "pain_symptoms",
+     "label": "La douleur où les symptômes"
+    },
+    {
+     "value": "unpredictable_periods",
+     "label": "Les règles imprévisibles"
+    },
+    {
+     "value": "exams_appointments",
+     "label": "Les examens / rendez-vous"
+    },
+    {
+     "value": "pma",
+     "label": "La PMA"
+    },
+    {
+     "value": "mental_load",
+     "label": "La charge mentale / émotionnelle"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "BB7": {
+   "type": "multiSelectExpand",
+   "title": "As-tu déjà eu des grossesses ?",
+   "saveTo": "fertilityDetails.previousPregnancies",
+   "options": [
+    {
+     "value": "never",
+     "label": "Non, jamais"
+    },
+    {
+     "value": "full_term",
+     "label": "Oui, grossesse a terme"
+    },
+    {
+     "value": "miscarriage",
+     "label": "Oui, fausse couche"
+    },
+    {
+     "value": "ectopic",
+     "label": "Oui, grossesse extra-uterine"
+    },
+    {
+     "value": "termination",
+     "label": "Oui, IVG"
+    },
+    {
+     "value": "multiple",
+     "label": "Oui, plusieurs situations"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "BB8": {
+   "type": "singleSelectExpand",
+   "title": "Si tu es en PMA, ou en es-tu ?",
+   "saveTo": "fertilityDetails.pmaType",
+   "options": [
+    {
+     "value": "waiting_to_start",
+     "label": "En attente de commencer"
+    },
+    {
+     "value": "stimulation",
+     "label": "Stimulation / induction de l'ovulation"
+    },
+    {
+     "value": "iui",
+     "label": "Insemination"
+    },
+    {
+     "value": "ivf",
+     "label": "FIV"
+    },
+    {
+     "value": "icsi",
+     "label": "ICSI"
+    },
+    {
+     "value": "fet",
+     "label": "TEC / transfert d'embryon congele"
+    },
+    {
+     "value": "between_attempts",
+     "label": "Entre deux tentatives"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "BE1": {
+   "type": "multiSelectExpand",
+   "title": "Avec ton endométriose, qu'est-ce qui compliqué le plus ton projet bébé ?",
+   "saveTo": "endoFertilityComplication",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "pain",
+     "label": "La douleur"
+    },
+    {
+     "value": "painful_intercourse",
+     "label": "Les rapports douloureux"
+    },
+    {
+     "value": "surgery",
+     "label": "Une chirurgie passee ou prevue"
+    },
+    {
+     "value": "endometrioma",
+     "label": "Un endométriome / atteinte ovarienne"
+    },
+    {
+     "value": "deep_endo",
+     "label": "Une atteinte digestive ou urinaire"
+    },
+    {
+     "value": "fertility_priority",
+     "label": "On m'a dit que la fertilité était une priorité"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    },
+    {
+     "value": "nothing",
+     "label": "Rien de particulier"
+    }
+   ]
+  },
+  "BE2": {
+   "type": "singleSelectExpand",
+   "title": "Es-tu actuellement sous traitement hormonal pour ton endométriose ?",
+   "saveTo": "endoHormonalForFertility",
+   "options": [
+    {
+     "value": "yes",
+     "label": "Oui"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "stopped_for_conception",
+     "label": "Je l'ai arrêté pour essayer de concevoir"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je ne sais pas / je préfère ne pas répondre"
+    }
+   ]
+  },
+  "BS1": {
+   "type": "singleSelectExpand",
+   "title": "Avec ton SOPK, ou en es-tu surtout cote ovulation ?",
+   "saveTo": "sopkOvulationStatus",
+   "options": [
+    {
+     "value": "rarely",
+     "label": "J'ovule rarement"
+    },
+    {
+     "value": "irregular",
+     "label": "J'ovule de façon irrégulière"
+    },
+    {
+     "value": "hard_to_spot",
+     "label": "J'ovule, mais c'est difficile à repérer"
+    },
+    {
+     "value": "on_treatment",
+     "label": "Je suis sous traitement pour stimuler l'ovulation"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "BS2": {
+   "type": "multiSelectExpand",
+   "title": "T'a-t-on déjà parlé d'un traitement pour aider à ovuler ?",
+   "saveTo": "sopkOvulationTreatment",
+   "options": [
+    {
+     "value": "letrozole",
+     "label": "Oui, letrozole"
+    },
+    {
+     "value": "clomiphene",
+     "label": "Oui, clomifene"
+    },
+    {
+     "value": "metformin",
+     "label": "Oui, metformine"
+    },
+    {
+     "value": "injections",
+     "label": "Oui, injections / gonadotrophines"
+    },
+    {
+     "value": "multiple_options",
+     "label": "Oui, plusieurs options"
+    },
+    {
+     "value": "no",
+     "label": "Non"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "BB10_TOUR": {
+   "type": "productTour",
+   "title": "Une douleur qui monte ? Un tap.",
+   "saveTo": "_tour_medical_support"
+  },
+  "babyProject_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_babyProject"
+  },
+  "BB9": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui pour ce projet bébé ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "gynecologist",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "endocrinologist",
+     "label": "Endocrinologue"
+    },
+    {
+     "value": "pma_fertility",
+     "label": "PMA / fertilité"
+    },
+    {
+     "value": "endo_center",
+     "label": "Centre endométriose"
+    },
+    {
+     "value": "gp",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "BB10": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "medical_appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "checkup",
+     "label": "Un bilan"
+    },
+    {
+     "value": "ultrasound_monitoring",
+     "label": "Une échographie / monitoring"
+    },
+    {
+     "value": "stimulation",
+     "label": "Une stimulation"
+    },
+    {
+     "value": "iui",
+     "label": "Une insemination"
+    },
+    {
+     "value": "ivf_icsi_fet",
+     "label": "Une FIV / ICSI / TEC"
+    },
+    {
+     "value": "nothing_planned",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "BB11": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "BB_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_bb"
+  },
+  "BB_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts_ai"
+  },
+  "FB0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton suivi fibromyalgie",
+   "saveTo": "_welcome_fibroDiagnosed"
+  },
+  "FB1": {
+   "type": "multiSelectExpand",
+   "title": "Comment ta fibromyalgie a-t-elle été diagnostiquée ?",
+   "saveTo": "fibroDiagnosisMethod",
+   "options": [
+    {
+     "value": "exclusion_exams",
+     "label": "Après plusieurs examens pour écarter d'autres causes"
+    },
+    {
+     "value": "clinical_discussion",
+     "label": "Après un echange clinique sur mes symptômes"
+    },
+    {
+     "value": "gp",
+     "label": "Par mon médecin traitant"
+    },
+    {
+     "value": "rheumatologist",
+     "label": "Par un rhumatologue"
+    },
+    {
+     "value": "pain_center",
+     "label": "Par un centre douleur / spécialiste"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas / on ne me l'a pas bien expliqué"
+    }
+   ]
+  },
+  "FB2": {
+   "type": "singleSelectExpand",
+   "title": "Depuis quand vis-tu avec ce diagnostic ?",
+   "saveTo": "fibroDiagnosisDuration",
+   "options": [
+    {
+     "value": "less_6m",
+     "label": "Moins de 6 mois"
+    },
+    {
+     "value": "6m_1y",
+     "label": "6 mois a 1 an"
+    },
+    {
+     "value": "1_3y",
+     "label": "1 a 3 ans"
+    },
+    {
+     "value": "more_3y",
+     "label": "Plus de 3 ans"
+    },
+    {
+     "value": "long_time",
+     "label": "Depuis longtemps, mais je ne sais plus exactement"
+    },
+    {
+     "value": "prefer_not",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "FB3": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui avec ta fibromyalgie ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "widespread_pain",
+     "label": "Douleurs diffuses dans tout le corps"
+    },
+    {
+     "value": "touch_sensitivity",
+     "label": "Sensibilite au toucher / douleur amplifiee"
+    },
+    {
+     "value": "stiffness",
+     "label": "Raideur / courbatures"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue / épuisement"
+    },
+    {
+     "value": "sleep_issues",
+     "label": "Sommeil non reparateur / reveils nocturnes"
+    },
+    {
+     "value": "brain_fog",
+     "label": "Difficulté à me concentrer / brouillard mental"
+    },
+    {
+     "value": "headaches",
+     "label": "Maux de tête"
+    },
+    {
+     "value": "gut_ibs",
+     "label": "Ventre sensible / ballonnements / SII"
+    },
+    {
+     "value": "tingling",
+     "label": "Fourmillements / sensations bizarres"
+    },
+    {
+     "value": "sensory_sensitivity",
+     "label": "Sensibilite au bruit, à la lumiere, aux odeurs ou au froid"
+    },
+    {
+     "value": "mood_anxiety",
+     "label": "Moral en baisse / anxiete"
+    },
+    {
+     "value": "few_symptoms",
+     "label": "Peu ou pas de symptômes en ce moment"
+    }
+   ]
+  },
+  "FB4": {
+   "type": "multiSelectExpand",
+   "title": "Aujourd'hui, qu'est-ce qui est le plus difficile pour toi à comprendre ou à gérer ?",
+   "saveTo": "mainBurden",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "dont_understand_triggers",
+     "label": "Je ne comprends pas ce qui déclenche mes symptômes (alimentation, cycle, stress, activité physique...)"
+    },
+    {
+     "value": "hard_to_see_evolution",
+     "label": "J'ai du mal à voir comment mes symptômes évoluent (d'un jour à l'autre, d'un cycle à l'autre)"
+    },
+    {
+     "value": "too_many_symptoms",
+     "label": "J'ai trop de symptômes et je ne sais pas par où commencer"
+    },
+    {
+     "value": "dont_know_what_to_change",
+     "label": "Je ne sais pas quoi changer dans mon quotidien pour aller mieux"
+    },
+    {
+     "value": "nothing_relieves",
+     "label": "Rien ne semble vraiment me soulager"
+    },
+    {
+     "value": "dont_know_priorities",
+     "label": "Je ne sais pas quels symptômes suivre en priorité"
+    },
+    {
+     "value": "no_clear_markers",
+     "label": "Je manque de repères pour comprendre ce qui m'aide ou m'aggrave"
+    },
+    {
+     "value": "no_adapted_treatment",
+     "label": "Je n'ai pas de traitement adapté aujourd'hui"
+    },
+    {
+     "value": "need_clarity_consultation",
+     "label": "J'ai besoin d'y voir plus clair avant ma prochaine consultation"
+    }
+   ]
+  },
+  "FB5": {
+   "type": "singleSelectExpand",
+   "title": "Comment tes symptômes évoluent-ils le plus souvent ?",
+   "saveTo": "fibroSymptomEvolution",
+   "options": [
+    {
+     "value": "every_day",
+     "label": "Ils sont presents presque tous les jours"
+    },
+    {
+     "value": "flares",
+     "label": "Ils viennent surtout par poussées"
+    },
+    {
+     "value": "variable_days",
+     "label": "Il y à des jours très différents"
+    },
+    {
+     "value": "stabilized",
+     "label": "Ça s'est un peu stabilise"
+    },
+    {
+     "value": "few_symptoms",
+     "label": "Peu ou pas de symptômes en ce moment"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "FB6": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui semble aggraver le plus tes poussées ou tes journées difficiles ?",
+   "saveTo": "fibroAggravators",
+   "options": [
+    {
+     "value": "lack_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress / la charge mentale"
+    },
+    {
+     "value": "overexertion",
+     "label": "L'effort / le surmenage"
+    },
+    {
+     "value": "immobility",
+     "label": "Rester immobile trop longtemps"
+    },
+    {
+     "value": "cold_temperature",
+     "label": "Le froid / les changements de temperature"
+    },
+    {
+     "value": "long_days",
+     "label": "Les longues journées / les trajets"
+    },
+    {
+     "value": "meals_gut",
+     "label": "Certains repas / le ventre sensible"
+    },
+    {
+     "value": "not_identified",
+     "label": "Je n'ai pas encore repère"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "FB_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une poussée de douleur ? Un tap.",
+   "saveTo": "_tour_medical_fb"
+  },
+  "fibroDiagnosed_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_notification_fibroDiagnosed"
+  },
+  "FB7": {
+   "type": "multiSelectExpand",
+   "title": "As-tu déjà essayé quelque chose pour t'aider ?",
+   "saveTo": "fibroTriedApproaches",
+   "options": [
+    {
+     "value": "gentle_movement",
+     "label": "Mouvement doux / marche / activité régulière"
+    },
+    {
+     "value": "physiotherapy",
+     "label": "Kiné / activité adaptee"
+    },
+    {
+     "value": "therapy_cbt",
+     "label": "Therapie / soutien psy / TCC"
+    },
+    {
+     "value": "relaxation",
+     "label": "Relaxation / respiration / meditation"
+    },
+    {
+     "value": "painkillers",
+     "label": "Antidouleurs"
+    },
+    {
+     "value": "antidepressant",
+     "label": "Antidepresseur"
+    },
+    {
+     "value": "pregabalin",
+     "label": "Pregabaline / gabapentine ou equivalent"
+    },
+    {
+     "value": "acupuncture",
+     "label": "Acupuncture"
+    },
+    {
+     "value": "pace_energy",
+     "label": "Adapter mon rythme / mon énergie au quotidien"
+    },
+    {
+     "value": "nothing_helps",
+     "label": "Rien ne m'aide vraiment"
+    },
+    {
+     "value": "nothing_tried",
+     "label": "Je n'ai encore rien essayé"
+    }
+   ]
+  },
+  "FB8": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui pour ta fibromyalgie ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "gp",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "rheumatologist",
+     "label": "Rhumatologue"
+    },
+    {
+     "value": "pain_center",
+     "label": "Centre douleur / algologue"
+    },
+    {
+     "value": "physiotherapist",
+     "label": "Kiné"
+    },
+    {
+     "value": "psychologist",
+     "label": "Psy / thérapeute"
+    },
+    {
+     "value": "sleep_specialist",
+     "label": "Specialiste du sommeil"
+    },
+    {
+     "value": "nobody",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "other",
+     "label": "Autre"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "FB9": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "medical_appointment",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "checkup_tests",
+     "label": "Un bilan / des examens"
+    },
+    {
+     "value": "treatment_change",
+     "label": "Un changement de traitement"
+    },
+    {
+     "value": "physio_start",
+     "label": "Debut ou reprise de kiné / activité adaptee"
+    },
+    {
+     "value": "nothing_planned",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "trying_appointment",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "FB10": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "FB_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_fb"
+  },
+  "FB11": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "FB_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_experts_fb"
+  },
+  "TCF_LOGGING_TIME": {
+   "type": "singleSelectExpand",
+   "title": "Quand préfères-tu noter tes symptômes ?",
+   "saveTo": "symptomLoggingTime",
+   "options": [
+    {
+     "value": "matin",
+     "label": "Le matin"
+    },
+    {
+     "value": "soir",
+     "label": "Le soir"
+    },
+    {
+     "value": "pendant_poussees",
+     "label": "Pendant les poussées"
+    },
+    {
+     "value": "une_fois_par_jour",
+     "label": "Une fois par jour"
+    },
+    {
+     "value": "quand_ca_change",
+     "label": "Seulement quand quelque chose change"
+    },
+    {
+     "value": "plus_tard",
+     "label": "Je verrai plus tard"
+    },
+    {
+     "value": "quand_ca_aggrave",
+     "label": "Quand ça s'aggrave"
+    },
+    {
+     "value": "apres_rapports",
+     "label": "Après les rapports"
+    },
+    {
+     "value": "apres_longue_journee",
+     "label": "Après une longue journée debout / assise"
+    }
+   ]
+  },
+  "MP0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton suivi périménopause / ménopause",
+   "saveTo": "_mp_welcome"
+  },
+  "MP1": {
+   "type": "singleSelectExpand",
+   "title": "Ou en es-tu aujourd'hui ?",
+   "saveTo": "menopauseStage",
+   "options": [
+    {
+     "value": "periménopause",
+     "label": "Je pense être en périménopause"
+    },
+    {
+     "value": "menopausee",
+     "label": "Je suis ménopausee"
+    },
+    {
+     "value": "chirurgicale",
+     "label": "Je suis en ménopause chirurgicale / provoquee"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas encore"
+    },
+    {
+     "value": "probablement",
+     "label": "On m'a dit que c'etait probablement ça, sans certitude"
+    }
+   ]
+  },
+  "MP2": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui ?",
+   "saveTo": "mainSymptoms",
+   "maxSelections": 7,
+   "options": [
+    {
+     "value": "bouffees_chaleur",
+     "label": "Bouffées de chaleur"
+    },
+    {
+     "value": "sueurs_nocturnes",
+     "label": "Sueurs nocturnes"
+    },
+    {
+     "value": "sommeil",
+     "label": "Sommeil perturbe"
+    },
+    {
+     "value": "anxiete_irritabilite",
+     "label": "Anxiete / irritabilité / humeur changeante"
+    },
+    {
+     "value": "brouillard_mental",
+     "label": "Brouillard mental / difficulté a me concentrer"
+    },
+    {
+     "value": "sécheresse_vaginale",
+     "label": "Secheresse vaginale / inconfort intime"
+    },
+    {
+     "value": "baisse_libido",
+     "label": "Baisse de libido"
+    },
+    {
+     "value": "changements_regles",
+     "label": "Changements de règles"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue / énergie en baisse"
+    },
+    {
+     "value": "douleurs_articulaires",
+     "label": "Douleurs articulaires / courbatures"
+    },
+    {
+     "value": "palpitations",
+     "label": "Palpitations"
+    },
+    {
+     "value": "peu_symptômes",
+     "label": "Peu ou pas de symptômes en ce moment"
+    }
+   ]
+  },
+  "MP3": {
+   "type": "multiSelectExpand",
+   "title": "Aujourd'hui, qu'est-ce qui est le plus difficile pour toi à comprendre ou à gérer ?",
+   "saveTo": "mainBurden",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "dont_understand_triggers",
+     "label": "Je ne comprends pas ce qui déclenche mes symptômes (alimentation, cycle, stress, activité physique...)"
+    },
+    {
+     "value": "hard_to_see_evolution",
+     "label": "J'ai du mal à voir comment mes symptômes évoluent (d'un jour à l'autre, d'un cycle à l'autre)"
+    },
+    {
+     "value": "too_many_symptoms",
+     "label": "J'ai trop de symptômes et je ne sais pas par où commencer"
+    },
+    {
+     "value": "dont_know_what_to_change",
+     "label": "Je ne sais pas quoi changer dans mon quotidien pour aller mieux"
+    },
+    {
+     "value": "nothing_relieves",
+     "label": "Rien ne semble vraiment me soulager"
+    },
+    {
+     "value": "dont_know_priorities",
+     "label": "Je ne sais pas quels symptômes suivre en priorité"
+    },
+    {
+     "value": "no_clear_markers",
+     "label": "Je manque de repères pour comprendre ce qui m'aide ou m'aggrave"
+    },
+    {
+     "value": "no_adapted_treatment",
+     "label": "Je n'ai pas de traitement adapté aujourd'hui"
+    },
+    {
+     "value": "need_clarity_consultation",
+     "label": "J'ai besoin d'y voir plus clair avant ma prochaine consultation"
+    }
+   ]
+  },
+  "MP4": {
+   "type": "singleSelectExpand",
+   "title": "As-tu encore des règles ?",
+   "saveTo": "bleedingStatus",
+   "options": [
+    {
+     "value": "regular",
+     "label": "Oui, plutôt régulières"
+    },
+    {
+     "value": "changed",
+     "label": "Oui, mais elles ont change"
+    },
+    {
+     "value": "very_spaced",
+     "label": "Oui, mais elles sont très espacées"
+    },
+    {
+     "value": "stopped_less_12m",
+     "label": "Non, plus du tout depuis moins de 12 mois"
+    },
+    {
+     "value": "stopped_12m_plus",
+     "label": "Non, plus du tout depuis 12 mois ou plus"
+    },
+    {
+     "value": "suppressed",
+     "label": "Non, a cause d'un traitement"
+    },
+    {
+     "value": "hysterectomy",
+     "label": "Non, après chirurgie"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "MP_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une bouffée de chaleur ? Un tap.",
+   "saveTo": "_tour_medical_mp"
+  },
+  "MP5": {
+   "type": "multiSelectExpand",
+   "title": "Si tes règles sont encore la, comment ont-elles change ?",
+   "saveTo": "menopausePeriodChanges",
+   "options": [
+    {
+     "value": "irrégulières",
+     "label": "Plus irrégulières"
+    },
+    {
+     "value": "rapprochees",
+     "label": "Plus rapprochees"
+    },
+    {
+     "value": "very_spaced",
+     "label": "Plus espacées"
+    },
+    {
+     "value": "abondantes",
+     "label": "Plus abondantes"
+    },
+    {
+     "value": "legeres",
+     "label": "Plus legeres"
+    },
+    {
+     "value": "douloureuses",
+     "label": "Plus douloureuses"
+    },
+    {
+     "value": "variable",
+     "label": "Ça change d'un mois a l'autre"
+    },
+    {
+     "value": "pas_change",
+     "label": "Je n'ai pas remarqué de changement"
+    }
+   ]
+  },
+  "MP6": {
+   "type": "multiSelectExpand",
+   "title": "As-tu déjà essayé quelque chose pour aider tes symptômes ?",
+   "saveTo": "menopauseTriedApproaches",
+   "options": [
+    {
+     "value": "hrt",
+     "label": "HRT / traitement hormonal de la ménopause"
+    },
+    {
+     "value": "traitement_local",
+     "label": "Traitement local vaginal"
+    },
+    {
+     "value": "tcc",
+     "label": "TCC / accompagnement psy"
+    },
+    {
+     "value": "complements",
+     "label": "Compléments / approches naturelles"
+    },
+    {
+     "value": "activite_physique",
+     "label": "Activité physique / relaxation / respiration"
+    },
+    {
+     "value": "rien",
+     "label": "Rien pour le moment"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas quoi essayer"
+    }
+   ]
+  },
+  "MP7": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "medecin_traitant",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "gynecologue",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "spécialiste_ménopause",
+     "label": "Specialiste ménopause"
+    },
+    {
+     "value": "sage_femme",
+     "label": "Sage-femme"
+    },
+    {
+     "value": "personne",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "autre",
+     "label": "Autre"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "MP8": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "rdv_medical",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "changement_traitement",
+     "label": "Un changement de traitement"
+    },
+    {
+     "value": "bilan_examens",
+     "label": "Un bilan / des examens"
+    },
+    {
+     "value": "rien",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "essaie_rdv",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "MP9": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "MP_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_mp"
+  },
+  "MP_FOOD": {
+   "type": "multiSelectExpand",
+   "title": "As-tu remarqué que certains aliments ou moments aggravent tes symptômes ?",
+   "saveTo": "foodTriggers",
+   "options": [
+    {
+     "value": "dairy",
+     "label": "Produits laitiers"
+    },
+    {
+     "value": "gluten",
+     "label": "Gluten"
+    },
+    {
+     "value": "alcohol",
+     "label": "Alcool"
+    },
+    {
+     "value": "caffeine",
+     "label": "Caféine"
+    },
+    {
+     "value": "fatty_heavy",
+     "label": "Aliments gras / lourds"
+    },
+    {
+     "value": "spicy",
+     "label": "Aliments épicés"
+    },
+    {
+     "value": "sugar",
+     "label": "Aliments sucrés"
+    },
+    {
+     "value": "hard_to_digest",
+     "label": "Certains aliments difficiles à digérer"
+    },
+    {
+     "value": "fizzy_drinks",
+     "label": "Boissons gazeuses"
+    },
+    {
+     "value": "after_meals",
+     "label": "Après les repas"
+    },
+    {
+     "value": "end_of_day",
+     "label": "En fin de journée"
+    },
+    {
+     "value": "evening",
+     "label": "Surtout le soir"
+    },
+    {
+     "value": "stress",
+     "label": "Le stress"
+    },
+    {
+     "value": "lack_of_sleep",
+     "label": "Le manque de sommeil"
+    },
+    {
+     "value": "cycle_related",
+     "label": "Mon cycle (avant / pendant les règles)"
+    },
+    {
+     "value": "dont_know",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "MP_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_mp_tour_meal"
+  },
+  "MP_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_mp_notification"
+  },
+  "ME1": {
+   "type": "multiSelectExpand",
+   "title": "Avec ton endométriose, qu'est-ce qui prend le plus de place aujourd'hui ?",
+   "saveTo": "endoMenopauseImpact",
+   "maxSelections": 4,
+   "options": [
+    {
+     "value": "douleur_pelvienne",
+     "label": "Douleur pelvienne"
+    },
+    {
+     "value": "douleurs_regles",
+     "label": "Douleurs de règles ou saignements"
+    },
+    {
+     "value": "rapports_douloureux",
+     "label": "Rapports douloureux"
+    },
+    {
+     "value": "ventre_digestion",
+     "label": "Ventre gonflé / digestion"
+    },
+    {
+     "value": "douleurs_urinaires",
+     "label": "Douleurs urinaires"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue"
+    },
+    {
+     "value": "moins_place",
+     "label": "L'endométriose prend moins de place qu'avant"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "ME2": {
+   "type": "singleSelectExpand",
+   "title": "As-tu l'impression que cette période a change tes symptômes d'endométriose ?",
+   "saveTo": "menopauseChangedEndo",
+   "options": [
+    {
+     "value": "ameliore",
+     "label": "Oui, ça s'est ameliore"
+    },
+    {
+     "value": "aggrave",
+     "label": "Oui, ça s'est aggrave"
+    },
+    {
+     "value": "different",
+     "label": "Oui, mais c'est surtout différent"
+    },
+    {
+     "value": "non",
+     "label": "Non, pas vraiment"
+    },
+    {
+     "value": "difficile_difference",
+     "label": "Je n'arrive pas à faire la différence"
+    }
+   ]
+  },
+  "ME3": {
+   "type": "singleSelectExpand",
+   "title": "Ta ménopause est-elle survenue après une chirurgie liée a l'endométriose ?",
+   "saveTo": "menopauseSurgicalEndo",
+   "options": [
+    {
+     "value": "retrait_ovaires",
+     "label": "Oui, après retrait des ovaires"
+    },
+    {
+     "value": "chirurgie_gyneco",
+     "label": "Oui, après chirurgie gynécologique"
+    },
+    {
+     "value": "naturelle",
+     "label": "Non, c'est une ménopause naturelle"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas / je préfère ne pas répondre"
+    }
+   ]
+  },
+  "ME4": {
+   "type": "singleSelectExpand",
+   "title": "A-t-on parle avec toi du traitement hormonal de la ménopause dans le contexte de ton endométriose ?",
+   "saveTo": "hrtDiscussionStatus",
+   "options": [
+    {
+     "value": "prends_deja",
+     "label": "Oui, j'en prends déjà"
+    },
+    {
+     "value": "parle_pas_decide",
+     "label": "Oui, on en a parle mais je ne sais pas encore"
+    },
+    {
+     "value": "non",
+     "label": "Non, pas encore"
+    },
+    {
+     "value": "pas_sujet",
+     "label": "Ce n'est pas un sujet pour moi"
+    },
+    {
+     "value": "unknown",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "CP0": {
+   "type": "personalizedMessage",
+   "title": "Bienvenue dans ton suivi congestion pelvienne",
+   "saveTo": "_cp_welcome"
+  },
+  "CP1": {
+   "type": "multiSelectExpand",
+   "title": "Comment ton diagnostic de congestion pelvienne a-t-il été posé ?",
+   "saveTo": "congestionDiagnosisMethod",
+   "options": [
+    {
+     "value": "echo_doppler",
+     "label": "Échographie pelvienne / transvaginale avec Doppler"
+    },
+    {
+     "value": "irm_angio",
+     "label": "IRM / angio-IRM"
+    },
+    {
+     "value": "scanner",
+     "label": "Scanner / angio-scanner"
+    },
+    {
+     "value": "phlebographie",
+     "label": "Phlebographie / veinographie"
+    },
+    {
+     "value": "symptômes_examen",
+     "label": "On me l'a surtout explique a partir de mes symptômes et de l'examen"
+    },
+    {
+     "value": "ne_sais_pas",
+     "label": "Je ne sais pas / on ne me l'a pas bien expliqué"
+    }
+   ]
+  },
+  "CP2": {
+   "type": "singleSelectExpand",
+   "title": "Depuis quand vis-tu avec ce diagnostic ?",
+   "saveTo": "congestionDiagnosisDuration",
+   "options": [
+    {
+     "value": "moins_6m",
+     "label": "Moins de 6 mois"
+    },
+    {
+     "value": "6m_1a",
+     "label": "6 mois a 1 an"
+    },
+    {
+     "value": "1_3a",
+     "label": "1 a 3 ans"
+    },
+    {
+     "value": "plus_3a",
+     "label": "Plus de 3 ans"
+    },
+    {
+     "value": "longtemps",
+     "label": "Depuis longtemps, mais je ne sais plus exactement"
+    },
+    {
+     "value": "prefere_pas",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "CP3": {
+   "type": "singleSelectExpand",
+   "title": "As-tu déjà eu une ou plusieurs grossesses ?",
+   "saveTo": "previousPregnanciesCount",
+   "options": [
+    {
+     "value": "jamais",
+     "label": "Non, jamais"
+    },
+    {
+     "value": "une",
+     "label": "Oui, une"
+    },
+    {
+     "value": "plusieurs",
+     "label": "Oui, plusieurs"
+    },
+    {
+     "value": "prefere_pas",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "CP4": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui te gêne le plus aujourd'hui avec la congestion pelvienne ?",
+   "saveTo": "congestionSymptoms",
+   "maxSelections": 6,
+   "options": [
+    {
+     "value": "douleur_pelvienne",
+     "label": "Douleur pelvienne / bas-ventre"
+    },
+    {
+     "value": "lourdeur_pression",
+     "label": "Sensation de lourdeur / pression dans le bassin"
+    },
+    {
+     "value": "douleur_rapports",
+     "label": "Douleur ou gêne après les rapports"
+    },
+    {
+     "value": "douleur_dos_hanches",
+     "label": "Douleur dans le bas du dos / les hanches / le haut des cuisses"
+    },
+    {
+     "value": "gene_urinaire",
+     "label": "Gene urinaire / vessie irritable"
+    },
+    {
+     "value": "gene_rectale",
+     "label": "Gene rectale / sensation de pesanteur"
+    },
+    {
+     "value": "varices_visibles",
+     "label": "Varices visibles au niveau de la vulve, des fesses ou du haut des cuisses"
+    },
+    {
+     "value": "fatigue",
+     "label": "Fatigue / manque d'énergie"
+    },
+    {
+     "value": "peu_symptômes",
+     "label": "Peu ou pas de symptômes en ce moment"
+    }
+   ]
+  },
+  "CP5": {
+   "type": "multiSelectExpand",
+   "title": "Aujourd'hui, qu'est-ce qui est le plus difficile pour toi à comprendre ou à gérer ?",
+   "saveTo": "congestionMainBurden",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "dont_understand_triggers",
+     "label": "Je ne comprends pas ce qui déclenche mes symptômes (alimentation, cycle, stress, activité physique...)"
+    },
+    {
+     "value": "hard_to_see_evolution",
+     "label": "J'ai du mal à voir comment mes symptômes évoluent (d'un jour à l'autre, d'un cycle à l'autre)"
+    },
+    {
+     "value": "too_many_symptoms",
+     "label": "J'ai trop de symptômes et je ne sais pas par où commencer"
+    },
+    {
+     "value": "dont_know_what_to_change",
+     "label": "Je ne sais pas quoi changer dans mon quotidien pour aller mieux"
+    },
+    {
+     "value": "nothing_relieves",
+     "label": "Rien ne semble vraiment me soulager"
+    },
+    {
+     "value": "dont_know_priorities",
+     "label": "Je ne sais pas quels symptômes suivre en priorité"
+    },
+    {
+     "value": "no_clear_markers",
+     "label": "Je manque de repères pour comprendre ce qui m'aide ou m'aggrave"
+    },
+    {
+     "value": "no_adapted_treatment",
+     "label": "Je n'ai pas de traitement adapté aujourd'hui"
+    },
+    {
+     "value": "need_clarity_consultation",
+     "label": "J'ai besoin d'y voir plus clair avant ma prochaine consultation"
+    }
+   ]
+  },
+  "CP6": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui aggrave le plus tes symptômes ?",
+   "saveTo": "congestionAggravators",
+   "options": [
+    {
+     "value": "debout_longtemps",
+     "label": "Rester debout longtemps"
+    },
+    {
+     "value": "assise_longtemps",
+     "label": "Rester assise longtemps"
+    },
+    {
+     "value": "effort",
+     "label": "L'effort / les journées chargees"
+    },
+    {
+     "value": "fin_journee",
+     "label": "La fin de journée"
+    },
+    {
+     "value": "rapports",
+     "label": "Les rapports sexuels"
+    },
+    {
+     "value": "avant_pendant_regles",
+     "label": "Avant ou pendant mes règles"
+    },
+    {
+     "value": "pas_repere",
+     "label": "Je n'ai pas encore repère"
+    },
+    {
+     "value": "ne_sais_pas",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "CP7": {
+   "type": "multiSelectExpand",
+   "title": "Qu'est-ce qui soulage le plus tes symptômes ?",
+   "saveTo": "congestionRelievers",
+   "options": [
+    {
+     "value": "allonger",
+     "label": "M'allonger"
+    },
+    {
+     "value": "reposer",
+     "label": "Me reposer"
+    },
+    {
+     "value": "chaleur",
+     "label": "La chaleur"
+    },
+    {
+     "value": "antidouleurs",
+     "label": "Les antidouleurs"
+    },
+    {
+     "value": "bouger_doucement",
+     "label": "Bouger doucement"
+    },
+    {
+     "value": "rien",
+     "label": "Rien ne soulage vraiment"
+    },
+    {
+     "value": "ne_sais_pas",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "CP8": {
+   "type": "singleSelectExpand",
+   "title": "As-tu déjà eu un traitement ou un geste specifique pour ta congestion pelvienne ?",
+   "saveTo": "congestionTreatmentStatus",
+   "options": [
+    {
+     "value": "oui",
+     "label": "Oui"
+    },
+    {
+     "value": "non",
+     "label": "Non"
+    },
+    {
+     "value": "parle",
+     "label": "On en a parle, mais rien n'a été fait pour l'instant"
+    },
+    {
+     "value": "ne_sais_pas",
+     "label": "Je ne sais pas / je préfère ne pas répondre"
+    }
+   ]
+  },
+  "CP8b": {
+   "type": "multiSelectExpand",
+   "title": "Lequel ?",
+   "saveTo": "congestionTreatmentTypes",
+   "options": [
+    {
+     "value": "antidouleurs",
+     "label": "Antidouleurs"
+    },
+    {
+     "value": "hormonal",
+     "label": "Traitement hormonal"
+    },
+    {
+     "value": "embolisation",
+     "label": "Embolisation des veines pelviennes / ovariennes"
+    },
+    {
+     "value": "stent",
+     "label": "Stent veineux"
+    },
+    {
+     "value": "autre",
+     "label": "Une autre intervention"
+    },
+    {
+     "value": "pas_details",
+     "label": "Je n'ai pas les détails"
+    }
+   ]
+  },
+  "CP_TOUR_MEDICAL": {
+   "type": "productTour",
+   "title": "Une crise de douleur pelvienne ? Un tap.",
+   "saveTo": "_cp_tour_medical"
+  },
+  "CP9": {
+   "type": "multiSelectExpand",
+   "title": "Qui te suit aujourd'hui pour ta congestion pelvienne ?",
+   "saveTo": "medicalFollowUp",
+   "options": [
+    {
+     "value": "gynecologue",
+     "label": "Gynécologue"
+    },
+    {
+     "value": "radiologue_interventionnel",
+     "label": "Radiologue interventionnel"
+    },
+    {
+     "value": "angiologue",
+     "label": "Angiologue / phlebologue / spécialiste vasculaire"
+    },
+    {
+     "value": "medecin_traitant",
+     "label": "Médecin traitant"
+    },
+    {
+     "value": "medecin_douleur",
+     "label": "Médecin de la douleur"
+    },
+    {
+     "value": "personne",
+     "label": "Personne en ce moment"
+    },
+    {
+     "value": "autre",
+     "label": "Autre"
+    },
+    {
+     "value": "ne_sais_pas",
+     "label": "Je ne sais pas"
+    }
+   ]
+  },
+  "CP10": {
+   "type": "multiSelectExpand",
+   "title": "As-tu quelque chose de prévu bientôt ?",
+   "saveTo": "upcomingEvents",
+   "options": [
+    {
+     "value": "rdv_medical",
+     "label": "Un rendez-vous médical"
+    },
+    {
+     "value": "echo_doppler",
+     "label": "Une échographie / un Doppler"
+    },
+    {
+     "value": "irm_scanner",
+     "label": "Une IRM / un scanner"
+    },
+    {
+     "value": "phlebographie",
+     "label": "Une phlebographie / une veinographie"
+    },
+    {
+     "value": "embolisation",
+     "label": "Une embolisation / un geste"
+    },
+    {
+     "value": "rien",
+     "label": "Rien de prévu pour l'instant"
+    },
+    {
+     "value": "essaie_rdv",
+     "label": "J'essaie d'obtenir un rendez-vous"
+    },
+    {
+     "value": "ne_sais_pas",
+     "label": "Je ne sais pas encore"
+    }
+   ]
+  },
+  "CP11": {
+   "type": "multiSelectExpand",
+   "title": "Qu'aimerais-tu suivre en priorité dans Endora ?",
+   "saveTo": "trackingPriorities",
+   "maxSelections": 3,
+   "options": [
+    {
+     "value": "symptoms",
+     "label": "Mes symptômes (douleurs, fatigue, digestion...)"
+    },
+    {
+     "value": "cycle",
+     "label": "Mon cycle (règles, ovulation, variations)"
+    },
+    {
+     "value": "sleep",
+     "label": "Mon sommeil (durée, qualité)"
+    },
+    {
+     "value": "food_hydration",
+     "label": "Mon alimentation & mon hydratation"
+    },
+    {
+     "value": "activity",
+     "label": "Mon activité physique"
+    },
+    {
+     "value": "mood_energy",
+     "label": "Mon humeur / mon énergie"
+    },
+    {
+     "value": "intimate_health",
+     "label": "Ma santé & ma vie intime"
+    },
+    {
+     "value": "treatments",
+     "label": "Mes traitements / médicaments"
+    },
+    {
+     "value": "solutions",
+     "label": "L'utilisation de solutions (TENS, chaleur, etc.)"
+    },
+    {
+     "value": "recovery",
+     "label": "Ma récupération (après crise ou intervention)"
+    }
+   ]
+  },
+  "CP_MOTIVATION": {
+   "type": "productTour",
+   "title": "Plus tu notes, plus Endora voit les liens.",
+   "saveTo": "_motivation_cp"
+  },
+  "CP12": {
+   "type": "multiSelectExpand",
+   "title": "Ou vois-tu surtout ces varices ?",
+   "saveTo": "varicoseLocations",
+   "options": [
+    {
+     "value": "vulve",
+     "label": "Vulve"
+    },
+    {
+     "value": "fesses",
+     "label": "Fesses"
+    },
+    {
+     "value": "haut_cuisses",
+     "label": "Haut des cuisses"
+    },
+    {
+     "value": "jambes",
+     "label": "Jambes"
+    },
+    {
+     "value": "plusieurs_zones",
+     "label": "Plusieurs zones"
+    },
+    {
+     "value": "prefere_pas",
+     "label": "Je préfère ne pas répondre"
+    }
+   ]
+  },
+  "CP_TOUR_MEAL": {
+   "type": "productTour",
+   "title": "Sais-tu si ton assiette est inflammatoire ?",
+   "saveTo": "_tour_meal_cp"
+  },
+  "CP13_NOTIF": {
+   "type": "preNotification",
+   "title": "Endora souhaite t'envoyer des notifications",
+   "saveTo": "_cp_notification"
+  }
+ },
+ "goals": {
+  "water": "Boire assez d'eau",
+  "steps": "Marcher chaque jour",
+  "sleep": "Dormir assez la nuit",
+  "weightTarget": "Perdre du poids",
+  "antiInflammatory": "Manger anti-inflammatoire",
+  "avoidInflammatory": "Éviter les repas inflammatoires",
+  "eightyTwenty": "La règle du 80/20",
+  "logMeals": "Noter mes repas",
+  "sport": "Faire du sport",
+  "yoga": "Faire du yoga",
+  "meditation": "Respirer, méditer",
+  "stretching": "M'étirer régulièrement",
+  "logSymptoms": "Noter mes symptômes",
+  "logMood": "Noter mon humeur",
+  "gynecologist": "Prendre rendez-vous chez la gynéco",
+  "physiotherapist": "Prendre rendez-vous chez le kiné",
+  "osteopath": "Prendre rendez-vous chez l'ostéo",
+  "painDoctor": "Voir un médecin de la douleur",
+  "prepareAppointment": "Préparer mon rendez-vous",
+  "renewPrescription": "Renouveler mon ordonnance",
+  "restDay": "Prendre un jour de repos",
+  "timeForMe": "Prendre du temps pour moi",
+  "screenFreeEvening": "Une soirée sans écran"
+ }
+}

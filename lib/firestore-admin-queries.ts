@@ -38,6 +38,7 @@ import type {
   ChatFeedbackStats,
   CountSlice,
 } from "./types"
+import type { OnboardingEventDoc, OnboardingSessionDoc } from "./onboarding-journal/types"
 
 // Recursively convert Firestore Timestamps (and Dates) to ISO strings, so
 // JSON.stringify produces readable output instead of `{ _seconds, _nanoseconds }`.
@@ -2489,9 +2490,8 @@ function toSlices(counter: Counter, labels: Record<string, string>, topN?: numbe
  * names are coalesced so both cohorts are counted. Values are decoded to the
  * app's English labels; unknown / legacy free-text passes through readably.
  *
- * Note: onboarding fires no analytics events (the account is created only at
- * the end), so the funnel below is a field-presence proxy, not real step
- * tracking.
+ * Only knows the people who created an account. The onboarding tunnel itself
+ * (screens, drop-offs, sign-up, paywall) is in the onboarding journal below.
  */
 export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
   const db = getAdminDb()
@@ -2527,21 +2527,13 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
   const cities: Counter = {}
   const platform: Counter = {}
 
-  // Funnel (field-presence proxy) + KPI helpers
-  let hasHealthGoals = 0
-  let hasSymptoms = 0
-  let hasMedicalConditions = 0
-  let hasEndoStatus = 0
-  let hasPeriodInfo = 0
-  let hasCity = 0
+  // KPI helpers
   let hasEndoYes = 0
   let notifYes = 0
   let notifNo = 0
   let ageSum = 0
   let ageCount = 0
   const ageBucketCounts = { "<18": 0, "18-24": 0, "25-34": 0, "35-44": 0, "45+": 0 }
-
-  const nonEmptyArray = (v: unknown) => Array.isArray(v) && v.length > 0
 
   for (const doc of snapshot.docs) {
     const reg = doc.data().registrationData as Record<string, unknown> | undefined
@@ -2579,13 +2571,7 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
     tallyAny(cities, reg.city)
     tally(platform, (reg.deviceInfo as Record<string, unknown> | undefined)?.platform)
 
-    // ── Funnel + KPI tallies ──────────────────────────────────────────────
-    if (nonEmptyArray(reg.healthGoals ?? reg.appExpectations)) hasHealthGoals++
-    if (nonEmptyArray(reg.symptoms) || nonEmptyArray(reg.mainSymptoms)) hasSymptoms++
-    if (nonEmptyArray(reg.medicalConditions ?? reg.healthConditions)) hasMedicalConditions++
-    if (reg.hasEndometriosis) hasEndoStatus++
-    if (reg.hasPeriods || reg.bleedingStatus) hasPeriodInfo++
-    if (typeof reg.city === "string" && reg.city.trim()) hasCity++
+    // ── KPI tallies ────────────────────────────────────────────────────────
     if (reg.hasEndometriosis === "yes") hasEndoYes++
 
     const notif = (reg.preferences as Record<string, unknown> | undefined)?.notifications
@@ -2631,16 +2617,6 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
     completionRate,
     avgAge: ageCount > 0 ? Math.round(ageSum / ageCount) : 0,
     hasEndoPercent,
-    funnel: [
-      { name: "Account Created", value: totalUsers },
-      { name: "Registration Data", value: usersWithRegistration },
-      { name: "Health Goals", value: hasHealthGoals },
-      { name: "Symptoms", value: hasSymptoms },
-      { name: "Medical Conditions", value: hasMedicalConditions },
-      { name: "Endo Status", value: hasEndoStatus },
-      { name: "Period Info", value: hasPeriodInfo },
-      { name: "City & Location", value: hasCity },
-    ],
 
     objective: toSlices(objective, PRIMARY_OBJECTIVE_LABELS),
     situation: toSlices(situation, SITUATION_LABELS),
@@ -2678,4 +2654,75 @@ export async function fetchOnboardingAnalytics(): Promise<OnboardingAnalytics> {
 
     generatedAt: new Date().toISOString(),
   }
+}
+
+// ============= ONBOARDING JOURNAL =============
+//
+// Since 0.1.12 the mobile app logs the whole onboarding tunnel, from its first
+// screen to the onboarding paywall: one record per journey in
+// `onboarding_sessions`, every action in `onboarding_events`. These are the raw
+// documents; lib/onboarding-journal/digest.ts reduces them.
+
+/** Journeys started between two instants (phone clock, ms). */
+export async function fetchOnboardingSessions(range: { fromMs: number; toMs: number }): Promise<OnboardingSessionDoc[]> {
+  const snapshot = await getAdminDb()
+    .collection("onboarding_sessions")
+    .where("startedAt", ">=", range.fromMs)
+    .where("startedAt", "<=", range.toMs)
+    .get()
+  return snapshot.docs.map((doc) => {
+    const data = doc.data()
+    return { ...data, id: doc.id, updatedAt: toDate(data.updatedAt)?.getTime() }
+  })
+}
+
+// Firestore accepts at most 30 values in an `in` filter.
+const SESSION_IDS_PER_QUERY = 30
+// A journey logs 100 to 250 events: 30 of them stay far below this. Above it
+// the query stops, so that sessions flooded with documents are never read in
+// full on every load.
+const EVENTS_PER_QUERY_LIMIT = 30_000
+// The fields the digest reads (OnboardingEventDoc).
+const ONBOARDING_EVENT_FIELDS = [
+  "sessionId",
+  "name",
+  "t",
+  "seq",
+  "stepId",
+  "stepType",
+  "stepIndex",
+  "branch",
+  "via",
+  "value",
+  "detail",
+  "selected",
+  "durationMs",
+]
+
+/**
+ * Every event of the given journeys, one query per 30 journeys, all in flight
+ * at once over the scan pool: the caller sizes its batches accordingly.
+ */
+export async function fetchOnboardingEvents(sessionIds: string[]): Promise<OnboardingEventDoc[]> {
+  const pool = getAdminDbPool()
+  const queries: Promise<FirebaseFirestore.QuerySnapshot>[] = []
+  for (let i = 0; i < sessionIds.length; i += SESSION_IDS_PER_QUERY) {
+    queries.push(
+      pool[queries.length % pool.length]
+        .collection("onboarding_events")
+        .where("sessionId", "in", sessionIds.slice(i, i + SESSION_IDS_PER_QUERY))
+        .select(...ONBOARDING_EVENT_FIELDS)
+        .limit(EVENTS_PER_QUERY_LIMIT)
+        .get(),
+    )
+  }
+
+  const events: OnboardingEventDoc[] = []
+  for (const snapshot of await Promise.all(queries)) {
+    if (snapshot.size >= EVENTS_PER_QUERY_LIMIT) {
+      console.warn(`[onboarding] an event query hit its limit of ${EVENTS_PER_QUERY_LIMIT} documents: some journeys are incomplete`)
+    }
+    for (const doc of snapshot.docs) events.push(doc.data())
+  }
+  return events
 }
