@@ -234,6 +234,18 @@ export interface ChatMessage {
   createdAtMissing?: boolean
 }
 
+// 👍/👎 left by users on the assistant's chat answers (messages.feedback).
+export interface ChatFeedbackStats {
+  likes: number
+  dislikes: number
+  // Conversations holding at least one rated answer.
+  ratedConversations: number
+  // One row per week, from the first rating to today, weeks without a rating
+  // included. `weekStart` = its Monday (yyyy-MM-dd, Europe/Paris days);
+  // `total` = likes + dislikes.
+  weekly: { weekStart: string; likes: number; dislikes: number; total: number }[]
+}
+
 export interface AppEvent {
   id: string
   userId: string
